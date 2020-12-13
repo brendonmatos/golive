@@ -1,0 +1,4 @@
+examples/todo/tmp/
+tmp/
+vendor/
+.idea
