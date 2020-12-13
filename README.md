@@ -1,6 +1,6 @@
 # GoLive
 
-![](demo.gif)
+![](examples/demo.gif)
 
 **Any suggestions are absolutely welcome**
 
@@ -76,4 +76,6 @@ func main() {
 }
 ```
 
-**That's it!**
+## That's it!
+![](examples/clock/demo.gif)
+
