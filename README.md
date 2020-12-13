@@ -76,4 +76,4 @@ func main() {
 }
 ```
 
-**That it!**
+**That's it!**
