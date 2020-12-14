@@ -79,3 +79,9 @@ func main() {
 ## That's it!
 ![](examples/clock/demo.gif)
 
+
+## TODO
+ - [ ] Reactive subcomponents
+ - [ ] Decide what LiveWire will connect. It will continue to be the page or the scope makes more sense?
+ - [ ] Throttling events from view
+ - [ ] Decide if will be necessary a method that receive all the events before send to front. Being able to block some updates
