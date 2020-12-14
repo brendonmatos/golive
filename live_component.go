@@ -28,6 +28,8 @@ type ComponentLifeTime interface {
 	SetLifeTimeChannel(c *LiveTimeChannel)
 }
 
+type ChildLiveComponent interface{}
+
 //
 type LiveComponent struct {
 	Name               string
@@ -43,6 +45,7 @@ func (l *LiveComponent) getName() string {
 	return l.Name + "_" + NewLiveId().GenerateRandomString()
 }
 
+// NewLiveComponent ...
 func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 	return &LiveComponent{
 		Name:      name,
@@ -50,14 +53,39 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 	}
 }
 
-//  Prepare 1.
+// RenderChild ...
+func (l *LiveComponent) RenderChild(child *LiveComponent) string {
+	child.Prepare()
+	child.Mount(l.LifeTimeChannel)
+	return child.GetComponentRender()
+}
+
+// Prepare 1.
 func (l *LiveComponent) Prepare() {
 	l.Name = l.getName()
 	l.HTMLTemplateString = l.Component.TemplateHandler()
 
 	l.HTMLTemplateString = l.addWSConnectScript(l.HTMLTemplateString)
-	l.HTMLTemplateString = l.addGoLiveComponentIdAttribute(l.HTMLTemplateString)
-	l.HTMLTemplate, _ = template.New(l.Name).Parse(l.HTMLTemplateString)
+	l.HTMLTemplateString = l.addGoLiveComponentIDAttribute(l.HTMLTemplateString)
+
+	l.HTMLTemplate, _ = template.New(l.Name).Funcs(template.FuncMap{
+		"render": func(fn reflect.Value, args ...reflect.Value) (templated template.HTML) {
+			results := fn.Elem().Call(args)
+
+			result := results[0]
+			// err := results[1]
+
+			// if !err.IsNil() && len(err.String()) > 0 {
+			// 	return nil, err
+			// }
+
+			child := result.Interface().(*LiveComponent)
+			render := l.RenderChild(child)
+			return template.HTML(render)
+
+		},
+	}).Parse(l.HTMLTemplateString)
+
 	l.Component.SetLifeTimeChannel(l.LifeTimeChannel)
 }
 
@@ -67,13 +95,19 @@ func (l *LiveComponent) Mount(a *LiveTimeChannel) {
 	l.IsMounted = true
 	l.LifeTimeChannel = a
 	l.Component.Mounted(l)
-
 }
 
+// FindComponent ...
 func (l *LiveComponent) FindComponent(_ string) (*LiveComponent, error) {
+
+	// TODO: Iterate over l.Component fields
+	// If the type is a golive.ChildLiveComponent
+	// get the scope
+
 	return l, nil
 }
 
+// GetFieldFromPath ...
 func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 	c := (*l).Component
 	v := reflect.ValueOf(c).Elem()
@@ -91,6 +125,7 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 	return &v
 }
 
+// SetValueInPath ...
 func (l *LiveComponent) SetValueInPath(value string, path string) error {
 	v := l.GetFieldFromPath(path)
 	n := reflect.New(v.Type())
@@ -109,6 +144,7 @@ func (l *LiveComponent) SetValueInPath(value string, path string) error {
 	return nil
 }
 
+// InvokeMethodInPath ...
 func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) {
 	c := (*l).Component
 	v := reflect.ValueOf(c)
@@ -122,9 +158,15 @@ func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) {
 	v.MethodByName(path).Call(params)
 }
 
+// GetComponentRender ...
 func (l *LiveComponent) GetComponentRender() string {
 	s := bytes.NewBufferString("")
-	_ = l.HTMLTemplate.Execute(s, l.Component)
+	err := l.HTMLTemplate.Execute(s, l.Component)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	return s.String()
 }
 
@@ -174,7 +216,7 @@ func (l *LiveComponent) addWSConnectScript(template string) string {
 	`
 }
 
-func (l *LiveComponent) addGoLiveComponentIdAttribute(template string) string {
+func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 	found := re.FindString(l.HTMLTemplateString)
 	if found != "" {
 		replaceWith := found + ` go-live-component-id="` + l.Name + `" `
@@ -183,6 +225,7 @@ func (l *LiveComponent) addGoLiveComponentIdAttribute(template string) string {
 	return template
 }
 
+// Kill ...
 func (l *LiveComponent) Kill() error {
 	*l.LifeTimeChannel <- LifeTimeExit
 	l.Component = nil
