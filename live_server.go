@@ -2,7 +2,6 @@ package golive
 
 import (
 	"github.com/gofiber/fiber/v2"
-	//"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 	"log"
 	"time"
@@ -28,10 +27,14 @@ func NewServer() *LiveServer {
 	}
 }
 
-func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) LiveResponse {
+func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*LiveResponse, error) {
 
 	/* Create session to the new user */
-	session, _ := s.Wire.CreateSession()
+	session, err := s.Wire.CreateSession()
+
+	if err != nil {
+		return nil, err
+	}
 
 	/* Instantiate a page to attach to a session */
 	p := NewLivePageToComponent(session, lc)
@@ -40,14 +43,24 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) LiveRe
 	p.Mount()
 
 	/*  */
-	rendered := p.FirstRender(c)
+	rendered, err := p.FirstRender(c)
+
+	if err != nil  {
+		return &LiveResponse{
+			Rendered: "<h1> Page with error </h1>",
+			Session:  "",
+		}, err
+	}
+
+	/*  */
 	s.Wire.SetSession(session, p)
-	return LiveResponse{Rendered: rendered, Session: session}
+
+	return &LiveResponse{Rendered: rendered, Session: session}, nil
 }
 
 func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c PageContent) {
 
-	lr := s.HandleFirstRequest(lc, c)
+	lr, err := s.HandleFirstRequest(lc, c)
 
 	ctx.Cookie(&fiber.Cookie{
 		Name:    s.CookieName,
@@ -56,6 +69,10 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 	})
 	ctx.Response().Header.SetContentType("text/html")
 	ctx.Response().AppendBodyString(lr.Rendered)
+
+	if err != nil {
+		ctx.Response().SetStatusCode(500)
+	}
 
 	return
 }
