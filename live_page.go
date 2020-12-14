@@ -2,8 +2,8 @@ package golive
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
-	"io/ioutil"
 	"reflect"
 )
 
@@ -33,12 +33,17 @@ const (
 )
 
 var BasePage *template.Template
+
 var LiveLib string
 
 func init() {
-	basePageBytes, _ := ioutil.ReadFile("./assets/base_page.html")
-	basePage := string(basePageBytes)
-	BasePage, _ = template.New("BasePage").Parse(basePage)
+	var err error
+
+	BasePage, err = template.New("BasePage").Parse(BasePageString)
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 type LivePage struct {
@@ -102,8 +107,9 @@ func asUnsafeMap(any interface{}) map[string]interface{} {
 	return m
 }
 
-func (lp *LivePage) FirstRender(pc PageContent) string {
+func (lp *LivePage) FirstRender(pc PageContent) (string, error) {
 	rendered := lp.Component.GetComponentRender()
+
 	writer := bytes.NewBufferString("")
 
 	pc.Body = rendered
@@ -114,7 +120,13 @@ func (lp *LivePage) FirstRender(pc PageContent) string {
 		EventLiveMethod: EventLiveMethod,
 	}
 
-	_ = BasePage.Execute(writer, asUnsafeMap(pc))
+	err := BasePage.Execute(writer, asUnsafeMap(pc))
 
-	return writer.String()
+	fmt.Println(writer.String())
+
+	if err != nil {
+		return "", err
+	}
+
+	return writer.String(), nil
 }

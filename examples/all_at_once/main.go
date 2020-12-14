@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/brendonferreira/golive"
 	components "github.com/brendonferreira/golive/examples/components"
 	"github.com/gofiber/fiber/v2"
@@ -27,6 +29,6 @@ func main() {
 
 	app.Get("/ws", websocket.New(liveServer.HandleWSRequest))
 
-	_ = app.Listen(":3000")
+	fmt.Println(app.Listen(":3000"))
 
 }
