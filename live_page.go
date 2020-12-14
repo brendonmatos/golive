@@ -2,7 +2,6 @@ package golive
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 	"reflect"
 )
@@ -121,8 +120,6 @@ func (lp *LivePage) FirstRender(pc PageContent) (string, error) {
 	}
 
 	err := BasePage.Execute(writer, asUnsafeMap(pc))
-
-	fmt.Println(writer.String())
 
 	if err != nil {
 		return "", err
