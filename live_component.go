@@ -136,7 +136,6 @@ func (l *LiveComponent) SetValueInPath(value string, path string) error {
 
 	err := json.Unmarshal([]byte(value), n.Interface())
 	if err != nil {
-		fmt.Println(value, err)
 		return err
 	}
 
