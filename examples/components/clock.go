@@ -17,21 +17,16 @@ func NewClock() *golive.LiveComponent {
 }
 
 func (t *Clock) Mounted(_ *golive.LiveComponent) {
-	t.Tick()
-}
-
-func (t *Clock) Tick() {
-
 	go func() {
-		t.ActualTime = time.Now().Format(time.RFC3339Nano)
-		t.Commit()
-
-		time.Sleep((time.Second * 1) / 60)
-		go t.Tick()
+		for {
+			t.ActualTime = time.Now().Format(time.RFC3339Nano)
+			time.Sleep((time.Second * 1) / 60)
+			t.Commit()
+		}
 	}()
 }
 
-func (t *Clock) TemplateHandler() string {
+func (t *Clock) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
 		<div>
 			<span>Time: {{ .ActualTime }}</span>

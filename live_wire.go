@@ -16,7 +16,11 @@ type LiveWire struct {
 
 func NewWire() *LiveWire {
 	return &LiveWire{
-		Sessions:   make(map[SessionKey]*LivePage),
+
+		// Sessions from all pages!
+		Sessions: make(map[SessionKey]*LivePage),
+
+		// OutChannel to all the sockets!
 		OutChannel: make(chan WireMessage),
 	}
 }
@@ -40,30 +44,21 @@ func (w *LiveWire) HandleMessage(session SessionKey, message InMessage) error {
 		return fmt.Errorf("session without any page associated, key=%v", session)
 	}
 
-	// TODO: Verify if this is the right place to call the updates from live base component
-	component, _ := pg.Component.FindComponent(message.ScopeID)
+	err := pg.HandleMessage(message)
 
-	switch message.Name {
-	case EventLiveInput:
-		{
-			component.SetValueInPath(message.StateValue, message.StateKey)
-		}
-	case EventLiveMethod:
-		{
-			component.InvokeMethodInPath(message.MethodName, message.MethodParams)
-		}
-	case EventLiveDisconnect:
-		{
-			_ = component.Kill()
-		}
+	if err != nil {
+		return err
 	}
 
-	_ = w.SendComponentsChange(session, component)
+	pg.Events <- LivePageEvent{
+		Type:      Updated,
+		Component: pg.Entry,
+	}
 
 	return nil
 }
 
-func (w *LiveWire) SendComponentsChange(session SessionKey, c *LiveComponent) error {
+func (w *LiveWire) NotifyPageChanges(session SessionKey, c *LiveComponent) error {
 	_, changes := c.LiveRender()
 
 	for _, change := range changes {
@@ -76,18 +71,14 @@ func (w *LiveWire) SendComponentsChange(session SessionKey, c *LiveComponent) er
 func (w *LiveWire) SetSession(session SessionKey, lp *LivePage) {
 	w.Sessions[session] = lp
 
+	// Here is the location that get all the components updates *notified* by
+	// the page!
 	go func() {
 		for {
-
-			commit := <-*lp.ComponentsLifeTimeChannel
-
-			switch commit {
-			case LifeTimeUpdate:
-				_ = w.SendComponentsChange(session, lp.Component)
-			case LifeTimeExit:
-				return
+			pageUpdate := <-lp.Events
+			if pageUpdate.Type == Updated {
+				_ = w.NotifyPageChanges(session, pageUpdate.Component)
 			}
-
 		}
 	}()
 }

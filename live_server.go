@@ -37,15 +37,15 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 	}
 
 	/* Instantiate a page to attach to a session */
-	p := NewLivePageToComponent(session, lc)
+	p := NewLivePage(session, lc)
 
-	/* Mounts the page */
+	p.Prepare()
 	p.Mount()
 
 	/*  */
 	rendered, err := p.FirstRender(c)
 
-	if err != nil  {
+	if err != nil {
 		return &LiveResponse{
 			Rendered: "<h1> Page with error </h1>",
 			Session:  "",
@@ -61,6 +61,10 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c PageContent) {
 
 	lr, err := s.HandleFirstRequest(lc, c)
+
+	if lr == nil {
+		panic(err)
+	}
 
 	ctx.Cookie(&fiber.Cookie{
 		Name:    s.CookieName,
@@ -123,7 +127,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 		err = s.Wire.HandleMessage(sKey, inMsg)
 		if err != nil {
-			quit <- 1
+			panic(err)
 		}
 	}
 }
