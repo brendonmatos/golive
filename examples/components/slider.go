@@ -23,7 +23,7 @@ func (t *Slider) Size3() float32 {
 	return t.Size * t.Size * 0.3
 }
 
-func (t *Slider) TemplateHandler() string {
+func (t *Slider) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
 		<div>
 			<input go-live-input="Size" type="range" value="{{.Size}}"/>

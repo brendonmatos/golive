@@ -8,12 +8,12 @@ This project it's strongly inspired by Elixir Phoenix Live View. I'm writing thi
 
 ## Component Example
 ```go
+package components 
 
 import (
 	"github.com/brendonferreira/golive"
 	"time"
 )
-
 type Clock struct {
 	golive.LiveComponentWrapper
 	ActualTime string
@@ -26,21 +26,16 @@ func NewClock() *golive.LiveComponent {
 }
 
 func (t *Clock) Mounted(_ *golive.LiveComponent) {
-	t.Tick()
-}
-
-func (t *Clock) Tick() {
-
 	go func() {
-		t.ActualTime = time.Now().Format(time.RFC3339Nano)
-		t.Commit()
-
-		time.Sleep((time.Second * 1) / 60)
-		go t.Tick()
+		for {
+			t.ActualTime = time.Now().Format(time.RFC3339Nano)
+			time.Sleep((time.Second * 1) / 60)
+			t.Commit()
+		}
 	}()
 }
 
-func (t *Clock) TemplateHandler() string {
+func (t *Clock) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
 		<div>
 			<span>Time: {{ .ActualTime }}</span>
@@ -81,7 +76,10 @@ func main() {
 
 
 ## TODO
- - [ ] Reactive subcomponents
- - [ ] Decide what LiveWire will connect. It will continue to be the page or the scope makes more sense?
+ - [x] Components
+    - [x] Subcomponents
+    - [ ] Plan better component write - maybe follow go-kit policy?   
+    - [ ] Write Test 
+ - [x] Decide what LiveWire will connect. It will continue to be the page, or the scope makes more sense?
  - [ ] Throttling events from view
  - [ ] Decide if will be necessary a method that receive all the events before send to front. Being able to block some updates

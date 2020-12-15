@@ -2,62 +2,18 @@ package golive
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
-	"reflect"
-)
-
-type InMessage struct {
-	Name         string `json:"name"`
-	ScopeID      string `json:"scope_id"`
-	MethodName   string `json:"method_name"`
-	MethodParams string `json:"method_params"`
-	StateKey     string `json:"key"`
-	StateValue   string `json:"value"`
-}
-
-type OutMessage struct {
-	Name    string      `json:"name"`
-	ScopeID string      `json:"scope_id"`
-	Type    string      `json:"type"`
-	Attr    interface{} `json:"attr"`
-	Content string      `json:"content"`
-	Element string      `json:"element"`
-}
-
-const (
-	EventLiveInput      = "li"
-	EventLiveMethod     = "lm"
-	EventLiveDom        = "ld"
-	EventLiveDisconnect = "lx"
 )
 
 var BasePage *template.Template
 
-var LiveLib string
-
 func init() {
 	var err error
-
 	BasePage, err = template.New("BasePage").Parse(BasePageString)
-
 	if err != nil {
 		panic(err)
 	}
-}
-
-type LivePage struct {
-	Session                   SessionKey
-	Component                 *LiveComponent
-	ComponentsLifeTimeChannel *LiveTimeChannel
-	RenderedContent           string
-}
-
-type PageContent struct {
-	Lang   string
-	Body   string `html:"unsafe"`
-	Script string `html:"unsafe"`
-	Title  string
-	Enum   PageEnum
 }
 
 type PageEnum struct {
@@ -66,64 +22,126 @@ type PageEnum struct {
 	EventLiveDom    string
 }
 
-type LivePageInterface interface {
-	HandleMessage(m InMessage)
+type LivePageEvent struct {
+	Type      int
+	Component *LiveComponent
 }
 
-func NewLivePageToComponent(s SessionKey, c *LiveComponent) *LivePage {
-	channel := make(LiveTimeChannel)
+type LiveEventsChannel chan LivePageEvent
 
-	c.LifeTimeChannel = &channel
+type LivePage struct {
+	Session          SessionKey
+	Events           LiveEventsChannel
+	Entry            *LiveComponent
+	ComponentUpdates *LifeTimeUpdates
+	Components       map[string]*LiveComponent
+	RenderedContent  string
+}
+
+type PageContent struct {
+	Lang   string
+	Body   template.HTML
+	Script string
+	Title  string
+	Enum   PageEnum
+}
+
+func NewLivePage(s SessionKey, c *LiveComponent) *LivePage {
+	componentsUpdatesChannel := make(LifeTimeUpdates)
+	pageEventsChannel := make(LiveEventsChannel)
+
+	c.UpdatesChannel = &componentsUpdatesChannel
 
 	return &LivePage{
-		Session:                   s,
-		Component:                 c,
-		ComponentsLifeTimeChannel: &channel,
+		Session:          s,
+		Entry:            c,
+		Events:           pageEventsChannel,
+		ComponentUpdates: &componentsUpdatesChannel,
+		Components:       make(map[string]*LiveComponent),
 	}
+}
+
+func (lp *LivePage) handleComponentsLifeTime() {
+
+	go func() {
+		for {
+			update := <-*lp.ComponentUpdates
+
+			switch update.Stage {
+			case WillMount:
+			case Mounted:
+				lp.Components[update.Component.Name] = update.Component
+				break
+			case Updated:
+				lp.Events <- LivePageEvent{
+					Type:      Updated,
+					Component: update.Component,
+				}
+				break
+			case WillUnmount:
+			case Unmounted:
+				lp.Components[update.Component.Name] = nil
+				break
+
+			case Rendered:
+				break
+			}
+		}
+	}()
+}
+
+func (lp *LivePage) Prepare() {
+	lp.handleComponentsLifeTime()
+	lp.Entry.Prepare()
 }
 
 func (lp *LivePage) Mount() {
-	lp.Component.Prepare()
-	lp.Component.Mount(lp.ComponentsLifeTimeChannel)
-}
-
-func asUnsafeMap(any interface{}) map[string]interface{} {
-	v := reflect.ValueOf(any)
-
-	m := map[string]interface{}{}
-	for i := 0; i < v.NumField(); i++ {
-		value := v.Field(i)
-		if !value.CanInterface() {
-			continue
-		}
-		ftype := v.Type().Field(i)
-		if ftype.Tag.Get("html") == "unsafe" {
-			m[ftype.Name] = template.HTML(value.String())
-		} else {
-			m[ftype.Name] = value.Interface()
-		}
-	}
-	return m
+	lp.Entry.Mount()
 }
 
 func (lp *LivePage) FirstRender(pc PageContent) (string, error) {
-	rendered := lp.Component.GetComponentRender()
+	rendered := lp.Entry.Render()
 
 	writer := bytes.NewBufferString("")
 
-	pc.Body = rendered
-	pc.Script = LiveLib
+	pc.Body = template.HTML(rendered)
 	pc.Enum = PageEnum{
 		EventLiveDom:    EventLiveDom,
 		EventLiveInput:  EventLiveInput,
 		EventLiveMethod: EventLiveMethod,
 	}
 
-	err := BasePage.Execute(writer, asUnsafeMap(pc))
+	err := BasePage.Execute(writer, pc)
 
 	if err != nil {
 		return "", err
 	}
 
 	return writer.String(), nil
+}
+
+func (lp *LivePage) HandleMessage(m InMessage) error {
+
+	c, ok := lp.Components[m.ScopeID]
+
+	if !ok {
+		return fmt.Errorf("c not found with id: %s", m.ScopeID)
+	}
+
+	switch m.Name {
+	case EventLiveInput:
+		{
+			return c.SetValueInPath(m.StateValue, m.StateKey)
+		}
+	case EventLiveMethod:
+		{
+			return c.InvokeMethodInPath(m.MethodName, m.MethodParams)
+		}
+	case EventLiveDisconnect:
+		{
+			return c.Kill()
+		}
+	}
+
+	return nil
 }

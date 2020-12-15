@@ -11,21 +11,12 @@ import (
 	"strings"
 )
 
-type UpdateMessage int
-
-type LiveTimeChannel chan UpdateMessage
-
-const (
-	LifeTimeExit = iota
-	LifeTimeUpdate
-)
-
 //
 type ComponentLifeTime interface {
-	TemplateHandler() string
+	Prepare(component *LiveComponent)
+	TemplateHandler(component *LiveComponent) string
 	Mounted(component *LiveComponent)
 	BeforeMount(component *LiveComponent)
-	SetLifeTimeChannel(c *LiveTimeChannel)
 }
 
 type ChildLiveComponent interface{}
@@ -34,15 +25,12 @@ type ChildLiveComponent interface{}
 type LiveComponent struct {
 	Name               string
 	Component          ComponentLifeTime
-	LifeTimeChannel    *LiveTimeChannel
+	UpdatesChannel     *LifeTimeUpdates
 	HTMLTemplateString string
 	HTMLTemplate       *template.Template
 	Rendered           string
 	IsMounted          bool
-}
-
-func (l *LiveComponent) getName() string {
-	return l.Name + "_" + NewLiveId().GenerateRandomString()
+	Prepared           bool
 }
 
 // NewLiveComponent ...
@@ -53,58 +41,63 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 	}
 }
 
-// RenderChild ...
-func (l *LiveComponent) RenderChild(child *LiveComponent) string {
-	child.Prepare()
-	child.Mount(l.LifeTimeChannel)
-	return child.GetComponentRender()
+func (l *LiveComponent) getName() string {
+	return l.Name + "_" + NewLiveId().GenerateRandomString()
 }
 
 // Prepare 1.
 func (l *LiveComponent) Prepare() {
 	l.Name = l.getName()
-	l.HTMLTemplateString = l.Component.TemplateHandler()
 
+	l.HTMLTemplateString = l.Component.TemplateHandler(l)
 	l.HTMLTemplateString = l.addWSConnectScript(l.HTMLTemplateString)
 	l.HTMLTemplateString = l.addGoLiveComponentIDAttribute(l.HTMLTemplateString)
 
 	l.HTMLTemplate, _ = template.New(l.Name).Funcs(template.FuncMap{
 		"render": func(fn reflect.Value, args ...reflect.Value) (templated template.HTML) {
-			results := fn.Elem().Call(args)
-
-			result := results[0]
-			// err := results[1]
-
-			// if !err.IsNil() && len(err.String()) > 0 {
-			// 	return nil, err
-			// }
-
-			child := result.Interface().(*LiveComponent)
-			render := l.RenderChild(child)
+			child := fn.Interface().(*LiveComponent) // .Call(args)
+			child.Mount()
+			render := child.Render()
 			return template.HTML(render)
-
 		},
 	}).Parse(l.HTMLTemplateString)
 
-	l.Component.SetLifeTimeChannel(l.LifeTimeChannel)
+	l.Component.Prepare(l)
+
+	v := reflect.ValueOf(l.Component).Elem()
+
+	for i := 0; i < v.NumField(); i++ {
+		lc, ok := v.Field(i).Interface().(*LiveComponent)
+
+		if !ok {
+			continue
+		}
+
+		lc.Prepare()
+		lc.UpdatesChannel = l.UpdatesChannel
+
+	}
+
+	l.Prepared = true
 }
 
 // Mount 2. the component loading html
-func (l *LiveComponent) Mount(a *LiveTimeChannel) {
+func (l *LiveComponent) Mount() {
+	*l.UpdatesChannel <- ComponentLifeTimeMessage{
+		Stage:     WillMount,
+		Component: l,
+	}
+
 	l.Component.BeforeMount(l)
 	l.IsMounted = true
-	l.LifeTimeChannel = a
+
 	l.Component.Mounted(l)
-}
 
-// FindComponent ...
-func (l *LiveComponent) FindComponent(_ string) (*LiveComponent, error) {
+	*l.UpdatesChannel <- ComponentLifeTimeMessage{
+		Stage:     Mounted,
+		Component: l,
+	}
 
-	// TODO: Iterate over l.Component fields
-	// If the type is a golive.ChildLiveComponent
-	// get the scope
-
-	return l, nil
 }
 
 // GetFieldFromPath ...
@@ -121,7 +114,6 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 			v = v.FieldByName(s)
 		}
 	}
-
 	return &v
 }
 
@@ -144,7 +136,7 @@ func (l *LiveComponent) SetValueInPath(value string, path string) error {
 }
 
 // InvokeMethodInPath ...
-func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) {
+func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) error {
 	c := (*l).Component
 	v := reflect.ValueOf(c)
 
@@ -155,10 +147,12 @@ func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) {
 	}
 
 	v.MethodByName(path).Call(params)
+
+	return nil
 }
 
-// GetComponentRender ...
-func (l *LiveComponent) GetComponentRender() string {
+// Render ...
+func (l *LiveComponent) Render() string {
 	s := bytes.NewBufferString("")
 	err := l.HTMLTemplate.Execute(s, l.Component)
 
@@ -169,11 +163,11 @@ func (l *LiveComponent) GetComponentRender() string {
 	return s.String()
 }
 
-// LiveRender render the last version of the component, and detect
+// LiveRender render a new version of the component, and detect
 // differences from the last render
-// and sets the new version of render
+// and sets the "new old" version  of render
 func (l *LiveComponent) LiveRender() (string, []OutMessage) {
-	newRender := l.GetComponentRender()
+	newRender := l.Render()
 
 	oms := make([]OutMessage, 0)
 
@@ -195,7 +189,6 @@ func (l *LiveComponent) LiveRender() (string, []OutMessage) {
 				Element: instruction.Element,
 			})
 		}
-
 	}
 
 	l.Rendered = newRender
@@ -226,9 +219,21 @@ func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 
 // Kill ...
 func (l *LiveComponent) Kill() error {
-	*l.LifeTimeChannel <- LifeTimeExit
+
+	*l.UpdatesChannel <- ComponentLifeTimeMessage{
+		Stage:     WillUnmount,
+		Component: l,
+	}
+
+	// Set all to nil to garbage collector act
 	l.Component = nil
-	l.LifeTimeChannel = nil
+	l.UpdatesChannel = nil
 	l.HTMLTemplate = nil
+
+	*l.UpdatesChannel <- ComponentLifeTimeMessage{
+		Stage:     Unmounted,
+		Component: l,
+	}
+
 	return nil
 }
