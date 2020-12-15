@@ -74,7 +74,7 @@ func (t *Todo) CanAdd() bool {
 	return len(t.Text) == 0
 }
 
-func (t *Todo) TemplateHandler() string {
+func (t *Todo) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
 		<div id="todo">
 

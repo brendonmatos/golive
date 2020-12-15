@@ -10,16 +10,16 @@ type LiveComponentWrapper struct {
 	IsMounted          bool
 	HtmlTemplateString string
 	HtmlTemplate       *template.Template
-	LifeTimeChannel    *LiveTimeChannel
+	LifeTimeChannel    *LifeTimeUpdates
 	Rendered           string
 }
 
-func (l *LiveComponentWrapper) SetLifeTimeChannel(channel *LiveTimeChannel) {
-	l.LifeTimeChannel = channel
+func (l *LiveComponentWrapper) Prepare(lc *LiveComponent) {
+	l.LifeTimeChannel = lc.UpdatesChannel
 }
 
 // TemplateHandler ...
-func (l *LiveComponentWrapper) TemplateHandler() string {
+func (l *LiveComponentWrapper) TemplateHandler(_ *LiveComponent) string {
 	return "<div></div>"
 }
 
@@ -33,5 +33,8 @@ func (l *LiveComponentWrapper) Mounted(_ *LiveComponent) {
 
 // Commit puts an boolean to the commit channel and notifies ho is listening
 func (l *LiveComponentWrapper) Commit() {
-	*l.LifeTimeChannel <- LifeTimeUpdate
+	*l.LifeTimeChannel <- ComponentLifeTimeMessage{
+		Stage:     Updated,
+		Component: nil,
+	}
 }
