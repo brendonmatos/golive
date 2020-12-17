@@ -12,10 +12,12 @@ type LiveComponentWrapper struct {
 	HtmlTemplate       *template.Template
 	LifeTimeChannel    *LifeTimeUpdates
 	Rendered           string
+	component          *LiveComponent
 }
 
 func (l *LiveComponentWrapper) Prepare(lc *LiveComponent) {
 	l.LifeTimeChannel = lc.UpdatesChannel
+	l.component = lc
 }
 
 // TemplateHandler ...
@@ -35,6 +37,6 @@ func (l *LiveComponentWrapper) Mounted(_ *LiveComponent) {
 func (l *LiveComponentWrapper) Commit() {
 	*l.LifeTimeChannel <- ComponentLifeTimeMessage{
 		Stage:     Updated,
-		Component: nil,
+		Component: l.component,
 	}
 }
