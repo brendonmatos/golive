@@ -30,12 +30,14 @@ type LivePageEvent struct {
 type LiveEventsChannel chan LivePageEvent
 
 type LivePage struct {
-	Session          SessionKey
-	Events           LiveEventsChannel
-	Entry            *LiveComponent
-	ComponentUpdates *LifeTimeUpdates
-	Components       map[string]*LiveComponent
-	RenderedContent  string
+	Session             SessionKey
+	Events              LiveEventsChannel
+	ComponentsLifeCycle *ComponentLifeCycle
+
+	entry *LiveComponent
+
+	// Components is a list that handle all the components from the page
+	Components map[string]*LiveComponent
 }
 
 type PageContent struct {
@@ -47,62 +49,30 @@ type PageContent struct {
 }
 
 func NewLivePage(s SessionKey, c *LiveComponent) *LivePage {
-	componentsUpdatesChannel := make(LifeTimeUpdates)
+	componentsUpdatesChannel := make(ComponentLifeCycle)
 	pageEventsChannel := make(LiveEventsChannel)
 
-	c.UpdatesChannel = &componentsUpdatesChannel
+	c.updatesChannel = &componentsUpdatesChannel
 
 	return &LivePage{
-		Session:          s,
-		Entry:            c,
-		Events:           pageEventsChannel,
-		ComponentUpdates: &componentsUpdatesChannel,
-		Components:       make(map[string]*LiveComponent),
+		entry:               c,
+		Events:              pageEventsChannel,
+		ComponentsLifeCycle: &componentsUpdatesChannel,
+		Components:          make(map[string]*LiveComponent),
 	}
-}
-
-func (lp *LivePage) handleComponentsLifeTime() {
-
-	go func() {
-		for {
-			update := <-*lp.ComponentUpdates
-
-			switch update.Stage {
-			case WillMount:
-			case Mounted:
-				lp.Components[update.Component.Name] = update.Component
-				break
-			case Updated:
-				lp.Events <- LivePageEvent{
-					Type:      Updated,
-					Component: update.Component,
-				}
-				break
-			case WillUnmount:
-			case Unmounted:
-				lp.Components[update.Component.Name] = nil
-				break
-
-			case Rendered:
-				break
-			}
-		}
-	}()
 }
 
 func (lp *LivePage) Prepare() {
 	lp.handleComponentsLifeTime()
-	lp.Entry.Prepare()
+	lp.entry.Prepare()
 }
 
 func (lp *LivePage) Mount() {
-	lp.Entry.Mount()
+	lp.entry.Mount()
 }
 
 func (lp *LivePage) FirstRender(pc PageContent) (string, error) {
-	rendered := lp.Entry.Render()
-
-	writer := bytes.NewBufferString("")
+	rendered := lp.entry.Render()
 
 	pc.Body = template.HTML(rendered)
 	pc.Enum = PageEnum{
@@ -111,13 +81,16 @@ func (lp *LivePage) FirstRender(pc PageContent) (string, error) {
 		EventLiveMethod: EventLiveMethod,
 	}
 
+	writer := bytes.NewBufferString("")
 	err := BasePage.Execute(writer, pc)
+	return writer.String(), err
+}
 
-	if err != nil {
-		return "", err
+func (lp *LivePage) ForceUpdate() {
+	lp.Events <- LivePageEvent{
+		Type:      Updated,
+		Component: lp.entry,
 	}
-
-	return writer.String(), nil
 }
 
 func (lp *LivePage) HandleMessage(m InMessage) error {
@@ -125,7 +98,7 @@ func (lp *LivePage) HandleMessage(m InMessage) error {
 	c, ok := lp.Components[m.ScopeID]
 
 	if !ok {
-		return fmt.Errorf("c not found with id: %s", m.ScopeID)
+		return fmt.Errorf("component not found with id: %s", m.ScopeID)
 	}
 
 	switch m.Name {
@@ -144,4 +117,34 @@ func (lp *LivePage) HandleMessage(m InMessage) error {
 	}
 
 	return nil
+}
+
+func (lp *LivePage) handleComponentsLifeTime() {
+
+	go func() {
+		for {
+			update := <-*lp.ComponentsLifeCycle
+
+			switch update.Stage {
+			case WillMount:
+				break
+			case Mounted:
+				lp.Components[update.Component.Name] = update.Component
+				break
+			case Updated:
+				lp.Events <- LivePageEvent{
+					Type:      Updated,
+					Component: update.Component,
+				}
+				break
+			case WillUnmount:
+				break
+			case Unmounted:
+				lp.Components[update.Component.Name] = nil
+				break
+			case Rendered:
+				break
+			}
+		}
+	}()
 }

@@ -1,22 +1,14 @@
 package golive
 
-import (
-	"html/template"
-)
-
 // LiveComponentWrapper is a struct
 type LiveComponentWrapper struct {
-	Name               string
-	IsMounted          bool
-	HtmlTemplateString string
-	HtmlTemplate       *template.Template
-	LifeTimeChannel    *LifeTimeUpdates
-	Rendered           string
-	component          *LiveComponent
+	Name      string
+	lifeCycle *ComponentLifeCycle
+	component *LiveComponent
 }
 
 func (l *LiveComponentWrapper) Prepare(lc *LiveComponent) {
-	l.LifeTimeChannel = lc.UpdatesChannel
+	l.lifeCycle = lc.updatesChannel
 	l.component = lc
 }
 
@@ -35,7 +27,7 @@ func (l *LiveComponentWrapper) Mounted(_ *LiveComponent) {
 
 // Commit puts an boolean to the commit channel and notifies ho is listening
 func (l *LiveComponentWrapper) Commit() {
-	*l.LifeTimeChannel <- ComponentLifeTimeMessage{
+	*l.lifeCycle <- ComponentLifeTimeMessage{
 		Stage:     Updated,
 		Component: l.component,
 	}

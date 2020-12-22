@@ -12,21 +12,28 @@ type Clock struct {
 
 func NewClock() *golive.LiveComponent {
 	return golive.NewLiveComponent("Clock", &Clock{
-		ActualTime: "91230192301390193",
+		ActualTime: formattedActualTime(),
 	})
 }
 
-func (t *Clock) Mounted(_ *golive.LiveComponent) {
+func formattedActualTime() string {
+	return time.Now().Format(time.RFC3339Nano)
+}
+
+func (c *Clock) Mounted(l *golive.LiveComponent) {
 	go func() {
 		for {
-			t.ActualTime = time.Now().Format(time.RFC3339Nano)
-			time.Sleep((time.Second * 1) / 60)
-			t.Commit()
+			if l.Exited {
+				return
+			}
+			c.ActualTime = formattedActualTime()
+			time.Sleep(time.Second)
+			c.Commit()
 		}
 	}()
 }
 
-func (t *Clock) TemplateHandler(_ *golive.LiveComponent) string {
+func (c *Clock) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
 		<div>
 			<span>Time: {{ .ActualTime }}</span>
