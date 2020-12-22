@@ -78,8 +78,11 @@ func main() {
 ## TODO
  - [x] Components
     - [x] Subcomponents
+    - [ ] "turn off" unneeded components
     - [ ] Plan better component write - maybe follow go-kit policy?   
     - [ ] Write Test 
  - [x] Decide what LiveWire will connect. It will continue to be the page, or the scope makes more sense?
  - [ ] Throttling events from view
  - [ ] Decide if will be necessary a method that receive all the events before send to front. Being able to block some updates
+ - [ ] Examples
+    - [ ] Agario clone
