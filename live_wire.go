@@ -4,81 +4,109 @@ import "fmt"
 
 type WireMessage struct {
 	SessionKey SessionKey
+	Broadcast  bool
 	OutMessage OutMessage
 }
 
-type WiredSessions map[SessionKey]*LivePage
+type WiredSession struct {
+	LivePage    *LivePage
+	OutMessages chan OutMessage
+}
+
+type WiredSessions map[SessionKey]*WiredSession
 
 type LiveWire struct {
-	Sessions   WiredSessions
-	OutChannel chan WireMessage
+	Sessions WiredSessions
 }
 
 func NewWire() *LiveWire {
 	return &LiveWire{
 
 		// Sessions from all pages!
-		Sessions: make(map[SessionKey]*LivePage),
-
-		// OutChannel to all the sockets!
-		OutChannel: make(chan WireMessage),
+		Sessions: make(WiredSessions),
 	}
 }
 
 func (w *LiveWire) CreateSession() (SessionKey, error) {
 	session := NewSessionKey()
+
+	w.Sessions[session] = &WiredSession{
+		LivePage:    nil,
+		OutMessages: make(chan OutMessage),
+	}
+
 	return session, nil
 }
 
-func (w *LiveWire) QueueMessage(sKey SessionKey, message OutMessage) {
-	w.OutChannel <- WireMessage{
-		SessionKey: sKey,
-		OutMessage: message,
-	}
-}
-
-func (w *LiveWire) HandleMessage(session SessionKey, message InMessage) error {
-	pg := w.Sessions[session]
-
-	if pg == nil {
-		return fmt.Errorf("session without any page associated, key=%v", session)
-	}
-
-	err := pg.HandleMessage(message)
+func (w *LiveWire) QueueMessage(sKey SessionKey, message OutMessage) error {
+	oc, err := w.GetOutChannel(sKey)
 
 	if err != nil {
 		return err
 	}
 
-	pg.Events <- LivePageEvent{
-		Type:      Updated,
-		Component: pg.Entry,
-	}
+	go func() {
+		*oc <- message
+	}()
 
 	return nil
 }
 
-func (w *LiveWire) NotifyPageChanges(session SessionKey, c *LiveComponent) error {
+func (w *LiveWire) IngestMessage(session SessionKey, message InMessage) error {
+	s := w.Sessions[session]
+
+	if s == nil {
+		return fmt.Errorf("session without any page associated, key=%v", session)
+	}
+
+	err := s.LivePage.HandleMessage(message)
+
+	if err != nil {
+		return err
+	}
+
+	s.LivePage.ForceUpdate()
+
+	return nil
+}
+
+func (w *LiveWire) updateWiredLiveComponent(session SessionKey, c *LiveComponent) error {
+	var err error
+
 	_, changes := c.LiveRender()
 
 	for _, change := range changes {
-		w.QueueMessage(session, change)
+		err = w.QueueMessage(session, change)
 	}
 
-	return nil
+	return err
 }
 
-func (w *LiveWire) SetSession(session SessionKey, lp *LivePage) {
-	w.Sessions[session] = lp
+func (w *LiveWire) ActivateLivePage(session SessionKey, lp *LivePage) {
+	w.Sessions[session].LivePage = lp
 
 	// Here is the location that get all the components updates *notified* by
 	// the page!
 	go func() {
 		for {
+			// Receive all the events from the page!
 			pageUpdate := <-lp.Events
 			if pageUpdate.Type == Updated {
-				_ = w.NotifyPageChanges(session, pageUpdate.Component)
+				_ = w.updateWiredLiveComponent(session, pageUpdate.Component)
+			}
+			if pageUpdate.Type == Unmounted {
+				return
 			}
 		}
 	}()
+}
+
+func (w *LiveWire) GetOutChannel(key SessionKey) (*chan OutMessage, error) {
+	s := w.Sessions[key]
+
+	if s == nil || s.OutMessages == nil || &s.OutMessages == nil {
+		return nil, fmt.Errorf("session is no wired correcly, key=%v", key)
+	}
+
+	return &s.OutMessages, nil
 }

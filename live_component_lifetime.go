@@ -14,4 +14,4 @@ type ComponentLifeTimeMessage struct {
 	Component *LiveComponent
 }
 
-type LifeTimeUpdates chan ComponentLifeTimeMessage
+type ComponentLifeCycle chan ComponentLifeTimeMessage
