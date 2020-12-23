@@ -1,12 +1,12 @@
 package golive
 
-
 var BasePageString = `
 	<!DOCTYPE html>
 	<html lang="{{ .Lang }}">
 	<head>
 		<meta charset="UTF-8">
 		<title>{{ .Title }}</title>
+		{{ .Head }}
 	</head>
 	<script type="application/javascript">
 	

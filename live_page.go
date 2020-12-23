@@ -43,6 +43,7 @@ type LivePage struct {
 type PageContent struct {
 	Lang   string
 	Body   template.HTML
+	Head   template.HTML
 	Script string
 	Title  string
 	Enum   PageEnum
