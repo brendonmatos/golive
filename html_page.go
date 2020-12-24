@@ -1,6 +1,5 @@
 package golive
 
-
 var BasePageString = `
 	<!DOCTYPE html>
 	<html lang="{{ .Lang }}">
@@ -98,7 +97,7 @@ var BasePageString = `
 					element.addEventListener('click', function(_) {
 						goLive.server.send(JSON.stringify({
 							name: "{{ .Enum.EventLiveMethod }}",
-							scope_id: scopeId,
+							component_id: scopeId,
 							method_name: element.getAttribute("go-live-click"),
 							value: String(element.value)
 						}))
@@ -122,7 +121,7 @@ var BasePageString = `
 	
 						goLive.server.send(JSON.stringify({
 							name: "{{ .Enum.EventLiveInput }}",
-							scope_id: scopeId,
+							component_id: scopeId,
 							key: element.getAttribute("go-live-input"),
 							value: String(value)
 						}))
@@ -132,7 +131,7 @@ var BasePageString = `
 				goLive.on('{{ .Enum.EventLiveDom }}', (message) => {
 	
 					const handleChange = {
-						'set_attr': (message) => {
+						'{{ .Enum.DiffSetAttr }}': (message) => {
 							const {
 								attr,
 								element
@@ -154,7 +153,7 @@ var BasePageString = `
 							}
 	
 						},
-						'remove_attr': (message) => {
+						'{{ .Enum.DiffRemoveAttr }}': (message) => {
 							const {
 								attr,
 								element
@@ -170,7 +169,7 @@ var BasePageString = `
 							el.removeAttribute(attr.Name)
 	
 						},
-						'replace': (message) => {
+						'{{ .Enum.DiffReplace }}': (message) => {
 							const {
 								content,
 								element
@@ -188,7 +187,7 @@ var BasePageString = `
 	
 							el.parentElement.replaceChild(wrapper.firstChild, el)
 						},
-						'remove': (message) => {
+						'{{ .Enum.DiffRemove }}': (message) => {
 							const {
 								element
 							} = message
@@ -202,7 +201,7 @@ var BasePageString = `
 	
 							el.parentElement.removeChild(el)
 						},
-						'set_inner_html': (message) => {
+						'{{ .Enum.DiffSetInnerHtml }}': (message) => {
 							const {
 								content,
 								element
@@ -221,7 +220,7 @@ var BasePageString = `
 	
 							el.innerHTML = content
 						},
-						'append': (message) => {
+						'{{ .Enum.DiffAppend }}': (message) => {
 							const {
 								content,
 								element
@@ -245,7 +244,7 @@ var BasePageString = `
 						}
 					}
 	
-					if (viewElement.getAttribute("go-live-component-id") === message.scope_id) {
+					if (viewElement.getAttribute("go-live-component-id") === message.component_id) {
 						handleChange[message.type.toLowerCase()](message)
 					}
 				})

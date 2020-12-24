@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"strconv"
 )
 
 var BasePage *template.Template
@@ -17,9 +18,15 @@ func init() {
 }
 
 type PageEnum struct {
-	EventLiveInput  string
-	EventLiveMethod string
-	EventLiveDom    string
+	EventLiveInput   string
+	EventLiveMethod  string
+	EventLiveDom     string
+	DiffSetAttr      string
+	DiffRemoveAttr   string
+	DiffReplace      string
+	DiffRemove       string
+	DiffSetInnerHtml string
+	DiffAppend       string
 }
 
 type LivePageEvent struct {
@@ -29,8 +36,8 @@ type LivePageEvent struct {
 
 type LiveEventsChannel chan LivePageEvent
 
-type LivePage struct {
-	Session             SessionKey
+type Page struct {
+	content             PageContent
 	Events              LiveEventsChannel
 	ComponentsLifeCycle *ComponentLifeCycle
 
@@ -48,13 +55,13 @@ type PageContent struct {
 	Enum   PageEnum
 }
 
-func NewLivePage(s SessionKey, c *LiveComponent) *LivePage {
+func NewLivePage(c *LiveComponent) *Page {
 	componentsUpdatesChannel := make(ComponentLifeCycle)
 	pageEventsChannel := make(LiveEventsChannel)
 
 	c.updatesChannel = &componentsUpdatesChannel
 
-	return &LivePage{
+	return &Page{
 		entry:               c,
 		Events:              pageEventsChannel,
 		ComponentsLifeCycle: &componentsUpdatesChannel,
@@ -62,43 +69,53 @@ func NewLivePage(s SessionKey, c *LiveComponent) *LivePage {
 	}
 }
 
-func (lp *LivePage) Prepare() {
+func (lp *Page) SetContent(c PageContent) {
+	lp.content = c
+}
+
+func (lp *Page) Prepare() {
 	lp.handleComponentsLifeTime()
 	lp.entry.Prepare()
 }
 
-func (lp *LivePage) Mount() {
+func (lp *Page) Mount() {
 	lp.entry.Mount()
 }
 
-func (lp *LivePage) FirstRender(pc PageContent) (string, error) {
-	rendered := lp.entry.Render()
+func (lp *Page) Render() (string, error) {
+	rendered, _ := lp.entry.Render()
 
-	pc.Body = template.HTML(rendered)
-	pc.Enum = PageEnum{
-		EventLiveDom:    EventLiveDom,
-		EventLiveInput:  EventLiveInput,
-		EventLiveMethod: EventLiveMethod,
+	lp.content.Body = template.HTML(rendered)
+	lp.content.Enum = PageEnum{
+		EventLiveInput:   EventLiveInput,
+		EventLiveMethod:  EventLiveMethod,
+		EventLiveDom:     EventLiveDom,
+		DiffSetAttr:      strconv.Itoa(int(SetAttr)),
+		DiffRemoveAttr:   strconv.Itoa(int(RemoveAttr)),
+		DiffReplace:      strconv.Itoa(int(Replace)),
+		DiffRemove:       strconv.Itoa(int(Remove)),
+		DiffSetInnerHtml: strconv.Itoa(int(SetInnerHtml)),
+		DiffAppend:       strconv.Itoa(int(Append)),
 	}
 
 	writer := bytes.NewBufferString("")
-	err := BasePage.Execute(writer, pc)
+	err := BasePage.Execute(writer, lp.content)
 	return writer.String(), err
 }
 
-func (lp *LivePage) ForceUpdate() {
+func (lp *Page) ForceUpdate() {
 	lp.Events <- LivePageEvent{
 		Type:      Updated,
 		Component: lp.entry,
 	}
 }
 
-func (lp *LivePage) HandleMessage(m InMessage) error {
+func (lp *Page) HandleMessage(m InMessage) error {
 
-	c, ok := lp.Components[m.ScopeID]
+	c, ok := lp.Components[m.ComponentId]
 
 	if !ok {
-		return fmt.Errorf("component not found with id: %s", m.ScopeID)
+		return fmt.Errorf("component not found with id: %s", m.ComponentId)
 	}
 
 	switch m.Name {
@@ -119,7 +136,7 @@ func (lp *LivePage) HandleMessage(m InMessage) error {
 	return nil
 }
 
-func (lp *LivePage) handleComponentsLifeTime() {
+func (lp *Page) handleComponentsLifeTime() {
 
 	go func() {
 		for {
