@@ -28,15 +28,15 @@ func CreateDOMFromString(data string) (*html.Node, error) {
 }
 
 // RenderNodeToString todo
-func RenderNodeToString(e *html.Node) string {
+func RenderNodeToString(e *html.Node) (string, error) {
 	var b bytes.Buffer
 	err := html.Render(&b, e)
 
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	return b.String()
+	return b.String(), nil
 }
 
 // RenderNodesToString todo
@@ -44,10 +44,15 @@ func RenderNodesToString(nodes []*html.Node) string {
 	text := ""
 
 	for _, node := range nodes {
-		text += RenderNodeToString(node)
+		rendered, _ := RenderNodeToString(node)
+		text += rendered
 	}
 
 	return text
+}
+
+func RenderChildren(parent *html.Node) string {
+	return RenderNodesToString(GetChildrenFromNode(parent))
 }
 
 func getClassesSeparated(s string) string {
@@ -111,6 +116,6 @@ func SelectorFromNode(e *html.Node) string {
 
 	}
 
-	return selector
+	return strings.TrimSpace(selector)
 
 }

@@ -8,13 +8,24 @@ import (
 
 var spaceRegex = regexp.MustCompile(`\s+`)
 
+type DiffType int
+
+const (
+	Append DiffType = iota
+	Remove
+	SetInnerHtml
+	SetAttr
+	RemoveAttr
+	Replace
+)
+
 // ChangeInstruction todo
 type ChangeInstruction struct {
-	Type    string
-	Element string
-	Content string
-	Attr    interface{}
-	ScopeID string
+	Type        DiffType
+	Element     string
+	Content     string
+	Attr        interface{}
+	componentId string
 }
 
 // Attr todo
@@ -32,7 +43,7 @@ func GetDiffFromNodes(start, end *html.Node) []ChangeInstruction {
 	return instructions
 }
 
-func ScopeOfNode(e *html.Node) (string, error) {
+func ComponentIdFromNode(e *html.Node) (string, error) {
 	for parent := e; parent != nil; parent = parent.Parent {
 
 		attrs := AttrMapFromNode(parent)
@@ -64,16 +75,30 @@ func RecursiveDiff(changeList *[]ChangeInstruction, from, to []*html.Node) {
 	toLen := len(to)
 	minLen := fromLen
 
+	clSize := len(*changeList)
+
+	for index, toNode := range to {
+		if toNode.Type == html.TextNode {
+			fromNode := from[index]
+			TextDiff(changeList, fromNode, toNode)
+		}
+	}
+
+	if len(*changeList) > clSize {
+		return
+	}
+
 	if fromLen < toLen {
 		toAppendNodes := to[fromLen:]
 
 		for _, node := range toAppendNodes {
-			scopeID, _ := ScopeOfNode(node)
+			rendered, _ := RenderNodeToString(node)
+			componentId, _ := ComponentIdFromNode(node)
 			*changeList = append(*changeList, ChangeInstruction{
-				Type:    "APPEND",
-				Element: SelectorFromNode(node.Parent),
-				Content: RenderNodeToString(node),
-				ScopeID: scopeID,
+				Type:        Append,
+				Element:     SelectorFromNode(node.Parent),
+				Content:     rendered,
+				componentId: componentId,
 			})
 		}
 
@@ -81,45 +106,79 @@ func RecursiveDiff(changeList *[]ChangeInstruction, from, to []*html.Node) {
 	}
 
 	if fromLen > toLen {
+
 		toRemoveNodes := from[toLen:]
 
 		for _, node := range toRemoveNodes {
-			scopeID, _ := ScopeOfNode(node)
+
+			if node.Type == html.TextNode {
+				TextDiff(changeList, &html.Node{}, node)
+				break
+			}
+
+			componentId, _ := ComponentIdFromNode(node)
 
 			*changeList = append(*changeList, ChangeInstruction{
-				Type:    "REMOVE",
-				Element: SelectorFromNode(node),
-				ScopeID: scopeID,
+				Type:        Remove,
+				Element:     SelectorFromNode(node),
+				componentId: componentId,
 			})
 		}
 		minLen = toLen
 	}
 
+	// Diff children
 	for i := 0; i < minLen; i++ {
 
 		fromNode := from[i]
 		toNode := to[i]
 
+		AttributesDiff(changeList, fromNode, toNode)
+
+		/**
+		If is a text node and has some difference between them
+		so, we'll be replacing the entire content of parent
+		- So, we recommend you to always set the reactive
+		  text to be inside of any dom element
+		*/
 		if toNode.Type == html.TextNode {
-
-			if toNode.Data != fromNode.Data {
-
-				scopeID, _ := ScopeOfNode(fromNode)
-				*changeList = append(*changeList, ChangeInstruction{
-					Type:    "SET_INNER_HTML",
-					Content: RenderNodeToString(toNode),
-					Element: SelectorFromNode(fromNode),
-					ScopeID: scopeID,
-				})
-			}
-
+			TextDiff(changeList, fromNode, toNode)
 		} else if !IsChildrenTheSame(toNode, fromNode) {
+			if fromNode.Type == html.TextNode {
+				continue
+			}
+			if toNode.Type == html.TextNode {
+				continue
+			}
 			RecursiveDiff(changeList, GetChildrenFromNode(fromNode), GetChildrenFromNode(toNode))
 		}
 
-		AttributesDiff(changeList, fromNode, toNode)
 	}
 
+}
+
+func TextDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
+
+	if to.Type != html.TextNode {
+		// It is not text
+		return
+	}
+
+	if to.Data == from.Data {
+		// There is no diff
+		return
+	}
+
+	parent := to.Parent
+	componentId, _ := ComponentIdFromNode(parent)
+	rendered := RenderChildren(parent)
+
+	*changeList = append(*changeList, ChangeInstruction{
+		Type:        SetInnerHtml,
+		Content:     rendered,
+		Element:     SelectorFromNode(to),
+		componentId: componentId,
+	})
 }
 
 // AttributesDiff compares the attributes in el to the attributes in otherEl
@@ -134,11 +193,11 @@ func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 		value, found := attrs[name]
 		if !found || value != otherValue {
 
-			scopeID, _ := ScopeOfNode(from)
+			componentId, _ := ComponentIdFromNode(from)
 			*changeList = append(*changeList, ChangeInstruction{
-				Type:    "SET_ATTR",
-				ScopeID: scopeID,
-				Element: SelectorFromNode(from),
+				Type:        SetAttr,
+				componentId: componentId,
+				Element:     SelectorFromNode(from),
 				Attr: Attr{
 					Name:  name,
 					Value: otherValue,
@@ -150,11 +209,11 @@ func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 	for attrName := range attrs {
 		if _, found := otherAttrs[attrName]; !found {
 
-			scopeID, _ := ScopeOfNode(from)
+			componentId, _ := ComponentIdFromNode(from)
 			*changeList = append(*changeList, ChangeInstruction{
-				Type:    "REMOVE_ATTR",
-				ScopeID: scopeID,
-				Element: SelectorFromNode(from),
+				Type:        RemoveAttr,
+				componentId: componentId,
+				Element:     SelectorFromNode(from),
 				Attr: Attr{
 					Name: attrName,
 				},
