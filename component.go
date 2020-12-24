@@ -43,13 +43,13 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 }
 
 func (l *LiveComponent) getName() string {
-	return l.Name + "_" + NewLiveId().GenerateRandomString()
+	return l.Name + "_" + NewLiveId().GenerateSmall()
 }
 
-func (l *LiveComponent) RenderChild(fn reflect.Value, args ...reflect.Value) template.HTML {
+func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
 	child := fn.Interface().(*LiveComponent)
 	child.Mount()
-	render := child.Render()
+	render, _ := child.Render()
 	return template.HTML(render)
 }
 
@@ -125,6 +125,7 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 
 // SetValueInPath ...
 func (l *LiveComponent) SetValueInPath(value string, path string) error {
+
 	v := l.GetFieldFromPath(path)
 	n := reflect.New(v.Type())
 
@@ -158,22 +159,27 @@ func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) error 
 }
 
 // Render ...
-func (l *LiveComponent) Render() string {
+func (l *LiveComponent) Render() (string, error) {
 	s := bytes.NewBufferString("")
+
 	err := l.htmlTemplate.Execute(s, l.component)
 
 	if err != nil {
-		fmt.Println(err)
+		return "", err
 	}
 
-	return s.String()
+	return s.String(), nil
 }
 
 // LiveRender render a new version of the component, and detect
 // differences from the last render
 // and sets the "new old" version  of render
-func (l *LiveComponent) LiveRender() (string, []OutMessage) {
-	newRender := l.Render()
+func (l *LiveComponent) LiveRender() ([]OutMessage, error) {
+	newRender, err := l.Render()
+
+	if err != nil {
+		return nil, err
+	}
 
 	oms := make([]OutMessage, 0)
 
@@ -187,19 +193,19 @@ func (l *LiveComponent) LiveRender() (string, []OutMessage) {
 
 		for _, instruction := range changeInstructions {
 			oms = append(oms, OutMessage{
-				Name:    EventLiveDom,
-				Type:    instruction.Type,
-				Attr:    instruction.Attr,
-				ScopeID: instruction.ScopeID,
-				Content: instruction.Content,
-				Element: instruction.Element,
+				Name:        EventLiveDom,
+				Type:        strconv.Itoa(int(instruction.Type)),
+				Attr:        instruction.Attr,
+				ComponentId: instruction.componentId,
+				Content:     instruction.Content,
+				Element:     instruction.Element,
 			})
 		}
 	}
 
 	l.rendered = newRender
 
-	return l.rendered, oms
+	return oms, nil
 }
 
 var re = regexp.MustCompile(`<([a-z0-9]+)`)

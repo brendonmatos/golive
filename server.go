@@ -17,7 +17,7 @@ type LiveServer struct {
 
 type LiveResponse struct {
 	Rendered string
-	Session  SessionKey
+	Session  string
 }
 
 func NewServer() *LiveServer {
@@ -30,20 +30,24 @@ func NewServer() *LiveServer {
 func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*LiveResponse, error) {
 
 	/* Create session to the new user */
-	session, err := s.Wire.CreateSession()
+	sessionKey, session, err := s.Wire.CreateSession()
 
 	if err != nil {
 		return nil, err
 	}
 
 	/* Instantiate a page to attach to a session */
-	p := NewLivePage(session, lc)
+	p := NewLivePage(lc)
+	p.SetContent(c)
 
+	// 1.
 	p.Prepare()
+
+	// 2.
 	p.Mount()
 
 	/*  */
-	rendered, err := p.FirstRender(c)
+	rendered, err := p.Render()
 
 	if err != nil {
 		return &LiveResponse{
@@ -53,9 +57,9 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 	}
 
 	/*  */
-	s.Wire.ActivateLivePage(session, p)
+	session.ActivatePage(p)
 
-	return &LiveResponse{Rendered: rendered, Session: session}, nil
+	return &LiveResponse{Rendered: rendered, Session: sessionKey}, nil
 }
 
 func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c PageContent) {
@@ -92,28 +96,18 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 	c.EnableWriteCompression(true)
 
-	cookie := c.Cookies(s.CookieName)
-	sKey := SessionKey(cookie)
+	sessionKey := c.Cookies(s.CookieName)
+	session := s.Wire.GetSession(sessionKey)
 
 	errors := make(chan error)
 	exit := make(chan int)
 
 	exited := false
 
-	outMessages, err := s.Wire.GetOutChannel(sKey)
-
-	if err != nil {
-		//errors <- err
-		panic(err)
-	}
-
 	go func() {
 		for {
 			select {
-			case msg := <-*outMessages:
-				if msg.Type == "CLOSE" {
-					exit <- 1
-				}
+			case msg := <-session.OutChannel:
 				err := c.WriteJSON(msg)
 				if err != nil {
 					errors <- err
@@ -155,7 +149,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 			errors <- err
 		}
 
-		err = s.Wire.IngestMessage(sKey, inMsg)
+		err = session.IngestMessage(inMsg)
 		if err != nil {
 			errors <- err
 		}

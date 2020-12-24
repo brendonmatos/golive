@@ -6,21 +6,21 @@ import (
 	"sync"
 )
 
-type LiveIdGenerator struct {
+type Random struct {
 	last int64
 }
 
-var instantiated *LiveIdGenerator
+var instantiated *Random
 var once sync.Once
 
-func NewLiveId() *LiveIdGenerator {
+func NewLiveId() *Random {
 	once.Do(func() {
-		instantiated = &LiveIdGenerator{}
+		instantiated = &Random{}
 	})
 	return instantiated
 }
 
-func (g LiveIdGenerator) GenerateRandomString() string {
+func (g Random) GenerateSmall() string {
 	a, _ := GenerateRandomString(5)
 	return a
 }
