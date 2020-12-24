@@ -6,6 +6,7 @@ var BasePageString = `
 	<head>
 		<meta charset="UTF-8">
 		<title>{{ .Title }}</title>
+		{{ .Head }}
 	</head>
 	<script type="application/javascript">
 	
