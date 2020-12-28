@@ -1,10 +1,12 @@
 package golive
 
 import (
+	"context"
 	"fmt"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
-	"time"
 )
 
 type LiveServer struct {
@@ -88,6 +90,38 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 func (s *LiveServer) CreateHTMLHandler(f func() *LiveComponent, c PageContent) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		s.HandleHTMLRequest(ctx, f(), c)
+		return nil
+	}
+}
+
+// HTTPMiddleware Middleware to run on HTTP requests.
+type HTTPMiddleware func(next HTTPHandlerCtx) HTTPHandlerCtx
+
+// HTTPHandlerCtx HTTP Handler with a page level context.
+type HTTPHandlerCtx func(ctx *fiber.Ctx, pageCtx context.Context)
+
+func (s *LiveServer) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context) *LiveComponent, content PageContent,
+	middlewares ...HTTPMiddleware) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		ctx := context.Background()
+		// TODO: move chain building out so it only happens once - Sam H.
+		if len(middlewares) != 0 {
+			// Reassign the context back to this scope to capture changes to it
+			end := func(_ *fiber.Ctx, pCtx context.Context) {
+				ctx = pCtx
+			}
+			h := middlewares[len(middlewares)-1](end)
+
+			// build chain
+			for i := len(middlewares) - 2; i >= 0; i-- {
+				h = middlewares[i](h)
+			}
+			// trigger chain
+			h(c, ctx)
+		}
+
+		s.HandleHTMLRequest(c, f(ctx), content)
+
 		return nil
 	}
 }

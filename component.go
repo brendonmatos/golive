@@ -76,6 +76,10 @@ func (l *LiveComponent) PrepareChildren() {
 	v := reflect.ValueOf(l.component).Elem()
 
 	for i := 0; i < v.NumField(); i++ {
+		if !v.Field(i).CanInterface() {
+			continue
+		}
+
 		lc, ok := v.Field(i).Interface().(*LiveComponent)
 
 		if !ok {
