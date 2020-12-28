@@ -79,7 +79,10 @@ func RecursiveDiff(changeList *[]ChangeInstruction, from, to []*html.Node) {
 
 	for index, toNode := range to {
 		if toNode.Type == html.TextNode {
-			fromNode := from[index]
+			fromNode := &html.Node{}
+			if index < len(from) {
+				fromNode = from[index]
+			}
 			TextDiff(changeList, fromNode, toNode)
 		}
 	}
