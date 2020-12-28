@@ -5,11 +5,12 @@ import (
 )
 
 func TestDiff(t *testing.T) {
+	t.Parallel()
+
 	a := `<body><h1>Hello world<span>a</span></h1></body>`
 	b := `<body><h1>Hello world<span></span></h1></body>`
 	diffs, _ := GetDiffFromRawHTML(a, b)
 
-	//fmt.Println(diffs)
 	if len(diffs) != 1 {
 		t.Error("err")
 	}
@@ -21,6 +22,8 @@ func TestDiff(t *testing.T) {
 }
 
 func TestDiff2(t *testing.T) {
+	t.Parallel()
+
 	a := `<body><h1>Hello world<span>a</span></h1></body>`
 	b := `<body><h1>Hello world<span></span><span></span></h1></body>`
 	diffs, _ := GetDiffFromRawHTML(a, b)
@@ -35,6 +38,8 @@ func TestDiff2(t *testing.T) {
 }
 
 func TestDiff3(t *testing.T) {
+	t.Parallel()
+
 	a := `<body><h1>Hello world<span>a</span></h1></body>`
 	b := `<body><h1>Hello world<span></span><span></span></h1></body>`
 	diffs, _ := GetDiffFromRawHTML(a, b)
@@ -51,5 +56,17 @@ func TestDiff3(t *testing.T) {
 		} else {
 			t.Error("err, unexpected type =", diff.Type)
 		}
+	}
+}
+
+func TestDiffRegressionToLongerThanFrom(t *testing.T) {
+	t.Parallel()
+
+	a := `<body><h1>Hello world<span></span><span></span></h1></body>`
+	b := `<body><h1>Hello world<span>a</span></h1></body>`
+	_, err := GetDiffFromRawHTML(a, b)
+
+	if err != nil {
+		t.Fatal(err)
 	}
 }
