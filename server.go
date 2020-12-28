@@ -2,7 +2,6 @@ package golive
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,6 +14,7 @@ type LiveServer struct {
 
 	// CookieName ...
 	CookieName string
+	Log        Log
 }
 
 type LiveResponse struct {
@@ -26,17 +26,18 @@ func NewServer() *LiveServer {
 	return &LiveServer{
 		Wire:       NewWire(),
 		CookieName: "_csrf_token",
+		Log:        NewLoggerBasic().Log,
 	}
 }
 
 func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*LiveResponse, error) {
-
 	/* Create session to the new user */
 	sessionKey, session, err := s.Wire.CreateSession()
-
 	if err != nil {
 		return nil, err
 	}
+
+	session.log = s.Log
 
 	/* Instantiate a page to attach to a session */
 	p := NewLivePage(lc)
@@ -67,29 +68,30 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c PageContent) {
 
 	lr, err := s.HandleFirstRequest(lc, c)
-
 	if lr == nil {
-		panic(err)
+		s.Log(LogPanic, "no live page", logEx{"error": err})
 	}
 
 	ctx.Cookie(&fiber.Cookie{
 		Name:    s.CookieName,
-		Value:   string(lr.Session),
+		Value:   lr.Session,
 		Expires: time.Now().Add(24 * time.Hour),
 	})
 	ctx.Response().Header.SetContentType("text/html")
 	ctx.Response().AppendBodyString(lr.Rendered)
 
 	if err != nil {
+		s.Log(LogError, "handle html request", logEx{"error": err})
 		ctx.Response().SetStatusCode(500)
 	}
-
-	return
 }
 
 func (s *LiveServer) CreateHTMLHandler(f func() *LiveComponent, c PageContent) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
-		s.HandleHTMLRequest(ctx, f(), c)
+		lc := f()
+		lc.log = s.Log
+
+		s.HandleHTMLRequest(ctx, lc, c)
 		return nil
 	}
 }
@@ -120,7 +122,10 @@ func (s *LiveServer) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context)
 			h(c, ctx)
 		}
 
-		s.HandleHTMLRequest(c, f(ctx), content)
+		lc := f(ctx)
+		lc.log = s.Log
+
+		s.HandleHTMLRequest(c, lc, content)
 
 		return nil
 	}
@@ -157,7 +162,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 				return
 			case err := <-errors:
-				fmt.Println("level=error", err)
+				s.Log(LogError, "websocket error channel", logEx{"error": err})
 				break
 
 			default:
@@ -182,6 +187,8 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 		if err != nil {
 			errors <- err
 		}
+
+		s.Log(LogDebug, "websocket request", logEx{"msg": inMsg})
 
 		err = session.IngestMessage(inMsg)
 		if err != nil {
