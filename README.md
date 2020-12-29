@@ -4,7 +4,10 @@
 
 **Any suggestions are absolutely welcome**
 
-This project it's strongly inspired by Elixir Phoenix Live View. I'm writing this as a Side Project to solve some issues that I'm having in production in my full-time Job.
+This project it's strongly inspired by Elixir Phoenix LiveView.
+
+## Getting Started
+`WIP`
 
 ## Component Example
 ```go
@@ -76,13 +79,21 @@ func main() {
 
 
 ## TODO
+ - [ ] Establish version
+ - [ ] Configure CI stuff
+    - [x] Auto Tests
+    - [ ] Coverage
+ - [ ] Document
+    - [ ] Component Lifetime
+    - [ ] "turn off" components
+    - [ ] Recommended project structure
  - [x] Components
     - [x] Subcomponents
-    - [ ] "turn off" unneeded components
-    - [ ] Plan better component write - maybe follow go-kit policy?   
-    - [ ] Write Test 
+    - [x] "turn off" unneeded components
  - [x] Decide what LiveWire will connect. It will continue to be the page, or the scope makes more sense?
- - [ ] Throttling events from view
- - [ ] Decide if will be necessary a method that receive all the events before send to front. Being able to block some updates
- - [ ] Examples
-    - [ ] Agario clone
+ - [ ] Throttling events in & out 
+ - [ ] Optimize
+    - [ ] Benchmark
+    - [ ] Merge component changes
+    - [ ] Minify comm. payload
+
