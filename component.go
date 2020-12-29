@@ -32,6 +32,7 @@ type LiveComponent struct {
 	IsMounted          bool
 	Prepared           bool
 	Exited             bool
+	log                Log
 }
 
 // NewLiveComponent ...
@@ -49,7 +50,12 @@ func (l *LiveComponent) getName() string {
 func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
 	child := fn.Interface().(*LiveComponent)
 	child.Mount()
-	render, _ := child.Render()
+
+	render, err := child.Render()
+	if err != nil {
+		l.log(LogError, "render child: render", logEx{"error": err})
+	}
+
 	return template.HTML(render)
 }
 
@@ -76,6 +82,10 @@ func (l *LiveComponent) PrepareChildren() {
 	v := reflect.ValueOf(l.component).Elem()
 
 	for i := 0; i < v.NumField(); i++ {
+		if !v.Field(i).CanInterface() {
+			continue
+		}
+
 		lc, ok := v.Field(i).Interface().(*LiveComponent)
 
 		if !ok {
@@ -182,13 +192,12 @@ func (l *LiveComponent) LiveRender() ([]OutMessage, error) {
 	}
 
 	oms := make([]OutMessage, 0)
-
 	if len(l.rendered) > 0 {
 
 		changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
 
 		if err != nil {
-			panic("There is a error in diff")
+			l.log(LogPanic, "there is a error in diff", logEx{"error": err})
 		}
 
 		for _, instruction := range changeInstructions {

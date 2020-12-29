@@ -220,6 +220,9 @@ var BasePageString = `
 							}
 	
 							el.innerHTML = content
+
+							// Add listeners to new elements
+							goLive.connectElement(scopeId, el)
 						},
 						'{{ .Enum.DiffAppend }}': (message) => {
 							const {
