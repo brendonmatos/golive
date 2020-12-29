@@ -28,6 +28,7 @@ type OutMessage struct {
 type Session struct {
 	LivePage   *Page
 	OutChannel chan OutMessage
+	log        Log
 }
 
 func NewSession() *Session {
@@ -60,6 +61,15 @@ func (s *Session) IngestMessage(message InMessage) error {
 func (s *Session) ActivatePage(lp *Page) {
 	s.LivePage = lp
 
+	// Pre-render to ensure we have something to diff against
+	for _, component := range lp.Components {
+		if component.rendered == "" {
+			if err := s.LiveRenderComponent(component); err != nil {
+				s.log(LogError, "activate page", logEx{"error": err})
+			}
+		}
+	}
+
 	// Here is the location that get all the components updates *notified* by
 	// the page!
 	go func() {
@@ -67,7 +77,9 @@ func (s *Session) ActivatePage(lp *Page) {
 			// Receive all the events from the page!
 			pageUpdate := <-lp.Events
 			if pageUpdate.Type == Updated {
-				_ = s.LiveRenderComponent(pageUpdate.Component)
+				if err := s.LiveRenderComponent(pageUpdate.Component); err != nil {
+					s.log(LogError, "component live render", logEx{"error": err})
+				}
 			}
 			if pageUpdate.Type == Unmounted {
 				return
