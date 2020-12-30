@@ -47,17 +47,17 @@ func (l *LoggerBasic) Log(level int, message string, extra map[string]interface{
 
 	switch level {
 	case LogTrace:
-		b.WriteString(aurora.Green(" TRACE ").String())
+		b.WriteString(aurora.Yellow(" TRACE ").String())
 	case LogDebug:
-		b.WriteString(aurora.Green(" DEBUG ").String())
+		b.WriteString(aurora.Yellow(" DEBUG ").String())
 	case LogInfo:
-		b.WriteString(aurora.Yellow(" WARN  ").String())
+		b.WriteString(aurora.Red(" WARN  ").String())
 	case LogError:
-		b.WriteString(aurora.Red(" ERROR ").String())
+		b.WriteString(aurora.BrightRed(" ERROR ").String())
 	case LogFatal:
-		b.WriteString(aurora.Red(" FATAL ").String())
+		b.WriteString(aurora.BrightRed(" FATAL ").String())
 	case LogPanic:
-		b.WriteString(aurora.Red(" PANIC ").String())
+		b.WriteString(aurora.BrightRed(" PANIC ").String())
 	}
 
 	b.WriteString(message)
