@@ -48,7 +48,13 @@ func (l *LiveComponent) getName() string {
 }
 
 func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
-	child := fn.Interface().(*LiveComponent)
+	child, ok := fn.Interface().(*LiveComponent)
+	if !ok {
+		l.log(LogError, "child not a *golive.LiveComponent", nil)
+
+		return ""
+	}
+
 	child.Mount()
 
 	render, err := child.Render()
@@ -80,7 +86,6 @@ func (l *LiveComponent) Prepare() {
 
 func (l *LiveComponent) PrepareChildren() {
 	v := reflect.ValueOf(l.component).Elem()
-
 	for i := 0; i < v.NumField(); i++ {
 		if !v.Field(i).CanInterface() {
 			continue
@@ -92,8 +97,8 @@ func (l *LiveComponent) PrepareChildren() {
 			continue
 		}
 
-		lc.Prepare()
 		lc.updatesChannel = l.updatesChannel
+		lc.Prepare()
 	}
 }
 
