@@ -61,18 +61,15 @@ func getClassesSeparated(s string) string {
 
 func SelfIndexOfNode(n *html.Node) int {
 	ix := 0
-	for prev := n.PrevSibling; prev != nil; prev = prev.PrevSibling {
-		if prev.Type == html.TextNode {
-			continue
-		}
 
+	for prev := n.PrevSibling; prev != nil; prev = prev.PrevSibling {
 		ix++
 	}
 
 	return ix
 }
 
-// SelectorFromNode todo
+// SelectorFromNode
 func SelectorFromNode(e *html.Node) string {
 
 	selector := ""
@@ -104,10 +101,6 @@ func SelectorFromNode(e *html.Node) string {
 
 		}
 
-		if parent.Type == html.TextNode {
-			// selector = fmt.Sprintf("*:nth-child(%d) ", SelfIndexOfNode(parent)) + selector
-		}
-
 		if len(selector) > 0 {
 			selector = elementSelector + " " + selector
 		} else {
@@ -117,5 +110,23 @@ func SelectorFromNode(e *html.Node) string {
 	}
 
 	return strings.TrimSpace(selector)
+}
 
+// PathToComponentRoot todo
+func PathToComponentRoot(e *html.Node) []int {
+
+	path := make([]int, 0)
+
+	for parent := e; parent != nil; parent = parent.Parent {
+
+		attrs := AttrMapFromNode(parent)
+
+		path = append([]int{SelfIndexOfNode(parent)}, path...)
+
+		if _, ok := attrs["go-live-component-id"]; ok {
+			return path
+		}
+	}
+
+	return path
 }
