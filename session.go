@@ -22,7 +22,7 @@ type OutMessage struct {
 	Type        string      `json:"type"`
 	Attr        interface{} `json:"attr,omitempty"`
 	Content     string      `json:"content,omitempty"`
-	Path        []int       `json:"path"`
+	Element     string      `json:"element"`
 }
 
 type Session struct {
