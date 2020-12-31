@@ -71,7 +71,7 @@ func (t *Todo) TaskDone(index int) {
 }
 
 func (t *Todo) CanAdd() bool {
-	return len(t.Text) > 0
+	return len(t.Text) == 0
 }
 
 func (t *Todo) TemplateHandler(_ *golive.LiveComponent) string {
@@ -80,7 +80,7 @@ func (t *Todo) TemplateHandler(_ *golive.LiveComponent) string {
 
 			<input go-live-input="Text" value="{{.Text}}"/>
 			
-			<button {{ if not .CanAdd }} disabled {{ end }} go-live-click="HandleAdd">Create</button>
+			<button {{ if .CanAdd }}disabled{{ end }} go-live-click="HandleAdd">Create</button>
 			
 			<div class="todo-tasks">
 				{{ range $index, $task := .Tasks }}
