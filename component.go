@@ -210,9 +210,9 @@ func (l *LiveComponent) LiveRender() ([]OutMessage, error) {
 				Name:        EventLiveDom,
 				Type:        strconv.Itoa(int(instruction.Type)),
 				Attr:        instruction.Attr,
-				ComponentId: instruction.ComponentId,
+				ComponentId: instruction.componentId,
 				Content:     instruction.Content,
-				Path:        PathToComponentRoot(instruction.Element),
+				Element:     instruction.Element,
 			})
 		}
 	}
