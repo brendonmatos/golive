@@ -11,6 +11,9 @@ var BasePage *template.Template
 
 func init() {
 	var err error
+
+	// htmlBytes, _ := ioutil.ReadFile("./base.html")
+	// BasePage, err = template.New("BasePage").Parse(string(htmlBytes))
 	BasePage, err = template.New("BasePage").Parse(BasePageString)
 	if err != nil {
 		panic(err)
@@ -111,12 +114,12 @@ func (lp *Page) ForceUpdate() {
 	}
 }
 
-func (lp *Page) HandleMessage(m InMessage) error {
+func (lp *Page) HandleMessage(m BrowserEvent) error {
 
-	c, ok := lp.Components[m.ComponentId]
+	c, ok := lp.Components[m.ComponentID]
 
 	if !ok {
-		return fmt.Errorf("component not found with id: %s", m.ComponentId)
+		return fmt.Errorf("component not found with id: %s", m.ComponentID)
 	}
 
 	switch m.Name {
