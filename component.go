@@ -189,14 +189,16 @@ func (l *LiveComponent) Render() (string, error) {
 // LiveRender render a new version of the component, and detect
 // differences from the last render
 // and sets the "new old" version  of render
-func (l *LiveComponent) LiveRender() ([]OutMessage, error) {
+func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 	newRender, err := l.Render()
 
 	if err != nil {
 		return nil, err
 	}
 
-	oms := make([]OutMessage, 0)
+	om := NewPatchBrowser(l.Name)
+
+	om.Name = EventLiveDom
 	if len(l.rendered) > 0 {
 
 		changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
@@ -206,20 +208,20 @@ func (l *LiveComponent) LiveRender() ([]OutMessage, error) {
 		}
 
 		for _, instruction := range changeInstructions {
-			oms = append(oms, OutMessage{
-				Name:        EventLiveDom,
-				Type:        strconv.Itoa(int(instruction.Type)),
-				Attr:        instruction.Attr,
-				ComponentId: instruction.ComponentId,
-				Content:     instruction.Content,
-				Path:        PathToComponentRoot(instruction.Element),
+			path := PathToComponentRoot(instruction.Element)
+
+			om.Root.AddPathInstruction(path, PatchInstruction{
+				Name:    EventLiveDom,
+				Type:    strconv.Itoa(int(instruction.Type)),
+				Attr:    instruction.Attr,
+				Content: instruction.Content,
 			})
 		}
 	}
 
 	l.rendered = newRender
 
-	return oms, nil
+	return om, nil
 }
 
 var re = regexp.MustCompile(`<([a-z0-9]+)`)
