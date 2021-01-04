@@ -181,7 +181,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 			return
 		}
 
-		inMsg := InMessage{}
+		inMsg := BrowserEvent{}
 		err := c.ReadJSON(&inMsg)
 
 		if err != nil {

@@ -7,49 +7,34 @@ const (
 	EventLiveDisconnect = "lx"
 )
 
-type InMessage struct {
+type BrowserEvent struct {
 	Name         string `json:"name"`
-	ComponentId  string `json:"component_id"`
+	ComponentID  string `json:"component_id"`
 	MethodName   string `json:"method_name"`
 	MethodParams string `json:"method_params"`
 	StateKey     string `json:"key"`
 	StateValue   string `json:"value"`
 }
 
-type OutMessage struct {
-	Name        string      `json:"name"`
-	ComponentId string      `json:"component_id"`
-	Type        string      `json:"type"`
-	Attr        interface{} `json:"attr,omitempty"`
-	Content     string      `json:"content,omitempty"`
-	Path        []int       `json:"path"`
-}
-
 type Session struct {
 	LivePage   *Page
-	OutChannel chan OutMessage
+	OutChannel chan PatchBrowser
 	log        Log
 }
 
 func NewSession() *Session {
 	return &Session{
-		OutChannel: make(chan OutMessage),
+		OutChannel: make(chan PatchBrowser),
 	}
 }
 
-func (s *Session) QueueMessage(message OutMessage) {
+func (s *Session) QueueMessage(message PatchBrowser) {
 	go func() {
 		s.OutChannel <- message
 	}()
 }
 
-func (s *Session) QueueMessages(messages []OutMessage) {
-	for _, message := range messages {
-		s.QueueMessage(message)
-	}
-}
-
-func (s *Session) IngestMessage(message InMessage) error {
+func (s *Session) IngestMessage(message BrowserEvent) error {
 	err := s.LivePage.HandleMessage(message)
 	if err != nil {
 		return err
@@ -97,7 +82,7 @@ func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 		return err
 	}
 
-	s.QueueMessages(changes)
+	s.QueueMessage(*changes)
 
 	return nil
 }
