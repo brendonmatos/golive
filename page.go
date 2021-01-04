@@ -126,7 +126,7 @@ func (lp *Page) HandleMessage(m InMessage) error {
 		}
 	case EventLiveMethod:
 		{
-			return c.InvokeMethodInPath(m.MethodName, m.MethodParams)
+			return c.InvokeMethodInPath(m.MethodName, m.MethodData, m.DOMEvent)
 		}
 	case EventLiveDisconnect:
 		{
