@@ -39,6 +39,7 @@ type LiveComponent struct {
 	html           *html.Node
 	rootNode       *html.Node
 	rendered       string
+	renderedHTML   *html.Node
 }
 
 // NewLiveComponent ...
@@ -54,10 +55,6 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 	}
 }
 
-func (l *LiveComponent) createUniqueName() string {
-	return l.Name + "_" + NewLiveId().GenerateSmall()
-}
-
 func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
 
 	child, ok := fn.Interface().(*LiveComponent)
@@ -66,9 +63,6 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 		l.log(LogError, "child not a *golive.LiveComponent", nil)
 		return ""
 	}
-	l.log(LogDebug, "will mount child", nil)
-
-	l.log(LogDebug, "child mounted", nil)
 
 	render, err := child.Render()
 	if err != nil {
@@ -126,24 +120,6 @@ func (l *LiveComponent) Prepare(updatesChannel *ComponentLifeCycle) error {
 	return nil
 }
 
-func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
-	components := make([]*LiveComponent, 0)
-	v := reflect.ValueOf(l.component).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		if !v.Field(i).CanInterface() {
-			continue
-		}
-
-		lc, ok := v.Field(i).Interface().(*LiveComponent)
-		if !ok {
-			continue
-		}
-
-		components = append(components, lc)
-	}
-	return components
-}
-
 func (l *LiveComponent) CreateChildren() {
 	for _, child := range l.getChildrenComponents() {
 		child.Create()
@@ -169,23 +145,20 @@ func (l *LiveComponent) PrepareChildren() {
 // Mount 2. the component loading html
 func (l *LiveComponent) Mount() error {
 
-	if l.updatesChannel == nil {
-		return fmt.Errorf("component is not prepared")
+	if !l.IsPrepared {
+		return fmt.Errorf("component need to be prepared")
 	}
 
 	l.notifyStage(WillMount)
 
 	l.component.BeforeMount(l)
-	l.IsMounted = true
-
 	l.component.Mounted(l)
-
 	l.MountChildren()
+	l.IsMounted = true
 
 	l.notifyStage(Mounted)
 
 	return nil
-
 }
 
 // GetFieldFromPath ...
@@ -246,11 +219,56 @@ func (l *LiveComponent) Render() (string, error) {
 
 	err := l.htmlTemplate.Execute(s, l.component)
 
+	dom, err := CreateDOMFromString(s.String())
+
+	for _, node := range GetAllChildrenRecursive(dom) {
+		attrs := AttrMapFromNode(node)
+
+		if liveInputParam, ok := attrs["go-live-input"]; ok {
+			if inputType, ok := attrs["type"]; ok && inputType == "checkbox" {
+
+				f := l.GetFieldFromPath(liveInputParam)
+
+				if f.Bool() {
+					node.Attr = append(node.Attr, html.Attribute{
+						Namespace: "",
+						Key:       "checked",
+						Val:       "checked",
+					})
+
+				} else {
+
+					node.Attr = append(node.Attr, func(attrs []html.Attribute) []html.Attribute {
+						n := make([]html.Attribute, 0)
+
+						for _, attr := range attrs {
+							if attr.Key == "checked" {
+								continue
+							}
+
+							n = append(n, attr)
+
+						}
+						return n
+					}(node.Attr)...)
+				}
+
+			} else {
+				node.Attr = append(node.Attr, html.Attribute{
+					Namespace: "",
+					Key:       "value",
+					Val:       liveInputParam,
+				})
+
+			}
+		}
+	}
+
 	if err != nil {
 		return "", err
 	}
 
-	return s.String(), nil
+	return RenderNodeToString(dom)
 }
 
 // LiveRender render a new version of the component, and detect
@@ -264,42 +282,57 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 	}
 
 	om := NewPatchBrowser(l.Name)
-
 	om.Name = EventLiveDom
 
-	if len(l.rendered) > 0 {
+	changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
 
-		changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
-
-		if err != nil {
-			l.log(LogPanic, "there is a error in diff", logEx{"error": err})
-		}
-
-		for _, instruction := range changeInstructions {
-
-			selector, err := SelectorFromNode(instruction.Element)
-
-			if err != nil {
-				continue
-				// l.log(LogPanic, "there is a error in selector", logEx{"error": err})
-			}
-
-			om.AddInstruction(PatchInstruction{
-				Name:     EventLiveDom,
-				Type:     strconv.Itoa(int(instruction.Type)),
-				Attr:     instruction.Attr,
-				Content:  instruction.Content,
-				Selector: selector,
-			})
-		}
+	if err != nil {
+		l.log(LogPanic, "there is a error in diff", logEx{"error": err})
 	}
 
-	l.rendered = newRender
+	for _, instruction := range changeInstructions {
+
+		selector, err := SelectorFromNode(instruction.Element)
+
+		if err != nil {
+			l.log(LogPanic, "there is a error in selector", logEx{"error": err})
+		}
+
+		om.AddInstruction(PatchInstruction{
+			Name:     EventLiveDom,
+			Type:     strconv.Itoa(int(instruction.Type)),
+			Attr:     instruction.Attr,
+			Content:  instruction.Content,
+			Selector: selector,
+		})
+	}
 
 	return om, nil
 }
 
 var re = regexp.MustCompile(`<([a-z0-9]+)`)
+
+func (l *LiveComponent) createUniqueName() string {
+	return l.Name + "_" + NewLiveId().GenerateSmall()
+}
+
+func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
+	components := make([]*LiveComponent, 0)
+	v := reflect.ValueOf(l.component).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		if !v.Field(i).CanInterface() {
+			continue
+		}
+
+		lc, ok := v.Field(i).Interface().(*LiveComponent)
+		if !ok {
+			continue
+		}
+
+		components = append(components, lc)
+	}
+	return components
+}
 
 func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
 	*l.updatesChannel <- ComponentLifeTimeMessage{
@@ -344,7 +377,7 @@ func (l *LiveComponent) addGoLiveElementsUID() {
 	for index, node := range append(GetAllChildrenRecursive(l.html), l.html) {
 		node.Attr = append(node.Attr, html.Attribute{
 			Key: "go-live-uid",
-			Val: l.Name + "-" + strconv.FormatInt(int64(index), 16),
+			Val: l.Name + "_" + strconv.FormatInt(int64(index), 16),
 		})
 	}
 

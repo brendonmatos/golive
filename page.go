@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"strconv"
 )
 
 var BasePage *template.Template
@@ -22,12 +21,12 @@ type PageEnum struct {
 	EventLiveInput   string
 	EventLiveMethod  string
 	EventLiveDom     string
-	DiffSetAttr      string
-	DiffRemoveAttr   string
-	DiffReplace      string
-	DiffRemove       string
-	DiffSetInnerHtml string
-	DiffAppend       string
+	DiffSetAttr      DiffType
+	DiffRemoveAttr   DiffType
+	DiffReplace      DiffType
+	DiffRemove       DiffType
+	DiffSetInnerHtml DiffType
+	DiffAppend       DiffType
 }
 
 type LivePageEvent struct {
@@ -77,7 +76,12 @@ func (lp *Page) Mount() {
 	lp.handleComponentsLifeTime()
 
 	// Call the component in sequence of life cycle
-	lp.entry.Create()
+	err := lp.entry.Create()
+
+	if err != nil {
+		panic(err)
+	}
+
 	lp.entry.Prepare(lp.ComponentsLifeCycle)
 	lp.entry.Mount()
 }
@@ -90,17 +94,18 @@ func (lp *Page) Render() (string, error) {
 	}
 
 	lp.entry.rendered = rendered
+
 	lp.content.Body = template.HTML(rendered)
 	lp.content.Enum = PageEnum{
 		EventLiveInput:   EventLiveInput,
 		EventLiveMethod:  EventLiveMethod,
 		EventLiveDom:     EventLiveDom,
-		DiffSetAttr:      strconv.Itoa(int(SetAttr)),
-		DiffRemoveAttr:   strconv.Itoa(int(RemoveAttr)),
-		DiffReplace:      strconv.Itoa(int(Replace)),
-		DiffRemove:       strconv.Itoa(int(Remove)),
-		DiffSetInnerHtml: strconv.Itoa(int(SetInnerHtml)),
-		DiffAppend:       strconv.Itoa(int(Append)),
+		DiffSetAttr:      SetAttr,
+		DiffRemoveAttr:   RemoveAttr,
+		DiffReplace:      Replace,
+		DiffRemove:       Remove,
+		DiffSetInnerHtml: SetInnerHtml,
+		DiffAppend:       Append,
 	}
 
 	writer := bytes.NewBufferString("")
