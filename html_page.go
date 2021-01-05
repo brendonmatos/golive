@@ -110,7 +110,7 @@ var BasePageString = `<!DOCTYPE html>
       "{{ .Enum.DiffRemoveAttr }}": handleDiffRemoveAttr,
       "{{ .Enum.DiffReplace }}": handleDiffReplace,
       "{{ .Enum.DiffRemove }}": handleDiffRemove,
-      "{{ .Enum.DiffSetInnerHtml }}": handleDiffSetInnerHTML,
+      "{{ .Enum.DiffSetInnerHTML }}": handleDiffSetInnerHTML,
       "{{ .Enum.DiffAppend }}": handleDiffAppend,
     };
 

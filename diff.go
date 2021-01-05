@@ -88,7 +88,7 @@ func RecursiveDiff(changeList *[]ChangeInstruction, actual, proposed []*html.Nod
 				fromNode = actual[index]
 			}
 
-			TextDiff(changeList, fromNode, proposedNode)
+			textDiff(changeList, fromNode, proposedNode)
 		}
 	}
 
@@ -120,7 +120,7 @@ func RecursiveDiff(changeList *[]ChangeInstruction, actual, proposed []*html.Nod
 		for _, node := range toRemoveNodes {
 
 			if node.Type == html.TextNode {
-				TextDiff(changeList, &html.Node{}, node)
+				textDiff(changeList, &html.Node{}, node)
 				break
 			}
 
@@ -150,8 +150,8 @@ func RecursiveDiff(changeList *[]ChangeInstruction, actual, proposed []*html.Nod
 		  text to be inside of any dom element
 		*/
 		if toNode.Type == html.TextNode {
-			TextDiff(changeList, fromNode, toNode)
-		} else if !IsChildrenTheSame(toNode, fromNode) {
+			textDiff(changeList, fromNode, toNode)
+		} else if !isChildrenTheSame(toNode, fromNode) {
 			if fromNode.Type == html.TextNode {
 				continue
 			}
@@ -165,7 +165,7 @@ func RecursiveDiff(changeList *[]ChangeInstruction, actual, proposed []*html.Nod
 
 }
 
-func TextDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
+func textDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 
 	if to.Type != html.TextNode {
 		// It is not text
@@ -228,7 +228,7 @@ func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 
 // IsChildrenTheSame todo
 
-func IsChildrenTheSame(n *html.Node, other *html.Node) bool {
+func isChildrenTheSame(n *html.Node, other *html.Node) bool {
 	actual, _ := RenderNodesToString(GetChildrenFromNode(n))
 	proposed, _ := RenderNodesToString(GetChildrenFromNode(other))
 	return actual == proposed

@@ -1,6 +1,7 @@
 package golive
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -124,6 +125,30 @@ func TestDiffRegressionToLongerThanFrom(t *testing.T) {
 		} else {
 			t.Error("err, unexpected type =", diff.Type)
 		}
+	}
+
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDiffRegressionToLongerThanFrom2(t *testing.T) {
+	t.Parallel()
+
+	a := `<div go-live-component-id="live"><h1>Hello world<span></span><span></span></h1></div>`
+	b := `<div go-live-component-id="live"><h1>Hello world<span>a</span></h1></div>`
+
+	diffs, err := GetDiffFromRawHTML(a, b)
+
+	if len(diffs) != 2 {
+		t.Error("expecting 2 diffs receiving", len(diffs))
+		return
+	}
+
+	for _, diff := range diffs {
+		selector, _ := SelectorFromNode(diff.Element)
+
+		fmt.Println(selector)
 	}
 
 	if err != nil {
