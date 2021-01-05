@@ -86,6 +86,10 @@ func SelectorFromNode(e *html.Node) string {
 
 			if attr, ok := attrs["id"]; ok {
 				if len(attr) > 0 {
+					if len(selector) == 0 {
+						return "#" + strings.TrimSpace(attr)
+					}
+
 					elementSelector = elementSelector + "#" + strings.TrimSpace(attr)
 				}
 			}
