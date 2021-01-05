@@ -11,13 +11,13 @@
 
     const findLiveInputsFromElement = (el) => {
       return el.querySelectorAll(
-        `*[go-live-input]:not([${GO_LIVE_CONNECTED}])`
+        ['*[go-live-input]:not([', GO_LIVE_CONNECTED, '])'].join('')
       );
     };
 
     const findLiveClicksFromElement = (el) => {
       return el.querySelectorAll(
-        `*[go-live-click]:not([${GO_LIVE_CONNECTED}])`
+        ['*[go-live-click]:not([', GO_LIVE_CONNECTED, '])'].join('')
       );
     };
 
@@ -111,40 +111,6 @@
       "{{ .Enum.DiffSetInnerHtml }}": handleDiffSetInnerHTML,
       "{{ .Enum.DiffAppend }}": handleDiffAppend,
     };
-
-    function applyPatch(tree, element, componentId) {
-      // Iterate over children
-      for (const index in tree.c) {
-        const el = getElementChild(element, index);
-
-        const childTree = tree.c[index];
-        if (childTree && (childTree.c || childTree.i)) {
-          applyPatch(childTree, el, componentId);
-        }
-      }
-
-      if (tree.i) {
-        for (const instruction of tree.i) {
-          const type = instruction.t;
-          const content = instruction.c;
-          const attr = instruction.a;
-
-          if (element === null || !element) {
-            console.log({ element, tree, attr, content });
-            return;
-          }
-
-          handleChange[type](
-            {
-              content: content,
-              attr: attr,
-            },
-            element,
-            componentId
-          );
-        }
-      }
-    }
 
     const goLive = {
       server: new WebSocket(["ws://", window.location.host, "/ws"].join("")),
@@ -278,12 +244,24 @@
         goLive.connectElement(id, element);
 
         goLive.on("{{ .Enum.EventLiveDom }}", function handleLiveDom(message) {
-          if (id === message.i) {
-            let tree = message.r;
-            if (tree && tree.c && tree.c[0]) {
-              tree = tree.c[0];
+          if (id === message.cid) {
+            for (const instruction of message.i) {
+              const type = instruction.t;
+              const content = instruction.c;
+              const attr = instruction.a;
+              const selector = instruction.s;
+
+              const element = document.querySelector(selector)
+
+              handleChange[type](
+                {
+                  content: content,
+                  attr: attr,
+                },
+                element,
+                id
+              );
             }
-            applyPatch(tree, element, id);
           }
         });
       },

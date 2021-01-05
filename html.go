@@ -21,24 +21,23 @@ func AttrMapFromNode(node *html.Node) map[string]string {
 // CreateDOMFromString todo
 func CreateDOMFromString(data string) (*html.Node, error) {
 	reader := bytes.NewReader([]byte(data))
-	fragments, err := html.ParseFragmentWithOptions(reader, &html.Node{
+
+	parent := &html.Node{
 		Type:     html.ElementNode,
 		Data:     "div",
-		DataAtom: atom.Div})
+		DataAtom: atom.Div}
+
+	fragments, err := html.ParseFragmentWithOptions(reader, parent)
 
 	if err != nil {
 		return nil, err
 	}
 
 	for _, node := range fragments {
-		if node.DataAtom != atom.Div {
-			continue
-		}
-
-		return node, nil
+		parent.AppendChild(node)
 	}
 
-	return nil, fmt.Errorf("there is no element returned")
+	return parent, nil
 }
 
 // RenderNodeToString todo
@@ -113,8 +112,6 @@ func SelectorFromNode(e *html.Node) (string, error) {
 	attrs := AttrMapFromNode(e)
 
 	if e.Type == html.ElementNode {
-
-		fmt.Println(attrs)
 
 		if attr, ok := attrs["go-live-uid"]; ok {
 
