@@ -1,16 +1,24 @@
 package golive
 
+type LifeTimeStage int
+
 const (
-	WillMount = iota
+	WillMount LifeTimeStage = iota
 	Mounted
 	Rendered
 	Updated
 	WillUnmount
 	Unmounted
+
+	WillMountChildren
+	ChildrenMounted
+
+	WillPrepareChildren
+	ChildrenPrepared
 )
 
 type ComponentLifeTimeMessage struct {
-	Stage     int
+	Stage     LifeTimeStage
 	Component *LiveComponent
 }
 

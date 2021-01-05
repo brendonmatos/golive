@@ -54,12 +54,12 @@ func (s *Session) ActivatePage(lp *Page) {
 		for {
 			// Receive all the events from page
 			pageUpdate := <-lp.Events
-			if pageUpdate.Type == Updated {
+			if pageUpdate.Type == int(Updated) {
 				if err := s.LiveRenderComponent(pageUpdate.Component); err != nil {
 					s.log(LogError, "component live render", logEx{"error": err})
 				}
 			}
-			if pageUpdate.Type == Unmounted {
+			if pageUpdate.Type == int(Unmounted) {
 				// TODO: Treat unmount
 				return
 			}
