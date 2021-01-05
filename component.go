@@ -89,7 +89,6 @@ func (l *LiveComponent) Create() error {
 
 	l.addWSConnectScript()
 	l.addGoLiveComponentIDAttribute()
-	l.addGoLiveElementsUID()
 
 	templateString, err = RenderNodeToString(l.rootNode)
 
@@ -219,47 +218,43 @@ func (l *LiveComponent) Render() (string, error) {
 
 	err := l.htmlTemplate.Execute(s, l.component)
 
+	if err != nil {
+		return "", err
+	}
+
 	dom, err := CreateDOMFromString(s.String())
 
-	for _, node := range GetAllChildrenRecursive(dom) {
+	if err != nil {
+		return "", err
+	}
+
+	// Post treatment
+	for index, node := range GetAllChildrenRecursive(dom) {
+
 		attrs := AttrMapFromNode(node)
 
-		if liveInputParam, ok := attrs["go-live-input"]; ok {
-			if inputType, ok := attrs["type"]; ok && inputType == "checkbox" {
+		addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(index), 16))
 
-				f := l.GetFieldFromPath(liveInputParam)
-
-				if f.Bool() {
-					node.Attr = append(node.Attr, html.Attribute{
-						Namespace: "",
-						Key:       "checked",
-						Val:       "checked",
-					})
-
-				} else {
-
-					node.Attr = append(node.Attr, func(attrs []html.Attribute) []html.Attribute {
-						n := make([]html.Attribute, 0)
-
-						for _, attr := range attrs {
-							if attr.Key == "checked" {
-								continue
-							}
-
-							n = append(n, attr)
-
-						}
-						return n
-					}(node.Attr)...)
-				}
-
+		if isElementDisabled, ok := attrs[":disabled"]; ok {
+			if isElementDisabled == "true" {
+				addNodeAttribute(node, "disabled", "disabled")
 			} else {
-				node.Attr = append(node.Attr, html.Attribute{
-					Namespace: "",
-					Key:       "value",
-					Val:       liveInputParam,
-				})
+				removeNodeAttribute(node, "disabled")
+			}
+		}
 
+		if liveInputParam, ok := attrs["go-live-input"]; ok {
+
+			f := l.GetFieldFromPath(liveInputParam)
+
+			if inputType, ok := attrs["type"]; ok && inputType == "checkbox" {
+				if f.Bool() {
+					addNodeAttribute(node, "checked", "checked")
+				} else {
+					removeNodeAttribute(node, "checked")
+				}
+			} else {
+				addNodeAttribute(node, "value", fmt.Sprintf("%v", f))
 			}
 		}
 	}
@@ -283,6 +278,11 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 
 	om := NewPatchBrowser(l.Name)
 	om.Name = EventLiveDom
+
+	if l.rendered == newRender {
+		l.log(LogDebug, "render is identical with last", nil)
+		return om, nil
+	}
 
 	changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
 
@@ -336,10 +336,12 @@ func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
 }
 
 func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     ltu,
-		Component: l,
-	}
+	go func() {
+		*l.updatesChannel <- ComponentLifeTimeMessage{
+			Stage:     ltu,
+			Component: l,
+		}
+	}()
 }
 
 func (l *LiveComponent) addWSConnectScript() {
@@ -370,17 +372,6 @@ func (l *LiveComponent) addGoLiveComponentIDAttribute() {
 		Key: "go-live-component-id",
 		Val: l.Name,
 	})
-
-}
-
-func (l *LiveComponent) addGoLiveElementsUID() {
-	// parent.FirstChild
-	for index, node := range append(GetAllChildrenRecursive(l.html), l.html) {
-		node.Attr = append(node.Attr, html.Attribute{
-			Key: "go-live-uid",
-			Val: l.Name + "_" + strconv.FormatInt(int64(index), 16),
-		})
-	}
 
 }
 

@@ -194,6 +194,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 		s.Log(LogDebug, "websocket request", logEx{"msg": inMsg})
 
 		err = session.IngestMessage(inMsg)
+
 		if err != nil {
 			errors <- err
 		}

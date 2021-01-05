@@ -177,9 +177,6 @@ func SelectorFromNode(e *html.Node) (string, error) {
 		if attr, ok := attrs["go-live-uid"]; ok {
 			es.addAttr("go-live-uid", attr)
 
-			if attr, ok := attrs["key"]; ok {
-				es.addAttr("key", attr)
-			}
 		}
 	}
 
@@ -231,4 +228,24 @@ func PathToComponentRoot(e *html.Node) []int {
 	}
 
 	return path
+}
+
+func removeNodeAttribute(e *html.Node, key string) {
+	n := make([]html.Attribute, 0)
+
+	for _, attr := range e.Attr {
+		if attr.Key == key {
+			continue
+		}
+		n = append(n, attr)
+	}
+
+	e.Attr = n
+}
+
+func addNodeAttribute(e *html.Node, key, value string) {
+	e.Attr = append(e.Attr, html.Attribute{
+		Key: key,
+		Val: value,
+	})
 }

@@ -25,7 +25,7 @@ type PageEnum struct {
 	DiffRemoveAttr   DiffType
 	DiffReplace      DiffType
 	DiffRemove       DiffType
-	DiffSetInnerHtml DiffType
+	DiffSetInnerHTML DiffType
 	DiffAppend       DiffType
 }
 
@@ -38,7 +38,7 @@ type LiveEventsChannel chan LivePageEvent
 
 type Page struct {
 	content             PageContent
-	Events              LiveEventsChannel
+	SessionEvents       LiveEventsChannel
 	ComponentsLifeCycle *ComponentLifeCycle
 
 	entry *LiveComponent
@@ -62,7 +62,7 @@ func NewLivePage(c *LiveComponent) *Page {
 
 	return &Page{
 		entry:               c,
-		Events:              pageEventsChannel,
+		SessionEvents:       pageEventsChannel,
 		ComponentsLifeCycle: &componentsUpdatesChannel,
 		Components:          make(map[string]*LiveComponent),
 	}
@@ -104,7 +104,7 @@ func (lp *Page) Render() (string, error) {
 		DiffRemoveAttr:   RemoveAttr,
 		DiffReplace:      Replace,
 		DiffRemove:       Remove,
-		DiffSetInnerHtml: SetInnerHtml,
+		DiffSetInnerHTML: SetInnerHtml,
 		DiffAppend:       Append,
 	}
 
@@ -113,11 +113,21 @@ func (lp *Page) Render() (string, error) {
 	return writer.String(), err
 }
 
-func (lp *Page) ForceUpdate() {
-	lp.Events <- LivePageEvent{
-		Type:      int(Updated),
-		Component: lp.entry,
+func (lp *Page) SendSessionEvent(lts LifeTimeStage, c *LiveComponent) {
+	if c == nil {
+		c = lp.entry
 	}
+
+	go func() {
+		lp.SessionEvents <- LivePageEvent{
+			Type:      int(lts),
+			Component: c,
+		}
+	}()
+}
+
+func (lp *Page) SendUpdate() {
+	lp.SendSessionEvent(Updated, nil)
 }
 
 func (lp *Page) HandleMessage(m BrowserEvent) error {
@@ -159,10 +169,7 @@ func (lp *Page) handleComponentsLifeTime() {
 				lp.Components[update.Component.Name] = update.Component
 				break
 			case Updated:
-				lp.Events <- LivePageEvent{
-					Type:      int(Updated),
-					Component: update.Component,
-				}
+				lp.SendSessionEvent(Updated, update.Component)
 				break
 			case WillUnmount:
 				break

@@ -35,13 +35,15 @@ func (s *Session) QueueMessage(message PatchBrowser) {
 }
 
 func (s *Session) IngestMessage(message BrowserEvent) error {
+
 	err := s.LivePage.HandleMessage(message)
 
 	if err != nil {
 		return err
 	}
 
-	s.LivePage.ForceUpdate()
+	s.LivePage.SendUpdate()
+
 	return nil
 }
 
@@ -53,13 +55,13 @@ func (s *Session) ActivatePage(lp *Page) {
 	go func() {
 		for {
 			// Receive all the events from page
-			pageUpdate := <-lp.Events
-			if pageUpdate.Type == int(Updated) {
-				if err := s.LiveRenderComponent(pageUpdate.Component); err != nil {
+			evt := <-lp.SessionEvents
+			if evt.Type == int(Updated) {
+				if err := s.LiveRenderComponent(evt.Component); err != nil {
 					s.log(LogError, "component live render", logEx{"error": err})
 				}
 			}
-			if pageUpdate.Type == int(Unmounted) {
+			if evt.Type == int(Unmounted) {
 				// TODO: Treat unmount
 				return
 			}
