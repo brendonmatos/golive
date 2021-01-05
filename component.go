@@ -46,25 +46,27 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 		component: time,
 		rootNode: &html.Node{
 			Type:     html.ElementNode,
-			Data:     "body",
-			DataAtom: atom.Body,
+			Data:     "div",
+			DataAtom: atom.Div,
 		},
 	}
 }
 
-func (l *LiveComponent) getName() string {
+func (l *LiveComponent) createUniqueName() string {
 	return l.Name + "_" + NewLiveId().GenerateSmall()
 }
 
 func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
+
 	child, ok := fn.Interface().(*LiveComponent)
+
 	if !ok {
 		l.log(LogError, "child not a *golive.LiveComponent", nil)
-
 		return ""
 	}
+	l.log(LogDebug, "will mount child", nil)
 
-	child.Mount()
+	l.log(LogDebug, "child mounted", nil)
 
 	render, err := child.Render()
 	if err != nil {
@@ -78,14 +80,13 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 func (l *LiveComponent) Prepare() error {
 	var err error
 
-	l.Name = l.getName()
+	l.Name = l.createUniqueName()
 
 	templateString := l.component.TemplateHandler(l)
 
 	l.html, err = CreateDOMFromString(templateString)
 
 	if err != nil {
-		fmt.Println("error", err)
 		return err
 	}
 
@@ -98,7 +99,6 @@ func (l *LiveComponent) Prepare() error {
 	templateString, err = RenderNodeToString(l.rootNode)
 
 	if err != nil {
-		fmt.Println("error", err)
 		return err
 	}
 
@@ -119,7 +119,8 @@ func (l *LiveComponent) Prepare() error {
 	return err
 }
 
-func (l *LiveComponent) PrepareChildren() {
+func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
+	components := make([]*LiveComponent, 0)
 	v := reflect.ValueOf(l.component).Elem()
 	for i := 0; i < v.NumField(); i++ {
 		if !v.Field(i).CanInterface() {
@@ -127,18 +128,31 @@ func (l *LiveComponent) PrepareChildren() {
 		}
 
 		lc, ok := v.Field(i).Interface().(*LiveComponent)
-
 		if !ok {
 			continue
 		}
 
-		lc.updatesChannel = l.updatesChannel
-		lc.Prepare()
+		components = append(components, lc)
+	}
+	return components
+}
+
+func (l *LiveComponent) MountChildren() {
+	for _, child := range l.getChildrenComponents() {
+		child.Mount()
+	}
+}
+
+func (l *LiveComponent) PrepareChildren() {
+	for _, child := range l.getChildrenComponents() {
+		child.updatesChannel = l.updatesChannel
+		child.Prepare()
 	}
 }
 
 // Mount 2. the component loading html
 func (l *LiveComponent) Mount() {
+
 	*l.updatesChannel <- ComponentLifeTimeMessage{
 		Stage:     WillMount,
 		Component: l,
@@ -148,6 +162,8 @@ func (l *LiveComponent) Mount() {
 	l.IsMounted = true
 
 	l.component.Mounted(l)
+
+	l.MountChildren()
 
 	*l.updatesChannel <- ComponentLifeTimeMessage{
 		Stage:     Mounted,

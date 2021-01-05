@@ -12,8 +12,6 @@ var BasePage *template.Template
 func init() {
 	var err error
 
-	// htmlBytes, _ := ioutil.ReadFile("./base.html")
-	// BasePage, err = template.New("BasePage").Parse(string(htmlBytes))
 	BasePage, err = template.New("BasePage").Parse(BasePageString)
 	if err != nil {
 		panic(err)
@@ -94,7 +92,6 @@ func (lp *Page) Render() (string, error) {
 	}
 
 	lp.entry.rendered = rendered
-
 	lp.content.Body = template.HTML(rendered)
 	lp.content.Enum = PageEnum{
 		EventLiveInput:   EventLiveInput,
