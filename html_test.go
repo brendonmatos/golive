@@ -28,7 +28,7 @@ func TestSelectorFromNode(t *testing.T) {
 
 	dom, _ := CreateDOMFromString(html)
 
-	node := dom.LastChild.LastChild.LastChild.LastChild.LastChild.FirstChild
+	node := dom.FirstChild.FirstChild.LastChild.FirstChild
 	if node.Data != "a" {
 		t.Error("value was not parsed correctly")
 	}
@@ -44,7 +44,7 @@ func TestSelectorFromEmptyNode(t *testing.T) {
 
 	dom, _ := CreateDOMFromString(a)
 
-	node := dom.LastChild.LastChild.LastChild.LastChild.LastChild
+	node := dom.LastChild.LastChild.LastChild
 
 	if node.Data != "span" || node.FirstChild != nil {
 		t.Error("value was not parsed correctly")

@@ -9,6 +9,61 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
+type DOMElemSelector struct {
+	query []string
+}
+
+func NewDOMElementSelector() *DOMElemSelector {
+	return &DOMElemSelector{
+		query: []string{},
+	}
+}
+
+func (de *DOMElemSelector) setElemen(elemn string) {
+	de.query = append(de.query, elemn)
+}
+
+func (de *DOMElemSelector) addAttr(key, value string) {
+	de.query = append(de.query, "[", key, "=\"", value, "\"]")
+}
+func (de *DOMElemSelector) toString() string {
+	return strings.Join(de.query, "")
+}
+
+type DOMSelector struct {
+	query []*DOMElemSelector
+}
+
+func NewDOMSelector() *DOMSelector {
+	return &DOMSelector{
+		query: make([]*DOMElemSelector, 0),
+	}
+}
+
+func (ds *DOMSelector) addChild() *DOMElemSelector {
+	de := NewDOMElementSelector()
+
+	ds.query = append(ds.query, de)
+	return de
+}
+
+func (ds *DOMSelector) addParent() *DOMElemSelector {
+	de := NewDOMElementSelector()
+
+	ds.query = append([]*DOMElemSelector{de}, ds.query...)
+	return de
+}
+
+func (ds *DOMSelector) toString() string {
+	e := []string{}
+
+	for _, q := range ds.query {
+		e = append(e, q.toString())
+	}
+
+	return strings.Join(e, " ")
+}
+
 // AttrMapFromNode todo
 func AttrMapFromNode(node *html.Node) map[string]string {
 	m := map[string]string{}
@@ -106,35 +161,57 @@ func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 }
 
 // SelectorFromNode
-// TODO: Iterate over parents to find key or go-live-component-id to ensure that is unique
 func SelectorFromNode(e *html.Node) (string, error) {
 
-	elementSelector := []string{"*"}
-	attrs := AttrMapFromNode(e)
+	err := fmt.Errorf("could not provide a valid selector")
+
+	selector := NewDOMSelector()
 
 	if e.Type == html.ElementNode {
 
-		if attr, ok := attrs["go-live-uid"]; ok {
+		attrs := AttrMapFromNode(e)
 
-			elementSelector = append(elementSelector, "[go-live-uid=\"", attr, "\"]")
+		es := selector.addChild()
+		es.setElemen("*")
+
+		if attr, ok := attrs["go-live-uid"]; ok {
+			es.addAttr("go-live-uid", attr)
 
 			if attr, ok := attrs["key"]; ok {
-				elementSelector = append(elementSelector, "[key=\"", attr, "\"]")
+				es.addAttr("key", attr)
 			}
-
-			selector := strings.Join(elementSelector, "")
-			return selector, nil
 		}
-
-		if attr, ok := attrs["go-live-component-id"]; ok {
-			elementSelector = append(elementSelector, "[go-live-component-id=", attr, "]")
-			selector := strings.Join(elementSelector, "")
-			return selector, nil
-		}
-
 	}
 
-	return "", fmt.Errorf("could not provide a valid selector")
+	for parent := e.Parent; parent != nil; parent = parent.Parent {
+
+		attrs := AttrMapFromNode(e)
+
+		es := NewDOMElementSelector()
+		es.setElemen("*")
+
+		found := false
+		if attr, ok := attrs["go-live-component-id"]; ok {
+			es.addAttr("go-live-component-id", attr)
+			found = true
+		}
+		if attr, ok := attrs["go-live-uid"]; ok {
+			es.addAttr("go-live-uid", attr)
+			found = true
+		}
+
+		if attr, ok := attrs["key"]; ok && found {
+			es.addAttr("key", attr)
+		}
+
+		if !found {
+			continue
+		}
+
+		return selector.toString(), nil
+	}
+
+	return "", err
 }
 
 // PathToComponentRoot todo

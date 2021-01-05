@@ -253,6 +253,12 @@
 
               const element = document.querySelector(selector)
 
+              console.log(element, selector)
+              if (!element) {
+                console.error("Element not found", selector)
+                return 
+              }
+
               handleChange[type](
                 {
                   content: content,

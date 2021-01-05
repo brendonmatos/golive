@@ -18,8 +18,8 @@ func TestDiff(t *testing.T) {
 	}
 
 	diff := diffs[0]
-	if diff.Type != Remove {
-		t.Error("err, expecting type =", Remove, "received =", diff.Type)
+	if diff.Type != SetInnerHtml {
+		t.Error("err, expecting type =", SetInnerHtml, "received =", diff.Type)
 	}
 }
 
@@ -34,8 +34,8 @@ func TestDiffPathFromRemovedNode(t *testing.T) {
 		t.Error("expecting 1 diff")
 	}
 
-	if diffs[0].Type != Remove {
-		t.Error("expecting diff to be of type remove =", Remove)
+	if diffs[0].Type != SetInnerHtml {
+		t.Error("expecting diff to be of type set inner html")
 	}
 }
 
@@ -59,8 +59,8 @@ func TestDiffPathFromAppendTextAndSpan(t *testing.T) {
 				t.Error("err, unexpected selector =", selector)
 				return
 			}
-		} else if diff.Type == Remove {
-			if !reflect.DeepEqual(selector, []int{0, 0, 1, 0}) {
+		} else if diff.Type == SetInnerHtml {
+			if !reflect.DeepEqual(selector, []int{0, 0, 1}) {
 				t.Error("err, unexpected selector =", selector)
 				return
 			}
@@ -89,7 +89,7 @@ func TestGetDiffFromNodes(t *testing.T) {
 		t.Error("unexpected content")
 	}
 
-	if diff.Type != Append {
+	if diff.Type != SetInnerHtml {
 		t.Error("unexpected operation type, expecting append")
 	}
 }
@@ -113,7 +113,7 @@ func TestDiffRegressionToLongerThanFrom(t *testing.T) {
 			if !reflect.DeepEqual(selector, []int{0, 0, 2}) {
 				t.Error("err, unexpected selector =", selector)
 			}
-		} else if diff.Type == Append {
+		} else if diff.Type == SetInnerHtml {
 			if diff.Content != "a" {
 				t.Error("content is wrong")
 			}
