@@ -78,9 +78,9 @@ func (t *Todo) CanAdd() bool {
 func (t *Todo) TemplateHandler(_ *golive.LiveComponent) string {
 	return `<div id="todo">
 
-			<input go-live-input="Text" value="{{.Text}}" ></input>
+			<input go-live-input="Text"></input>
 			
-			<button disabled="{{.CanAdd}}" go-live-click="HandleAdd">Create</button>
+			<button :disabled="{{not .CanAdd}}" go-live-click="HandleAdd">Create</button>
 			
 			<div class="todo-tasks">
 				{{ range $index, $task := .Tasks }}

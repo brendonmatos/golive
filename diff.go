@@ -103,12 +103,10 @@ func RecursiveDiff(changeList *[]ChangeInstruction, actual, proposed []*html.Nod
 
 		for _, node := range toAppendNodes {
 			rendered, _ := RenderNodeToString(node)
-			componentId, _ := ComponentIdFromNode(node)
 			*changeList = append(*changeList, ChangeInstruction{
-				Type:        Append,
-				Element:     node.Parent,
-				Content:     rendered,
-				componentId: componentId,
+				Type:    Append,
+				Element: node.Parent,
+				Content: rendered,
 			})
 		}
 
@@ -195,35 +193,30 @@ func TextDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 // and adds the necessary patches to make the attributes in el match those in
 // otherEl
 func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
-	otherAttrs := AttrMapFromNode(to)
-	attrs := AttrMapFromNode(from)
+	proposedAttrs := AttrMapFromNode(to)
+	actualAttrs := AttrMapFromNode(from)
 
 	// Now iterate through the attributes in otherEl
-	for name, otherValue := range otherAttrs {
-		value, found := attrs[name]
-		if !found || value != otherValue {
+	for proposedKey, proposedValue := range proposedAttrs {
+		actualValue, ok := actualAttrs[proposedKey]
 
-			componentId, _ := ComponentIdFromNode(from)
+		if !ok || proposedValue != actualValue {
 			*changeList = append(*changeList, ChangeInstruction{
-				Type:        SetAttr,
-				componentId: componentId,
-				Element:     from,
+				Type:    SetAttr,
+				Element: from,
 				Attr: Attr{
-					Name:  name,
-					Value: otherValue,
+					Name:  proposedKey,
+					Value: proposedValue,
 				},
 			})
 		}
 	}
 
-	for attrName := range attrs {
-		if _, found := otherAttrs[attrName]; !found {
-
-			componentId, _ := ComponentIdFromNode(from)
+	for attrName := range actualAttrs {
+		if _, found := proposedAttrs[attrName]; !found {
 			*changeList = append(*changeList, ChangeInstruction{
-				Type:        RemoveAttr,
-				componentId: componentId,
-				Element:     from,
+				Type:    RemoveAttr,
+				Element: from,
 				Attr: Attr{
 					Name: attrName,
 				},

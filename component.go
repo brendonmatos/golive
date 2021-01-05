@@ -295,7 +295,8 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 		selector, err := SelectorFromNode(instruction.Element)
 
 		if err != nil {
-			l.log(LogPanic, "there is a error in selector", logEx{"error": err})
+			s, _ := RenderNodeToString(instruction.Element)
+			l.log(LogPanic, "there is a error in selector", logEx{"error": err, "element": s})
 		}
 
 		om.AddInstruction(PatchInstruction{
