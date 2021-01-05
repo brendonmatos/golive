@@ -73,12 +73,12 @@ func (lp *Page) SetContent(c PageContent) {
 	lp.content = c
 }
 
-func (lp *Page) Prepare() {
-	lp.handleComponentsLifeTime()
-	lp.entry.Prepare(lp.ComponentsLifeCycle)
-}
-
 func (lp *Page) Mount() {
+	lp.handleComponentsLifeTime()
+
+	// Call the component in sequence of life cycle
+	lp.entry.Create()
+	lp.entry.Prepare(lp.ComponentsLifeCycle)
 	lp.entry.Mount()
 }
 
@@ -110,7 +110,7 @@ func (lp *Page) Render() (string, error) {
 
 func (lp *Page) ForceUpdate() {
 	lp.Events <- LivePageEvent{
-		Type:      Updated,
+		Type:      int(Updated),
 		Component: lp.entry,
 	}
 }
@@ -155,7 +155,7 @@ func (lp *Page) handleComponentsLifeTime() {
 				break
 			case Updated:
 				lp.Events <- LivePageEvent{
-					Type:      Updated,
+					Type:      int(Updated),
 					Component: update.Component,
 				}
 				break
