@@ -76,8 +76,7 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 	return template.HTML(render)
 }
 
-// Prepare 1.
-func (l *LiveComponent) Prepare() error {
+func (l *LiveComponent) Create() error {
 	var err error
 
 	l.Name = l.createUniqueName()
@@ -110,8 +109,15 @@ func (l *LiveComponent) Prepare() error {
 		return err
 	}
 
-	l.component.Prepare(l)
+	return nil
+}
 
+// Prepare 1.
+func (l *LiveComponent) Prepare(updatesChannel *ComponentLifeCycle) error {
+	var err error
+
+	l.component.Prepare(l)
+	l.updatesChannel = updatesChannel
 	l.PrepareChildren()
 
 	l.Prepared = true
@@ -145,13 +151,16 @@ func (l *LiveComponent) MountChildren() {
 
 func (l *LiveComponent) PrepareChildren() {
 	for _, child := range l.getChildrenComponents() {
-		child.updatesChannel = l.updatesChannel
-		child.Prepare()
+		child.Prepare(l.updatesChannel)
 	}
 }
 
 // Mount 2. the component loading html
-func (l *LiveComponent) Mount() {
+func (l *LiveComponent) Mount() error {
+
+	if l.updatesChannel == nil {
+		return fmt.Errorf("component is not prepared")
+	}
 
 	*l.updatesChannel <- ComponentLifeTimeMessage{
 		Stage:     WillMount,
@@ -159,6 +168,7 @@ func (l *LiveComponent) Mount() {
 	}
 
 	l.component.BeforeMount(l)
+
 	l.IsMounted = true
 
 	l.component.Mounted(l)
@@ -169,6 +179,8 @@ func (l *LiveComponent) Mount() {
 		Stage:     Mounted,
 		Component: l,
 	}
+
+	return nil
 
 }
 
@@ -341,10 +353,10 @@ func (l *LiveComponent) Kill() error {
 	l.updatesChannel = nil
 	l.htmlTemplate = nil
 
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     Unmounted,
-		Component: l,
-	}
+	// *l.updatesChannel <- ComponentLifeTimeMessage{
+	// 	Stage:     Unmounted,
+	// 	Component: l,
+	// }
 
 	return nil
 }

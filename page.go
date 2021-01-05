@@ -61,8 +61,6 @@ func NewLivePage(c *LiveComponent) *Page {
 	componentsUpdatesChannel := make(ComponentLifeCycle)
 	pageEventsChannel := make(LiveEventsChannel)
 
-	c.updatesChannel = &componentsUpdatesChannel
-
 	return &Page{
 		entry:               c,
 		Events:              pageEventsChannel,
@@ -77,7 +75,7 @@ func (lp *Page) SetContent(c PageContent) {
 
 func (lp *Page) Prepare() {
 	lp.handleComponentsLifeTime()
-	lp.entry.Prepare()
+	lp.entry.Prepare(lp.ComponentsLifeCycle)
 }
 
 func (lp *Page) Mount() {
