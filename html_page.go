@@ -255,6 +255,11 @@ var BasePageString = `<!DOCTYPE html>
 
               const element = document.querySelector(selector)
 
+              if (!element) {
+                console.error("Element not found", selector)
+                return 
+              }
+
               handleChange[type](
                 {
                   content: content,
