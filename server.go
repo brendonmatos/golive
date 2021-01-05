@@ -49,7 +49,7 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 	// 2.
 	p.Mount()
 
-	/*  */
+	// 3.
 	rendered, err := p.Render()
 
 	if err != nil {
