@@ -23,10 +23,13 @@ type LiveResponse struct {
 }
 
 func NewServer() *LiveServer {
+	logger := NewLoggerBasic()
+	logger.Level = LogTrace
+
 	return &LiveServer{
 		Wire:       NewWire(),
 		CookieName: "_csrf_token",
-		Log:        NewLoggerBasic().Log,
+		Log:        logger.Log,
 	}
 }
 
@@ -39,8 +42,10 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 
 	session.log = s.Log
 
-	/* Instantiate a page to attach to a session */
+	// Instantiate a page to attach to a session
 	p := NewLivePage(lc)
+
+	// Set page content
 	p.SetContent(c)
 
 	// 1.
@@ -59,7 +64,7 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 		}, err
 	}
 
-	/*  */
+	// 4.
 	session.ActivatePage(p)
 
 	return &LiveResponse{Rendered: rendered, Session: sessionKey}, nil
@@ -72,6 +77,12 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 		s.Log(LogPanic, "no live page", logEx{"error": err})
 	}
 
+	if err != nil {
+		s.Log(LogError, "handle html request", logEx{"error": err})
+		ctx.Response().SetStatusCode(500)
+		return
+	}
+
 	ctx.Cookie(&fiber.Cookie{
 		Name:    s.CookieName,
 		Value:   lr.Session,
@@ -79,11 +90,6 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 	})
 	ctx.Response().Header.SetContentType("text/html")
 	ctx.Response().AppendBodyString(lr.Rendered)
-
-	if err != nil {
-		s.Log(LogError, "handle html request", logEx{"error": err})
-		ctx.Response().SetStatusCode(500)
-	}
 }
 
 func (s *LiveServer) CreateHTMLHandler(f func() *LiveComponent, c PageContent) func(ctx *fiber.Ctx) error {
