@@ -1,4 +1,5 @@
 package golive
+
 var BasePageString = `<!DOCTYPE html>
 <html lang="{{ .Lang }}">
   <head>
