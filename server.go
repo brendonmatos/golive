@@ -48,13 +48,10 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 	// Set page content
 	p.SetContent(c)
 
-	// 1.
-	p.Prepare()
-
-	// 2.
+	// Mount page
 	p.Mount()
 
-	// 3.
+	// Render page
 	rendered, err := p.Render()
 
 	if err != nil {

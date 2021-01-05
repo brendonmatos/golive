@@ -26,17 +26,19 @@ type ChildLiveComponent interface{}
 
 //
 type LiveComponent struct {
-	Name           string
+	Name       string
+	IsMounted  bool
+	IsPrepared bool
+	IsCreated  bool
+	Exited     bool
+
+	log            Log
 	component      ComponentLifeTime
 	updatesChannel *ComponentLifeCycle
 	htmlTemplate   *template.Template
 	html           *html.Node
 	rootNode       *html.Node
 	rendered       string
-	IsMounted      bool
-	Prepared       bool
-	Exited         bool
-	log            Log
 }
 
 // NewLiveComponent ...
@@ -105,24 +107,23 @@ func (l *LiveComponent) Create() error {
 		"render": l.RenderChild,
 	}).Parse(templateString)
 
-	if err != nil {
-		return err
-	}
+	l.CreateChildren()
 
-	return nil
+	l.IsCreated = true
+
+	return err
 }
 
 // Prepare 1.
 func (l *LiveComponent) Prepare(updatesChannel *ComponentLifeCycle) error {
-	var err error
 
-	l.component.Prepare(l)
 	l.updatesChannel = updatesChannel
+	l.component.Prepare(l)
 	l.PrepareChildren()
 
-	l.Prepared = true
+	l.IsPrepared = true
 
-	return err
+	return nil
 }
 
 func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
@@ -143,16 +144,26 @@ func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
 	return components
 }
 
-func (l *LiveComponent) MountChildren() {
+func (l *LiveComponent) CreateChildren() {
 	for _, child := range l.getChildrenComponents() {
-		child.Mount()
+		child.Create()
 	}
 }
 
+func (l *LiveComponent) MountChildren() {
+	l.notifyStage(WillMountChildren)
+	for _, child := range l.getChildrenComponents() {
+		child.Mount()
+	}
+	l.notifyStage(ChildrenMounted)
+}
+
 func (l *LiveComponent) PrepareChildren() {
+	l.notifyStage(WillPrepareChildren)
 	for _, child := range l.getChildrenComponents() {
 		child.Prepare(l.updatesChannel)
 	}
+	l.notifyStage(ChildrenPrepared)
 }
 
 // Mount 2. the component loading html
@@ -162,23 +173,16 @@ func (l *LiveComponent) Mount() error {
 		return fmt.Errorf("component is not prepared")
 	}
 
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     WillMount,
-		Component: l,
-	}
+	l.notifyStage(WillMount)
 
 	l.component.BeforeMount(l)
-
 	l.IsMounted = true
 
 	l.component.Mounted(l)
 
 	l.MountChildren()
 
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     Mounted,
-		Component: l,
-	}
+	l.notifyStage(Mounted)
 
 	return nil
 
@@ -296,6 +300,13 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 }
 
 var re = regexp.MustCompile(`<([a-z0-9]+)`)
+
+func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
+	*l.updatesChannel <- ComponentLifeTimeMessage{
+		Stage:     ltu,
+		Component: l,
+	}
+}
 
 func (l *LiveComponent) addWSConnectScript() {
 	l.rootNode.AppendChild(&html.Node{
