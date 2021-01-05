@@ -106,6 +106,7 @@ func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 }
 
 // SelectorFromNode
+// TODO: Iterate over parents to find key or go-live-component-id to ensure that is unique
 func SelectorFromNode(e *html.Node) (string, error) {
 
 	elementSelector := []string{"*"}
@@ -115,10 +116,10 @@ func SelectorFromNode(e *html.Node) (string, error) {
 
 		if attr, ok := attrs["go-live-uid"]; ok {
 
-			elementSelector = append(elementSelector, "[go-live-uid=", attr, "]")
+			elementSelector = append(elementSelector, "[go-live-uid=\"", attr, "\"]")
 
 			if attr, ok := attrs["key"]; ok {
-				elementSelector = append(elementSelector, "[key=", attr, "]")
+				elementSelector = append(elementSelector, "[key=\"", attr, "\"]")
 			}
 
 			selector := strings.Join(elementSelector, "")
