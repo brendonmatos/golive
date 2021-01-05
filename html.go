@@ -3,8 +3,10 @@ package golive
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/net/html"
 	"strings"
+
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 // AttrMapFromNode todo
@@ -16,15 +18,27 @@ func AttrMapFromNode(node *html.Node) map[string]string {
 	return m
 }
 
-// RemoveWhitespaces todo
-func RemoveWhitespaces(content string) string {
-	return spaceRegex.ReplaceAllString(content, " ")
-}
-
 // CreateDOMFromString todo
 func CreateDOMFromString(data string) (*html.Node, error) {
-	reader := bytes.NewReader([]byte(RemoveWhitespaces(data)))
-	return html.Parse(reader)
+	reader := bytes.NewReader([]byte(data))
+	fragments, err := html.ParseFragmentWithOptions(reader, &html.Node{
+		Type:     html.ElementNode,
+		Data:     "div",
+		DataAtom: atom.Div})
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, node := range fragments {
+		if node.DataAtom != atom.Div {
+			continue
+		}
+
+		return node, nil
+	}
+
+	return nil, fmt.Errorf("there is no element returned")
 }
 
 // RenderNodeToString todo
@@ -40,18 +54,23 @@ func RenderNodeToString(e *html.Node) (string, error) {
 }
 
 // RenderNodesToString todo
-func RenderNodesToString(nodes []*html.Node) string {
+func RenderNodesToString(nodes []*html.Node) (string, error) {
 	text := ""
 
 	for _, node := range nodes {
-		rendered, _ := RenderNodeToString(node)
+		rendered, err := RenderNodeToString(node)
+
+		if err != nil {
+			return "", err
+		}
+
 		text += rendered
 	}
 
-	return text
+	return text, nil
 }
 
-func RenderChildren(parent *html.Node) string {
+func RenderChildren(parent *html.Node) (string, error) {
 	return RenderNodesToString(GetChildrenFromNode(parent))
 }
 
@@ -69,47 +88,55 @@ func SelfIndexOfNode(n *html.Node) int {
 	return ix
 }
 
+func GetAllChildrenRecursive(n *html.Node) []*html.Node {
+	result := make([]*html.Node, 0)
+
+	if n == nil {
+		return result
+	}
+
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		result = append(result, c)
+
+		if c != nil {
+			result = append(result, GetAllChildrenRecursive(c)...)
+		}
+	}
+
+	return result
+}
+
 // SelectorFromNode
-func SelectorFromNode(e *html.Node) string {
+func SelectorFromNode(e *html.Node) (string, error) {
 
-	selector := ""
-	for parent := e; parent != nil; parent = parent.Parent {
+	elementSelector := []string{"*"}
+	attrs := AttrMapFromNode(e)
 
-		elementSelector := ""
-		attrs := AttrMapFromNode(parent)
+	if e.Type == html.ElementNode {
 
-		if parent.Type == html.ElementNode {
-			elementSelector = parent.Data + elementSelector
+		fmt.Println(attrs)
 
-			if attr, ok := attrs["id"]; ok {
-				if len(attr) > 0 {
-					elementSelector = elementSelector + "#" + strings.TrimSpace(attr)
-				}
+		if attr, ok := attrs["go-live-uid"]; ok {
+
+			elementSelector = append(elementSelector, "[go-live-uid=", attr, "]")
+
+			if attr, ok := attrs["key"]; ok {
+				elementSelector = append(elementSelector, "[key=", attr, "]")
 			}
 
-			if attr, ok := attrs["class"]; ok {
-				if len(attr) > 0 {
-					elementSelector = elementSelector + "." + getClassesSeparated(attr)
-				}
-			}
-
-			if _, ok := attrs["go-live-component-id"]; ok {
-				return selector
-			}
-
-			elementSelector = fmt.Sprintf("%s:nth-child(%d)", elementSelector, SelfIndexOfNode(parent)+1)
-
+			selector := strings.Join(elementSelector, "")
+			return selector, nil
 		}
 
-		if len(selector) > 0 {
-			selector = elementSelector + " " + selector
-		} else {
-			selector = elementSelector
+		if attr, ok := attrs["go-live-component-id"]; ok {
+			elementSelector = append(elementSelector, "[go-live-component-id=", attr, "]")
+			selector := strings.Join(elementSelector, "")
+			return selector, nil
 		}
 
 	}
 
-	return strings.TrimSpace(selector)
+	return "", fmt.Errorf("could not provide a valid selector")
 }
 
 // PathToComponentRoot todo

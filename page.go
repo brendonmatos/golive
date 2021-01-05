@@ -87,7 +87,13 @@ func (lp *Page) Mount() {
 }
 
 func (lp *Page) Render() (string, error) {
-	rendered, _ := lp.entry.Render()
+	rendered, err := lp.entry.Render()
+
+	if err != nil {
+		return "", err
+	}
+
+	lp.entry.rendered = rendered
 
 	lp.content.Body = template.HTML(rendered)
 	lp.content.Enum = PageEnum{
@@ -103,7 +109,7 @@ func (lp *Page) Render() (string, error) {
 	}
 
 	writer := bytes.NewBufferString("")
-	err := BasePage.Execute(writer, lp.content)
+	err = BasePage.Execute(writer, lp.content)
 	return writer.String(), err
 }
 

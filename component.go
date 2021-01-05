@@ -9,6 +9,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 //
@@ -23,16 +26,17 @@ type ChildLiveComponent interface{}
 
 //
 type LiveComponent struct {
-	Name               string
-	component          ComponentLifeTime
-	updatesChannel     *ComponentLifeCycle
-	htmlTemplateString string
-	htmlTemplate       *template.Template
-	rendered           string
-	IsMounted          bool
-	Prepared           bool
-	Exited             bool
-	log                Log
+	Name           string
+	component      ComponentLifeTime
+	updatesChannel *ComponentLifeCycle
+	htmlTemplate   *template.Template
+	html           *html.Node
+	rootNode       *html.Node
+	rendered       string
+	IsMounted      bool
+	Prepared       bool
+	Exited         bool
+	log            Log
 }
 
 // NewLiveComponent ...
@@ -40,6 +44,11 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 	return &LiveComponent{
 		Name:      name,
 		component: time,
+		rootNode: &html.Node{
+			Type:     html.ElementNode,
+			Data:     "body",
+			DataAtom: atom.Body,
+		},
 	}
 }
 
@@ -66,22 +75,48 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 }
 
 // Prepare 1.
-func (l *LiveComponent) Prepare() {
+func (l *LiveComponent) Prepare() error {
+	var err error
+
 	l.Name = l.getName()
 
-	l.htmlTemplateString = l.component.TemplateHandler(l)
-	l.htmlTemplateString = l.addWSConnectScript(l.htmlTemplateString)
-	l.htmlTemplateString = l.addGoLiveComponentIDAttribute(l.htmlTemplateString)
+	templateString := l.component.TemplateHandler(l)
 
-	l.htmlTemplate, _ = template.New(l.Name).Funcs(template.FuncMap{
+	l.html, err = CreateDOMFromString(templateString)
+
+	if err != nil {
+		fmt.Println("error", err)
+		return err
+	}
+
+	l.rootNode.AppendChild(l.html)
+
+	l.addWSConnectScript()
+	l.addGoLiveComponentIDAttribute()
+	l.addGoLiveElementsUID()
+
+	templateString, err = RenderNodeToString(l.rootNode)
+
+	if err != nil {
+		fmt.Println("error", err)
+		return err
+	}
+
+	l.htmlTemplate, err = template.New(l.Name).Funcs(template.FuncMap{
 		"render": l.RenderChild,
-	}).Parse(l.htmlTemplateString)
+	}).Parse(templateString)
+
+	if err != nil {
+		return err
+	}
 
 	l.component.Prepare(l)
 
 	l.PrepareChildren()
 
 	l.Prepared = true
+
+	return err
 }
 
 func (l *LiveComponent) PrepareChildren() {
@@ -199,6 +234,7 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 	om := NewPatchBrowser(l.Name)
 
 	om.Name = EventLiveDom
+
 	if len(l.rendered) > 0 {
 
 		changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
@@ -208,13 +244,20 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 		}
 
 		for _, instruction := range changeInstructions {
-			path := PathToComponentRoot(instruction.Element)
 
-			om.Root.AddPathInstruction(path, PatchInstruction{
-				Name:    EventLiveDom,
-				Type:    strconv.Itoa(int(instruction.Type)),
-				Attr:    instruction.Attr,
-				Content: instruction.Content,
+			selector, err := SelectorFromNode(instruction.Element)
+
+			if err != nil {
+				continue
+				// l.log(LogPanic, "there is a error in selector", logEx{"error": err})
+			}
+
+			om.AddInstruction(PatchInstruction{
+				Name:     EventLiveDom,
+				Type:     strconv.Itoa(int(instruction.Type)),
+				Attr:     instruction.Attr,
+				Content:  instruction.Content,
+				Selector: selector,
 			})
 		}
 	}
@@ -226,24 +269,46 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 
 var re = regexp.MustCompile(`<([a-z0-9]+)`)
 
-func (l *LiveComponent) addWSConnectScript(template string) string {
-	return template + `
-		<script type="application/javascript">
-			goLive.once('WS_CONNECTION_OPEN', function() {
+func (l *LiveComponent) addWSConnectScript() {
+	l.rootNode.AppendChild(&html.Node{
+		Type:      html.ElementNode,
+		DataAtom:  atom.Script,
+		Data:      "script",
+		Namespace: "",
+		FirstChild: &html.Node{
+			Type: html.TextNode,
+			Data: `goLive.once('WS_CONNECTION_OPEN', function() {
 				goLive.connect('` + l.Name + `')
-			})
-		</script>
-	`
+			})`,
+		},
+		Attr: []html.Attribute{
+			{
+				Key: "type",
+				Val: "application/javascript",
+			},
+		},
+	})
 }
 
 // TODO: improve this urgently
-func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
-	found := re.FindString(l.htmlTemplateString)
-	if found != "" {
-		replaceWith := found + ` go-live-component-id="` + l.Name + `" `
-		template = strings.Replace(l.htmlTemplateString, found, replaceWith, 1)
+func (l *LiveComponent) addGoLiveComponentIDAttribute() {
+
+	l.html.Attr = append(l.html.Attr, html.Attribute{
+		Key: "go-live-component-id",
+		Val: l.Name,
+	})
+
+}
+
+func (l *LiveComponent) addGoLiveElementsUID() {
+	// parent.FirstChild
+	for index, node := range append(GetAllChildrenRecursive(l.html), l.html) {
+		node.Attr = append(node.Attr, html.Attribute{
+			Key: "go-live-uid",
+			Val: l.Name + "-" + strconv.FormatInt(int64(index), 16),
+		})
 	}
-	return template
+
 }
 
 // Kill ...

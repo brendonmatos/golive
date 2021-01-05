@@ -36,9 +36,11 @@ func (s *Session) QueueMessage(message PatchBrowser) {
 
 func (s *Session) IngestMessage(message BrowserEvent) error {
 	err := s.LivePage.HandleMessage(message)
+
 	if err != nil {
 		return err
 	}
+
 	s.LivePage.ForceUpdate()
 	return nil
 }
@@ -46,20 +48,11 @@ func (s *Session) IngestMessage(message BrowserEvent) error {
 func (s *Session) ActivatePage(lp *Page) {
 	s.LivePage = lp
 
-	// Pre-render to ensure we have something to diff against
-	for _, component := range lp.Components {
-		if component.rendered == "" {
-			if err := s.LiveRenderComponent(component); err != nil {
-				s.log(LogError, "activate page", logEx{"error": err})
-			}
-		}
-	}
-
 	// Here is the location that get all the components updates *notified* by
 	// the page!
 	go func() {
 		for {
-			// Receive all the events from the page!
+			// Receive all the events from page
 			pageUpdate := <-lp.Events
 			if pageUpdate.Type == Updated {
 				if err := s.LiveRenderComponent(pageUpdate.Component); err != nil {
@@ -67,6 +60,7 @@ func (s *Session) ActivatePage(lp *Page) {
 				}
 			}
 			if pageUpdate.Type == Unmounted {
+				// TODO: Treat unmount
 				return
 			}
 		}
