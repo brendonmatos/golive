@@ -8,12 +8,17 @@ const (
 )
 
 type InMessage struct {
-	Name         string `json:"name"`
-	ComponentId  string `json:"component_id"`
-	MethodName   string `json:"method_name"`
-	MethodParams string `json:"method_params"`
-	StateKey     string `json:"key"`
-	StateValue   string `json:"value"`
+	Name        string            `json:"name"`
+	ComponentId string            `json:"component_id"`
+	MethodName  string            `json:"method_name"`
+	MethodData  map[string]string `json:"method_data"`
+	StateKey    string            `json:"key"`
+	StateValue  string            `json:"value"`
+	DOMEvent    *DOMEvent         `json:"dom_event"`
+}
+
+type DOMEvent struct {
+	KeyCode string `json:"keyCode"`
 }
 
 type OutMessage struct {

@@ -158,17 +158,28 @@ func (l *LiveComponent) SetValueInPath(value string, path string) error {
 }
 
 // InvokeMethodInPath ...
-func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) error {
-	c := (*l).component
-	v := reflect.ValueOf(c)
-
-	var params []reflect.Value
-
-	if len(valuePath) > 0 {
-		params = append(params, *l.GetFieldFromPath(path))
+func (l *LiveComponent) InvokeMethodInPath(path string, data map[string]string, domEvent *DOMEvent) error {
+	m := reflect.ValueOf(l.component).MethodByName(path)
+	if !m.IsValid() {
+		return fmt.Errorf("not a valid function: %v", path)
 	}
 
-	v.MethodByName(path).Call(params)
+	// TODO: check for errors when calling
+	switch m.Type().NumIn() {
+	case 0:
+		m.Call(nil)
+	case 1:
+		m.Call(
+			[]reflect.Value{reflect.ValueOf(data)},
+		)
+	case 2:
+		m.Call(
+			[]reflect.Value{
+				reflect.ValueOf(data),
+				reflect.ValueOf(domEvent),
+			},
+		)
+	}
 
 	return nil
 }
