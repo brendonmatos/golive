@@ -72,8 +72,9 @@ func (lp *Page) SetContent(c PageContent) {
 	lp.content = c
 }
 
-func (lp *Page) Mount() error {
-	lp.handleComponentsLifeTime()
+func (lp *Page) Mount() {
+
+	lp.receiveComponentsLifeCycle()
 
 	// Call the component in sequence of life cycle
 	err := lp.entry.Create(lp.ComponentsLifeCycle)
@@ -158,7 +159,7 @@ func (lp *Page) HandleMessage(m BrowserEvent) error {
 	return nil
 }
 
-func (lp *Page) handleComponentsLifeTime() {
+func (lp *Page) receiveComponentsLifeCycle() {
 
 	go func() {
 		for {

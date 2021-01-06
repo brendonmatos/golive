@@ -42,20 +42,25 @@ func NewDOMSelector() *DOMSelector {
 
 func (ds *DOMSelector) addChild() *DOMElemSelector {
 	de := NewDOMElementSelector()
-
-	ds.query = append(ds.query, de)
+	ds.addChildSelector(de)
 	return de
 }
 
+func (ds *DOMSelector) addParentSelector(d *DOMElemSelector) {
+	ds.query = append([]*DOMElemSelector{d}, ds.query...)
+}
+
+func (ds *DOMSelector) addChildSelector(d *DOMElemSelector) {
+	ds.query = append(ds.query, d)
+}
 func (ds *DOMSelector) addParent() *DOMElemSelector {
 	de := NewDOMElementSelector()
-
-	ds.query = append([]*DOMElemSelector{de}, ds.query...)
+	ds.addParentSelector(de)
 	return de
 }
 
 func (ds *DOMSelector) toString() string {
-	e := []string{}
+	var e []string
 
 	for _, q := range ds.query {
 		e = append(e, q.toString())
@@ -190,33 +195,46 @@ func SelectorFromNode(e *html.Node) (string, error) {
 		if attr, ok := attrs["go-live-uid"]; ok {
 			es.addAttr("go-live-uid", attr)
 
+			if attr, ok := attrs["key"]; ok {
+				es.addAttr("key", attr)
+			}
 		}
 	}
 
 	for parent := e.Parent; parent != nil; parent = parent.Parent {
 
-		attrs := AttrMapFromNode(e)
+		attrs := AttrMapFromNode(parent)
 
 		es := NewDOMElementSelector()
 		es.setElemen("*")
 
 		found := false
+
 		if attr, ok := attrs["go-live-component-id"]; ok {
 			es.addAttr("go-live-component-id", attr)
-			found = true
-		}
-		if attr, ok := attrs["go-live-uid"]; ok {
-			es.addAttr("go-live-uid", attr)
+
+			if attr, ok := attrs["key"]; ok {
+				es.addAttr("key", attr)
+			}
+
 			found = true
 		}
 
-		if attr, ok := attrs["key"]; ok && found {
-			es.addAttr("key", attr)
+		if attr, ok := attrs["go-live-uid"]; ok {
+			es.addAttr("go-live-uid", attr)
+
+			if attr, ok := attrs["key"]; ok {
+				es.addAttr("key", attr)
+			}
+
+			found = true
 		}
 
 		if !found {
 			continue
 		}
+
+		selector.addParentSelector(es)
 
 		return selector.toString(), nil
 	}

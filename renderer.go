@@ -31,6 +31,7 @@ type LiveRenderer struct {
 	state          *LiveState
 	template       *template.Template
 	templateString string
+	formatters     []func(t string) string
 }
 
 func (lr *LiveRenderer) setTemplate(t *template.Template, ts string) {
@@ -47,11 +48,12 @@ func (lr *LiveRenderer) renderToText(data interface{}) (string, error) {
 
 	err := lr.template.Execute(s, data)
 
-	if err != nil {
-		return "", err
+	text := s.String()
+	for _, f := range lr.formatters {
+		text = f(text)
 	}
 
-	return s.String(), nil
+	return text, err
 }
 
 func (lr *LiveRenderer) Render(data interface{}) (string, *html.Node, error) {
@@ -90,42 +92,30 @@ func (lr *LiveRenderer) LiveRender(data interface{}) (*Diff, error) {
 	return diff, nil
 }
 
+func (lr *LiveRenderer) useFormatter(f func(t string) string) {
+	lr.formatters = append(lr.formatters, f)
+}
+
+func signPreRenderText(text string, l *LiveComponent) (string, error) {
+	dom, err := CreateDOMFromString(text)
+
+	if err != nil {
+		return "", err
+	}
+
+	signPreRender(dom, l)
+
+	return RenderChildren(dom)
+}
+
 func signPreRender(dom *html.Node, l *LiveComponent) {
 	// Post treatment
 	for index, node := range GetAllChildrenRecursive(dom) {
-		addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(index), 16))
-	}
-}
-
-func signPostRender(dom *html.Node, l *LiveComponent) {
-
-	// Post treatment
-	for index, node := range GetAllChildrenRecursive(dom) {
-
-		attrs := AttrMapFromNode(node)
 
 		addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(index), 16))
 
-		if isElementDisabled, ok := attrs[":disabled"]; ok {
-			if isElementDisabled == "true" {
-				addNodeAttribute(node, "disabled", "disabled")
-			} else {
-				removeNodeAttribute(node, "disabled")
-			}
-		}
-
-		if goLiveInputParam, ok := attrs["go-live-input"]; ok {
-			f := l.GetFieldFromPath(goLiveInputParam)
-			if inputType, ok := attrs["type"]; ok && inputType == "checkbox" {
-				if f.Bool() {
-					addNodeAttribute(node, "checked", "checked")
-				} else {
-					removeNodeAttribute(node, "checked")
-				}
-			} else {
-				addNodeAttribute(node, "value", goLiveInputParam)
-			}
+		if attr := getAttribute(node, "go-live-input"); attr != nil {
+			addNodeAttribute(node, ":value", attr.Val)
 		}
 	}
-
 }
