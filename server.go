@@ -2,6 +2,7 @@ package golive
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -66,11 +67,14 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 }
 
 func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c PageContent) {
-
 	lr, err := s.HandleFirstRequest(lc, c)
 	if lr == nil {
 		s.Log(LogPanic, "no live page", logEx{"error": err})
+
+		return
 	}
+
+	s.Log(LogInfo, "http request", logEx{"component": lc.Name, "session": lr.Session})
 
 	ctx.Cookie(&fiber.Cookie{
 		Name:    s.CookieName,
@@ -132,11 +136,12 @@ func (s *LiveServer) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context)
 }
 
 func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
-
 	c.EnableWriteCompression(true)
 
 	sessionKey := c.Cookies(s.CookieName)
 	session := s.Wire.GetSession(sessionKey)
+
+	s.Log(LogInfo, "websocket open", logEx{"session": sessionKey})
 
 	errors := make(chan error)
 	exit := make(chan int)
@@ -147,6 +152,8 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 		for {
 			select {
 			case msg := <-session.OutChannel:
+				s.Log(LogDebug, "message out", logEx{"msg": msg, "session": sessionKey})
+
 				err := c.WriteJSON(msg)
 				if err != nil {
 					errors <- err
@@ -154,19 +161,20 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 			case <-exit:
 				exited = true
-				err := c.Close()
 
-				if err != nil {
-					errors <- err
+				if err := c.Close(); err != nil {
+					errors <- fmt.Errorf("close websocket connection: %w", err)
 				}
+
+				if err := session.LivePage.entry.Kill(); err != nil {
+					errors <- fmt.Errorf("kill page entry component: %w", err)
+				}
+
+				s.Log(LogInfo, "websocket close", logEx{"session": sessionKey})
 
 				return
 			case err := <-errors:
-				s.Log(LogError, "websocket error channel", logEx{"error": err})
-				break
-
-			default:
-				break
+				s.Log(LogError, "websocket error", logEx{"error": err, "session": sessionKey})
 			}
 		}
 	}()
@@ -182,13 +190,13 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 		}
 
 		inMsg := InMessage{}
-		err := c.ReadJSON(&inMsg)
 
+		err := c.ReadJSON(&inMsg)
 		if err != nil {
 			errors <- err
 		}
 
-		s.Log(LogDebug, "websocket request", logEx{"msg": inMsg})
+		s.Log(LogDebug, "message in", logEx{"msg": inMsg, "session": sessionKey})
 
 		err = session.IngestMessage(inMsg)
 		if err != nil {
