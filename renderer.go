@@ -9,8 +9,8 @@ import (
 )
 
 type LiveState struct {
-	html   *html.Node
-	text	string
+	html *html.Node
+	text string
 }
 
 func (ls *LiveState) setText(text string) error {
@@ -22,80 +22,82 @@ func (ls *LiveState) setText(text string) error {
 
 func (ls *LiveState) setHTML(node *html.Node) error {
 	var err error
-	ls.text, err = RenderNodeToString(node)
+	ls.text, err = RenderChildren(node)
 	ls.html = node
 	return err
 }
 
 type LiveRenderer struct {
-	state LiveState
-	template   *template.Template
+	state          *LiveState
+	template       *template.Template
+	templateString string
 }
 
-func (lr *LiveRenderer) setTemplate(template *template.Template) {
-	lr.template = template
+func (lr *LiveRenderer) setTemplate(t *template.Template, ts string) {
+	lr.template = t
+	lr.templateString = ts
 }
 
-func (lr *LiveRenderer) Render(data ...interface{}) (string, *html.Node, error) {
+func (lr *LiveRenderer) renderToText(data interface{}) (string, error) {
 	if lr.template == nil {
-		return "", nil, fmt.Errorf("template is not defined in LiveRenderer")
+		return "", fmt.Errorf("template is not defined in LiveRenderer")
 	}
 
 	s := bytes.NewBufferString("")
 
 	err := lr.template.Execute(s, data)
 
+	if err != nil {
+		return "", err
+	}
 
+	return s.String(), nil
+}
+
+func (lr *LiveRenderer) Render(data interface{}) (string, *html.Node, error) {
+
+	textRender, err := lr.renderToText(data)
 
 	if err != nil {
 		return "", nil, err
 	}
 
-	err = lr.state.setText(s.String())
+	err = lr.state.setText(textRender)
 
 	return lr.state.text, lr.state.html, err
 }
 
-func (lr *LiveRenderer) LiveRender(data ...interface{}) (*PatchBrowser, error) {
-	actualRenderTet :=
+func (lr *LiveRenderer) LiveRender(data interface{}) (*Diff, error) {
 
-	om := NewPatchBrowser(l.Name)
-	om.Name = EventLiveDom
-
-	if lr.state.text == newRender {
-		l.log(LogDebug, "render is identical with last", nil)
-		return om, nil
-	}
-
-
-	changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
+	actualRender := lr.state.html
+	actualRenderText := lr.state.text
+	proposedRenderText, err := lr.renderToText(data)
 
 	if err != nil {
-		l.log(LogPanic, "there is a error in diff", logEx{"error": err})
+		return nil, err
 	}
 
-	for _, instruction := range changeInstructions {
+	diff := NewDiff(actualRender)
 
-		selector, err := SelectorFromNode(instruction.Element)
-
-		if err != nil {
-			s, _ := RenderNodeToString(instruction.Element)
-			l.log(LogPanic, "there is a error in selector", logEx{"error": err, "element": s})
-		}
-
-		om.AddInstruction(PatchInstruction{
-			Name:     EventLiveDom,
-			Type:     strconv.Itoa(int(instruction.Type)),
-			Attr:     instruction.Attr,
-			Content:  instruction.Content,
-			Selector: selector,
-		})
+	if actualRenderText == proposedRenderText {
+		return diff, nil
 	}
 
-	return om, nil
+	_ = lr.state.setText(proposedRenderText)
+
+	diff.Propose(lr.state.html)
+
+	return diff, nil
 }
 
-func sign(dom *html.Node, l *LiveComponent) {
+func signPreRender(dom *html.Node, l *LiveComponent) {
+	// Post treatment
+	for index, node := range GetAllChildrenRecursive(dom) {
+		addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(index), 16))
+	}
+}
+
+func signPostRender(dom *html.Node, l *LiveComponent) {
 
 	// Post treatment
 	for index, node := range GetAllChildrenRecursive(dom) {
@@ -112,10 +114,8 @@ func sign(dom *html.Node, l *LiveComponent) {
 			}
 		}
 
-		if liveInputParam, ok := attrs["go-live-input"]; ok {
-
-			f := l.GetFieldFromPath(liveInputParam)
-
+		if goLiveInputParam, ok := attrs["go-live-input"]; ok {
+			f := l.GetFieldFromPath(goLiveInputParam)
 			if inputType, ok := attrs["type"]; ok && inputType == "checkbox" {
 				if f.Bool() {
 					addNodeAttribute(node, "checked", "checked")
@@ -123,7 +123,7 @@ func sign(dom *html.Node, l *LiveComponent) {
 					removeNodeAttribute(node, "checked")
 				}
 			} else {
-				addNodeAttribute(node, "value", fmt.Sprintf("%v", f))
+				addNodeAttribute(node, "value", goLiveInputParam)
 			}
 		}
 	}
