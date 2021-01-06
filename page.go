@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"strconv"
 )
 
 var BasePage *template.Template
@@ -91,12 +90,12 @@ func (lp *Page) Render() (string, error) {
 		EventLiveInput:   EventLiveInput,
 		EventLiveMethod:  EventLiveMethod,
 		EventLiveDom:     EventLiveDom,
-		DiffSetAttr:      strconv.Itoa(int(SetAttr)),
-		DiffRemoveAttr:   strconv.Itoa(int(RemoveAttr)),
-		DiffReplace:      strconv.Itoa(int(Replace)),
-		DiffRemove:       strconv.Itoa(int(Remove)),
-		DiffSetInnerHtml: strconv.Itoa(int(SetInnerHtml)),
-		DiffAppend:       strconv.Itoa(int(Append)),
+		DiffSetAttr:      SetAttr.String(),
+		DiffRemoveAttr:   RemoveAttr.String(),
+		DiffReplace:      Replace.String(),
+		DiffRemove:       Remove.String(),
+		DiffSetInnerHtml: SetInnerHtml.String(),
+		DiffAppend:       Append.String(),
 	}
 
 	writer := bytes.NewBufferString("")

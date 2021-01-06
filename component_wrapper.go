@@ -25,8 +25,20 @@ func (l *LiveComponentWrapper) BeforeMount(_ *LiveComponent) {
 func (l *LiveComponentWrapper) Mounted(_ *LiveComponent) {
 }
 
-// Commit puts an boolean to the commit channel and notifies ho is listening
+// BeforeUnmount before we kill the component
+func (l *LiveComponentWrapper) BeforeUnmount(_ *LiveComponent) {
+}
+
+// Commit puts an boolean to the commit channel and notifies who is listening
 func (l *LiveComponentWrapper) Commit() {
+	l.component.log(LogTrace, "Updated", logEx{"name": l.component.Name})
+
+	if l.lifeCycle == nil {
+		l.component.log(LogError, "call to commit on unmounted component", logEx{"name": l.component.Name})
+
+		return
+	}
+
 	*l.lifeCycle <- ComponentLifeTimeMessage{
 		Stage:     Updated,
 		Component: l.component,

@@ -33,13 +33,18 @@ type LoggerBasic struct {
 func NewLoggerBasic() *LoggerBasic {
 	var l LoggerBasic
 	l.Level = LogWarn
-	l.Prefix = aurora.BrightBlue("GOLIVE ").String()
+	l.Prefix = aurora.BrightBlue("GL ").String()
 	l.TimeFormat = aurora.BrightBlack("15:04:05").String()
 
 	return &l
 }
 
 func (l *LoggerBasic) Log(level int, message string, extra map[string]interface{}) {
+	// Level filter with override for fatal and panic
+	if level < l.Level && level != LogFatal && level != LogPanic {
+		return
+	}
+
 	b := strings.Builder{}
 	b.WriteString(l.Prefix)
 
@@ -47,17 +52,21 @@ func (l *LoggerBasic) Log(level int, message string, extra map[string]interface{
 
 	switch level {
 	case LogTrace:
-		b.WriteString(aurora.Yellow(" TRACE ").String())
+		b.WriteString(aurora.Magenta(" TRC ").String())
 	case LogDebug:
-		b.WriteString(aurora.Yellow(" DEBUG ").String())
+		b.WriteString(aurora.Yellow(" DBG ").String())
 	case LogInfo:
-		b.WriteString(aurora.Red(" WARN  ").String())
+		b.WriteString(aurora.Green(" INF ").String())
+	case LogWarn:
+		b.WriteString(aurora.Red(" WRN ").String())
 	case LogError:
-		b.WriteString(aurora.BrightRed(" ERROR ").String())
+		b.WriteString(aurora.Red(" ERR ").Bold().String())
 	case LogFatal:
-		b.WriteString(aurora.BrightRed(" FATAL ").String())
+		b.WriteString(aurora.Red(" FTL ").Bold().String())
 	case LogPanic:
-		b.WriteString(aurora.BrightRed(" PANIC ").String())
+		b.WriteString(aurora.Red(" PNC ").Bold().String())
+	default:
+		b.WriteString(aurora.Bold(" ??? ").String())
 	}
 
 	b.WriteString(message)
@@ -85,8 +94,6 @@ func (l *LoggerBasic) Log(level int, message string, extra map[string]interface{
 		fmt.Println(b.String())
 		os.Exit(1)
 	default:
-		if level >= l.Level {
-			fmt.Println(b.String())
-		}
+		fmt.Println(b.String())
 	}
 }
