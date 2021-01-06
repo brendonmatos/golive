@@ -9,8 +9,13 @@ var BasePageString = `
 		{{ .Head }}
 	</head>
 	<script type="application/javascript">
+		let ws = "ws";
+		if (location.protocol === 'https:') {
+			ws = "wss";
+		}
+
 		const goLive = {
-			server: new WebSocket(['ws://', window.location.host, "/ws"].join("")),
+			server: new WebSocket([ws, '://', window.location.host, "/ws"].join("")),
 
 			handlers: [],
 			onceHandlers: {},
@@ -161,6 +166,9 @@ var BasePageString = `
 				});
 
 				goLive.on('{{ .Enum.EventLiveDom }}', (message) => {
+					if (viewElement.getAttribute("go-live-component-id") !== message.component_id) {
+						return;
+					}
 
 					const handleChange = {
 						'{{ .Enum.DiffSetAttr }}': (message) => {

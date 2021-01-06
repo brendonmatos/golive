@@ -3,6 +3,7 @@ package golive
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"reflect"
@@ -17,6 +18,7 @@ type ComponentLifeTime interface {
 	TemplateHandler(component *LiveComponent) string
 	Mounted(component *LiveComponent)
 	BeforeMount(component *LiveComponent)
+	BeforeUnmount(component *LiveComponent)
 }
 
 type ChildLiveComponent interface{}
@@ -67,6 +69,8 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 
 // Prepare 1.
 func (l *LiveComponent) Prepare() {
+	l.log(LogTrace, "Prepare", logEx{"name": l.Name})
+
 	l.Name = l.getName()
 
 	l.htmlTemplateString = l.component.TemplateHandler(l)
@@ -98,12 +102,34 @@ func (l *LiveComponent) PrepareChildren() {
 		}
 
 		lc.updatesChannel = l.updatesChannel
+		lc.log = l.log
 		lc.Prepare()
+	}
+}
+
+func (l *LiveComponent) KillChildren() {
+	v := reflect.ValueOf(l.component).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		if !v.Field(i).CanInterface() {
+			continue
+		}
+
+		lc, ok := v.Field(i).Interface().(*LiveComponent)
+
+		if !ok {
+			continue
+		}
+
+		if err := lc.Kill(); err != nil {
+			l.log(LogError, "kill child", logEx{"name": lc.Name})
+		}
 	}
 }
 
 // Mount 2. the component loading html
 func (l *LiveComponent) Mount() {
+	l.log(LogTrace, "WillMount", logEx{"name": l.Name})
+
 	*l.updatesChannel <- ComponentLifeTimeMessage{
 		Stage:     WillMount,
 		Component: l,
@@ -114,11 +140,12 @@ func (l *LiveComponent) Mount() {
 
 	l.component.Mounted(l)
 
+	l.log(LogTrace, "Mounted", logEx{"name": l.Name})
+
 	*l.updatesChannel <- ComponentLifeTimeMessage{
 		Stage:     Mounted,
 		Component: l,
 	}
-
 }
 
 // GetFieldFromPath ...
@@ -186,6 +213,12 @@ func (l *LiveComponent) InvokeMethodInPath(path string, data map[string]string, 
 
 // Render ...
 func (l *LiveComponent) Render() (string, error) {
+	l.log(LogTrace, "Render", logEx{"name": l.Name})
+
+	if l.component == nil {
+		return "", errors.New("component nil")
+	}
+
 	s := bytes.NewBufferString("")
 
 	err := l.htmlTemplate.Execute(s, l.component)
@@ -204,7 +237,7 @@ func (l *LiveComponent) LiveRender() ([]OutMessage, error) {
 	newRender, err := l.Render()
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("render component: %w", err)
 	}
 
 	oms := make([]OutMessage, 0)
@@ -257,6 +290,11 @@ func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 
 // Kill ...
 func (l *LiveComponent) Kill() error {
+	l.KillChildren()
+
+	l.log(LogTrace, "WillUnmount", logEx{"name": l.Name})
+
+	l.component.BeforeUnmount(l)
 
 	*l.updatesChannel <- ComponentLifeTimeMessage{
 		Stage:     WillUnmount,
@@ -266,13 +304,16 @@ func (l *LiveComponent) Kill() error {
 	l.Exited = true
 	// Set all to nil to garbage collector act
 	l.component = nil
-	l.updatesChannel = nil
 	l.htmlTemplate = nil
+
+	l.log(LogTrace, "Unmounted", logEx{"name": l.Name})
 
 	*l.updatesChannel <- ComponentLifeTimeMessage{
 		Stage:     Unmounted,
 		Component: l,
 	}
+
+	l.updatesChannel = nil
 
 	return nil
 }
