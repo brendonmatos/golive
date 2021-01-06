@@ -26,20 +26,17 @@ type ChildLiveComponent interface{}
 
 //
 type LiveComponent struct {
-	Name       string
+	Name string
+
 	IsMounted  bool
 	IsPrepared bool
 	IsCreated  bool
 	Exited     bool
 
 	log            Log
-	component      ComponentLifeTime
 	updatesChannel *ComponentLifeCycle
-	htmlTemplate   *template.Template
-	html           *html.Node
-	rootNode       *html.Node
-	rendered       string
-	renderedHTML   *html.Node
+	component      ComponentLifeTime
+	renderer       LiveRenderer
 }
 
 // NewLiveComponent ...
@@ -47,10 +44,9 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 	return &LiveComponent{
 		Name:      name,
 		component: time,
-		rootNode: &html.Node{
-			Type:     html.ElementNode,
-			Data:     "div",
-			DataAtom: atom.Div,
+		renderer: LiveRenderer{
+			state:    LiveState{},
+			template: nil,
 		},
 	}
 }
@@ -72,33 +68,29 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 	return template.HTML(render)
 }
 
+func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) {
+	return template.New(l.Name).Funcs(template.FuncMap{
+		"render": l.RenderChild,
+	}).Parse(ts)
+}
+
 func (l *LiveComponent) Create() error {
 	var err error
 
 	l.Name = l.createUniqueName()
 
 	templateString := l.component.TemplateHandler(l)
+	templateString = l.addWSConnectScript(templateString)
+	templateString = l.addGoLiveComponentIDAttribute(templateString)
 
-	l.html, err = CreateDOMFromString(templateString)
+	templateDom, err := CreateDOMFromString(templateString)
+	sign(templateDom, l)
 
-	if err != nil {
-		return err
-	}
+	templateString, err = RenderNodeToString(templateDom)
 
-	l.rootNode.AppendChild(l.html)
+	componentTemplate, err := l.generateTemplate(templateString)
 
-	l.addWSConnectScript()
-	l.addGoLiveComponentIDAttribute()
-
-	templateString, err = RenderNodeToString(l.rootNode)
-
-	if err != nil {
-		return err
-	}
-
-	l.htmlTemplate, err = template.New(l.Name).Funcs(template.FuncMap{
-		"render": l.RenderChild,
-	}).Parse(templateString)
+	l.renderer.setTemplate(componentTemplate)
 
 	l.CreateChildren()
 
@@ -121,14 +113,14 @@ func (l *LiveComponent) Prepare(updatesChannel *ComponentLifeCycle) error {
 
 func (l *LiveComponent) CreateChildren() {
 	for _, child := range l.getChildrenComponents() {
-		child.Create()
+		_ = child.Create()
 	}
 }
 
 func (l *LiveComponent) MountChildren() {
 	l.notifyStage(WillMountChildren)
 	for _, child := range l.getChildrenComponents() {
-		child.Mount()
+		_ = child.Mount()
 	}
 	l.notifyStage(ChildrenMounted)
 }
@@ -136,7 +128,7 @@ func (l *LiveComponent) MountChildren() {
 func (l *LiveComponent) PrepareChildren() {
 	l.notifyStage(WillPrepareChildren)
 	for _, child := range l.getChildrenComponents() {
-		child.Prepare(l.updatesChannel)
+		_ = child.Prepare(l.updatesChannel)
 	}
 	l.notifyStage(ChildrenPrepared)
 }
@@ -214,56 +206,13 @@ func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) error 
 
 // Render ...
 func (l *LiveComponent) Render() (string, error) {
-	s := bytes.NewBufferString("")
-
-	err := l.htmlTemplate.Execute(s, l.component)
+	text, _, err := l.renderer.Render(l.component)
 
 	if err != nil {
 		return "", err
 	}
 
-	dom, err := CreateDOMFromString(s.String())
-
-	if err != nil {
-		return "", err
-	}
-
-	// Post treatment
-	for index, node := range GetAllChildrenRecursive(dom) {
-
-		attrs := AttrMapFromNode(node)
-
-		addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(index), 16))
-
-		if isElementDisabled, ok := attrs[":disabled"]; ok {
-			if isElementDisabled == "true" {
-				addNodeAttribute(node, "disabled", "disabled")
-			} else {
-				removeNodeAttribute(node, "disabled")
-			}
-		}
-
-		if liveInputParam, ok := attrs["go-live-input"]; ok {
-
-			f := l.GetFieldFromPath(liveInputParam)
-
-			if inputType, ok := attrs["type"]; ok && inputType == "checkbox" {
-				if f.Bool() {
-					addNodeAttribute(node, "checked", "checked")
-				} else {
-					removeNodeAttribute(node, "checked")
-				}
-			} else {
-				addNodeAttribute(node, "value", fmt.Sprintf("%v", f))
-			}
-		}
-	}
-
-	if err != nil {
-		return "", err
-	}
-
-	return RenderNodeToString(dom)
+	return text, err
 }
 
 // LiveRender render a new version of the component, and detect
@@ -279,7 +228,7 @@ func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
 	om := NewPatchBrowser(l.Name)
 	om.Name = EventLiveDom
 
-	if l.rendered == newRender {
+	if l.renderer.state.text == newRender {
 		l.log(LogDebug, "render is identical with last", nil)
 		return om, nil
 	}
@@ -344,35 +293,24 @@ func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
 	}()
 }
 
-func (l *LiveComponent) addWSConnectScript() {
-	l.rootNode.AppendChild(&html.Node{
-		Type:      html.ElementNode,
-		DataAtom:  atom.Script,
-		Data:      "script",
-		Namespace: "",
-		FirstChild: &html.Node{
-			Type: html.TextNode,
-			Data: `goLive.once('WS_CONNECTION_OPEN', function() {
+func (l *LiveComponent) addWSConnectScript(template string) string {
+	return template + `
+		<script type="application/javascript">
+			goLive.once('WS_CONNECTION_OPEN', function() {
 				goLive.connect('` + l.Name + `')
-			})`,
-		},
-		Attr: []html.Attribute{
-			{
-				Key: "type",
-				Val: "application/javascript",
-			},
-		},
-	})
+			})
+		</script>
+	`
 }
 
 // TODO: improve this urgently
-func (l *LiveComponent) addGoLiveComponentIDAttribute() {
-
-	l.html.Attr = append(l.html.Attr, html.Attribute{
-		Key: "go-live-component-id",
-		Val: l.Name,
-	})
-
+func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
+	found := re.FindString(template)
+	if found != "" {
+		replaceWith := found + ` go-live-component-id="` + l.Name + `" `
+		template = strings.Replace(template, found, replaceWith, 1)
+	}
+	return template
 }
 
 // Kill ...

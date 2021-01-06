@@ -142,6 +142,10 @@ func SelfIndexOfNode(n *html.Node) int {
 	return ix
 }
 
+func IsChildrenTheSame(n *html.Node, other *html.Node) bool {
+	return RenderNodesToString(GetChildrenFromNode(n)) == RenderNodesToString(GetChildrenFromNode(other))
+}
+
 func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 	result := make([]*html.Node, 0)
 
@@ -158,6 +162,17 @@ func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 	}
 
 	return result
+}
+
+// GetChildrenFromNode todo
+func GetChildrenFromNode(n *html.Node) []*html.Node {
+	children := make([]*html.Node, 0)
+
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		children = append(children, child)
+	}
+
+	return children
 }
 
 // SelectorFromNode
