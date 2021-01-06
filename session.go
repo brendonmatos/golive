@@ -69,8 +69,10 @@ func (s *Session) ActivatePage(lp *Page) {
 	// Pre-render to ensure we have something to diff against
 	for _, component := range lp.Components {
 		if component.rendered == "" {
+			s.log(LogTrace, "pre-render", logEx{"name": component.Name})
+
 			if err := s.LiveRenderComponent(component); err != nil {
-				s.log(LogError, "activate page", logEx{"error": err})
+				s.log(LogError, "activate page: pre-render component", logEx{"error": err})
 			}
 		}
 	}
@@ -83,7 +85,7 @@ func (s *Session) ActivatePage(lp *Page) {
 			pageUpdate := <-lp.Events
 			if pageUpdate.Type == Updated {
 				if err := s.LiveRenderComponent(pageUpdate.Component); err != nil {
-					s.log(LogError, "component live render", logEx{"error": err})
+					s.log(LogError, "activate page: component live render", logEx{"error": err})
 				}
 			}
 			if pageUpdate.Type == Unmounted {

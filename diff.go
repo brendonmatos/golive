@@ -4,11 +4,16 @@ import (
 	"fmt"
 	"golang.org/x/net/html"
 	"regexp"
+	"strconv"
 )
 
 var spaceRegex = regexp.MustCompile(`\s+`)
 
 type DiffType int
+
+func (dt DiffType) String() string {
+	return strconv.Itoa(int(dt))
+}
 
 const (
 	Append DiffType = iota
