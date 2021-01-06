@@ -3,6 +3,7 @@ package golive
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/net/html"
 	"html/template"
 	"reflect"
 	"regexp"
@@ -40,8 +41,9 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 		Name:      name,
 		component: time,
 		renderer: LiveRenderer{
-			state:    &LiveState{},
-			template: nil,
+			state:      &LiveState{},
+			template:   nil,
+			formatters: make([]func(t string) string, 0),
 		},
 	}
 }
@@ -64,11 +66,22 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	// golive specific
 	ts = l.addWSConnectScript(ts)
 	ts = l.addGoLiveComponentIDAttribute(ts)
+	ts, err = signPreRenderText(ts, l)
 
 	// Generate go std template
 	ct, err := l.generateTemplate(ts)
-	l.renderer.setTemplate(ct, ts)
 
+	if err != nil {
+		return err
+	}
+
+	l.renderer.setTemplate(ct, ts)
+	l.renderer.useFormatter(func(t string) string {
+		d, _ := CreateDOMFromString(t)
+		signRender(d, l)
+		t, _ = RenderChildren(d)
+		return t
+	})
 	// Calling component creation
 	l.component.Create(l)
 
@@ -116,17 +129,8 @@ func (l *LiveComponent) MountChildren() {
 
 // Render ...
 func (l *LiveComponent) Render() (string, error) {
-	_, _, err := l.renderer.Render(l.component)
-
-	signPostRender(l.renderer.state.html, l)
-
-	_ = l.renderer.state.setHTML(l.renderer.state.html)
-
-	if err != nil {
-		return "", err
-	}
-
-	return l.renderer.state.text, err
+	text, _, err := l.renderer.Render(l.component)
+	return text, err
 }
 
 func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
@@ -150,7 +154,7 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 // differences from the last render
 // and sets the "new old" version  of render
 func (l *LiveComponent) LiveRender() (*Diff, error) {
-	return l.renderer.LiveRender(l)
+	return l.renderer.LiveRender(l.component)
 }
 
 // Kill ...
@@ -274,4 +278,37 @@ func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) 
 	return template.New(l.Name).Funcs(template.FuncMap{
 		"render": l.RenderChild,
 	}).Parse(ts)
+}
+
+func signRender(dom *html.Node, l *LiveComponent) {
+
+	// Post treatment
+	for _, node := range GetAllChildrenRecursive(dom) {
+
+		attrs := AttrMapFromNode(node)
+
+		if isElementDisabled, ok := attrs[":disabled"]; ok {
+			if isElementDisabled == "true" {
+				addNodeAttribute(node, "disabled", "disabled")
+			} else {
+				removeNodeAttribute(node, "disabled")
+			}
+		}
+
+		if goLiveInputParam, ok := attrs[":value"]; ok {
+			f := l.GetFieldFromPath(goLiveInputParam)
+			if inputType, ok := attrs["type"]; ok {
+				switch inputType {
+				case "checkbox":
+					if f.Bool() {
+						addNodeAttribute(node, "checked", "checked")
+					} else {
+						removeNodeAttribute(node, "checked")
+					}
+					break
+				}
+			}
+		}
+	}
+
 }

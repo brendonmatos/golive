@@ -52,31 +52,37 @@ func (d *Diff) Propose(proposed *html.Node) {
 	d.DiffBetweenNodes(actualChildren, proposedChildren)
 }
 
-func (d *Diff) DiffBetweenNodes(from, to []*html.Node) {
-	fromLen := len(from)
-	toLen := len(to)
-	minLen := fromLen
+func (d *Diff) DiffBetweenNodes(actual, proposed []*html.Node) {
+	actualLen := len(actual)
+	proposedLen := len(proposed)
+
+	minLen := actualLen
 
 	// Iterate over all the proposed nodes
 	// And verify is have some text change
 	clSize := len(d.instructions)
+	for index, proposedNode := range proposed {
+		if proposedNode.Type == html.TextNode {
 
-	for index, toNode := range to {
-		if toNode.Type == html.TextNode {
-			fromNode := &html.Node{}
-			if index < len(from) {
-				fromNode = from[index]
+			actualNode := &html.Node{}
+
+			// node index exists in actual?
+			if index <= actualLen {
+				actualNode = actual[index]
 			}
-			d.DiffBetweenText(fromNode, toNode)
+
+			d.DiffBetweenText(actualNode, proposedNode)
 		}
 	}
 
+	// If some text has been changed
+	// the entire node will be replaced
 	if len(d.instructions) > clSize {
 		return
 	}
 
-	if fromLen < toLen {
-		toAppendNodes := to[fromLen:]
+	if actualLen < proposedLen {
+		toAppendNodes := proposed[actualLen:]
 
 		for _, node := range toAppendNodes {
 			rendered, _ := RenderNodeToString(node)
@@ -87,12 +93,13 @@ func (d *Diff) DiffBetweenNodes(from, to []*html.Node) {
 			})
 		}
 
-		minLen = fromLen
+		minLen = actualLen
 	}
 
-	if fromLen > toLen {
+	if actualLen > proposedLen {
 
-		toRemoveNodes := from[toLen:]
+		// Remove the resting nodes
+		toRemoveNodes := actual[proposedLen:]
 
 		for _, node := range toRemoveNodes {
 
@@ -106,22 +113,22 @@ func (d *Diff) DiffBetweenNodes(from, to []*html.Node) {
 				Element: node,
 			})
 		}
-		minLen = toLen
+		minLen = proposedLen
 	}
 
 	// Diff children
 	for i := 0; i < minLen; i++ {
 
-		fromNode := from[i]
-		toNode := to[i]
+		fromNode := actual[i]
+		toNode := proposed[i]
 
 		d.DiffNodeAttributes(fromNode, toNode)
 
 		/**
 		If is a text node and has some difference between them
 		so, we'll be replacing the entire content of parent
-		- So, we recommend you to always set the reactive
-		  text to be inside of any dom element
+		- So, we recommend you proposed always set the reactive
+		  text proposed be inside of any dom element
 		*/
 		if toNode.Type == html.TextNode {
 			d.DiffBetweenText(fromNode, toNode)
@@ -155,7 +162,7 @@ func (d *Diff) DiffBetweenText(from, to *html.Node) {
 	d.instructions = append(d.instructions, ChangeInstruction{
 		Type:    SetInnerHtml,
 		Content: rendered,
-		Element: to,
+		Element: parent,
 	})
 }
 

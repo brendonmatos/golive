@@ -88,7 +88,6 @@ func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 		selector, err := SelectorFromNode(instruction.Element)
 
 		if err != nil {
-			_, err := RenderNodeToString(instruction.Element)
 			return err
 		}
 
