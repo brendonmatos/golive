@@ -14,11 +14,11 @@ type PatchTreeNode struct {
 	Children    PatchNodeChildren  `json:"c,omitempty"`
 	Instruction []PatchInstruction `json:"i"`
 }
+
 type PatchBrowser struct {
 	ComponentID  string             `json:"cid"`
 	Name         string             `json:"n"`
 	Instructions []PatchInstruction `json:"i"`
-	// Root        *PatchTreeNode `json:"r"`
 }
 
 func NewPatchBrowser(componentId string) *PatchBrowser {

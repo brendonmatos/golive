@@ -1,5 +1,7 @@
 package golive
 
+import "strconv"
+
 const (
 	EventLiveInput      = "li"
 	EventLiveMethod     = "lm"
@@ -72,13 +74,33 @@ func (s *Session) ActivatePage(lp *Page) {
 func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 	var err error
 
-	changes, err := c.LiveRender()
+	diff, err := c.LiveRender()
 
 	if err != nil {
 		return err
 	}
 
-	s.QueueMessage(*changes)
+	om := NewPatchBrowser(c.Name)
+	om.Name = EventLiveDom
 
+	for _, instruction := range diff.instructions {
+
+		selector, err := SelectorFromNode(instruction.Element)
+
+		if err != nil {
+			_, err := RenderNodeToString(instruction.Element)
+			return err
+		}
+
+		om.AddInstruction(PatchInstruction{
+			Name:     EventLiveDom,
+			Type:     strconv.Itoa(int(instruction.Type)),
+			Attr:     instruction.Attr,
+			Content:  instruction.Content,
+			Selector: selector,
+		})
+	}
+
+	s.QueueMessage(*om)
 	return nil
 }

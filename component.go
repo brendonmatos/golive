@@ -1,7 +1,6 @@
 package golive
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,14 +8,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 )
 
 //
 type ComponentLifeTime interface {
-	Prepare(component *LiveComponent)
+	Create(component *LiveComponent)
 	TemplateHandler(component *LiveComponent) string
 	Mounted(component *LiveComponent)
 	BeforeMount(component *LiveComponent)
@@ -28,15 +24,14 @@ type ChildLiveComponent interface{}
 type LiveComponent struct {
 	Name string
 
-	IsMounted  bool
-	IsPrepared bool
-	IsCreated  bool
-	Exited     bool
+	IsMounted bool
+	IsCreated bool
+	Exited    bool
 
-	log            Log
-	updatesChannel *ComponentLifeCycle
-	component      ComponentLifeTime
-	renderer       LiveRenderer
+	log       Log
+	life      *ComponentLifeCycle
+	component ComponentLifeTime
+	renderer  LiveRenderer
 }
 
 // NewLiveComponent ...
@@ -45,10 +40,93 @@ func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
 		Name:      name,
 		component: time,
 		renderer: LiveRenderer{
-			state:    LiveState{},
+			state:    &LiveState{},
 			template: nil,
 		},
 	}
+}
+
+func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
+	var err error
+
+	l.life = life
+
+	// The first notification, will notify
+	// an component without unique name
+	l.notifyStage(WillCreate)
+
+	l.Name = l.createUniqueName()
+
+	// Get the template defined on component
+	ts := l.component.TemplateHandler(l)
+
+	// Prepare the template content adding
+	// golive specific
+	ts = l.addWSConnectScript(ts)
+	ts = l.addGoLiveComponentIDAttribute(ts)
+
+	// Generate go std template
+	ct, err := l.generateTemplate(ts)
+	l.renderer.setTemplate(ct, ts)
+
+	// Calling component creation
+	l.component.Create(l)
+
+	// Creating children
+	l.CreateChildren()
+	l.IsCreated = true
+
+	l.notifyStage(Created)
+
+	return err
+}
+
+func (l *LiveComponent) CreateChildren() {
+	for _, child := range l.getChildrenComponents() {
+		_ = child.Create(l.life)
+	}
+}
+
+// Mount 2. the component loading html
+func (l *LiveComponent) Mount() error {
+
+	if !l.IsCreated {
+		return fmt.Errorf("component need to be prepared")
+	}
+
+	l.notifyStage(WillMount)
+
+	l.component.BeforeMount(l)
+	l.component.Mounted(l)
+	l.MountChildren()
+	l.IsMounted = true
+
+	l.notifyStage(Mounted)
+
+	return nil
+}
+
+func (l *LiveComponent) MountChildren() {
+	l.notifyStage(WillMountChildren)
+	for _, child := range l.getChildrenComponents() {
+		_ = child.Mount()
+	}
+	l.notifyStage(ChildrenMounted)
+}
+
+// Render ...
+func (l *LiveComponent) Render() (string, error) {
+	_, _, err := l.renderer.Render(l.component)
+
+	signPostRender(l.renderer.state.html, l)
+
+	_ = l.renderer.state.setHTML(l.renderer.state.html)
+
+	if err != nil {
+		return "", err
+	}
+
+	return l.renderer.state.text, err
 }
 
 func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
@@ -68,86 +146,24 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 	return template.HTML(render)
 }
 
-func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) {
-	return template.New(l.Name).Funcs(template.FuncMap{
-		"render": l.RenderChild,
-	}).Parse(ts)
+// LiveRender render a new version of the component, and detect
+// differences from the last render
+// and sets the "new old" version  of render
+func (l *LiveComponent) LiveRender() (*Diff, error) {
+	return l.renderer.LiveRender(l)
 }
 
-func (l *LiveComponent) Create() error {
-	var err error
+// Kill ...
+func (l *LiveComponent) Kill() error {
 
-	l.Name = l.createUniqueName()
-
-	templateString := l.component.TemplateHandler(l)
-	templateString = l.addWSConnectScript(templateString)
-	templateString = l.addGoLiveComponentIDAttribute(templateString)
-
-	templateDom, err := CreateDOMFromString(templateString)
-	sign(templateDom, l)
-
-	templateString, err = RenderNodeToString(templateDom)
-
-	componentTemplate, err := l.generateTemplate(templateString)
-
-	l.renderer.setTemplate(componentTemplate)
-
-	l.CreateChildren()
-
-	l.IsCreated = true
-
-	return err
-}
-
-// Prepare 1.
-func (l *LiveComponent) Prepare(updatesChannel *ComponentLifeCycle) error {
-
-	l.updatesChannel = updatesChannel
-	l.component.Prepare(l)
-	l.PrepareChildren()
-
-	l.IsPrepared = true
-
-	return nil
-}
-
-func (l *LiveComponent) CreateChildren() {
-	for _, child := range l.getChildrenComponents() {
-		_ = child.Create()
-	}
-}
-
-func (l *LiveComponent) MountChildren() {
-	l.notifyStage(WillMountChildren)
-	for _, child := range l.getChildrenComponents() {
-		_ = child.Mount()
-	}
-	l.notifyStage(ChildrenMounted)
-}
-
-func (l *LiveComponent) PrepareChildren() {
-	l.notifyStage(WillPrepareChildren)
-	for _, child := range l.getChildrenComponents() {
-		_ = child.Prepare(l.updatesChannel)
-	}
-	l.notifyStage(ChildrenPrepared)
-}
-
-// Mount 2. the component loading html
-func (l *LiveComponent) Mount() error {
-
-	if !l.IsPrepared {
-		return fmt.Errorf("component need to be prepared")
+	*l.life <- ComponentLifeTimeMessage{
+		Stage:     WillUnmount,
+		Component: l,
 	}
 
-	l.notifyStage(WillMount)
-
-	l.component.BeforeMount(l)
-	l.component.Mounted(l)
-	l.MountChildren()
-	l.IsMounted = true
-
-	l.notifyStage(Mounted)
+	l.Exited = true
+	l.component = nil
+	l.life = nil
 
 	return nil
 }
@@ -204,62 +220,6 @@ func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) error 
 	return nil
 }
 
-// Render ...
-func (l *LiveComponent) Render() (string, error) {
-	text, _, err := l.renderer.Render(l.component)
-
-	if err != nil {
-		return "", err
-	}
-
-	return text, err
-}
-
-// LiveRender render a new version of the component, and detect
-// differences from the last render
-// and sets the "new old" version  of render
-func (l *LiveComponent) LiveRender() (*PatchBrowser, error) {
-	newRender, err := l.Render()
-
-	if err != nil {
-		return nil, err
-	}
-
-	om := NewPatchBrowser(l.Name)
-	om.Name = EventLiveDom
-
-	if l.renderer.state.text == newRender {
-		l.log(LogDebug, "render is identical with last", nil)
-		return om, nil
-	}
-
-	changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
-
-	if err != nil {
-		l.log(LogPanic, "there is a error in diff", logEx{"error": err})
-	}
-
-	for _, instruction := range changeInstructions {
-
-		selector, err := SelectorFromNode(instruction.Element)
-
-		if err != nil {
-			s, _ := RenderNodeToString(instruction.Element)
-			l.log(LogPanic, "there is a error in selector", logEx{"error": err, "element": s})
-		}
-
-		om.AddInstruction(PatchInstruction{
-			Name:     EventLiveDom,
-			Type:     strconv.Itoa(int(instruction.Type)),
-			Attr:     instruction.Attr,
-			Content:  instruction.Content,
-			Selector: selector,
-		})
-	}
-
-	return om, nil
-}
-
 var re = regexp.MustCompile(`<([a-z0-9]+)`)
 
 func (l *LiveComponent) createUniqueName() string {
@@ -285,12 +245,10 @@ func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
 }
 
 func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
-	go func() {
-		*l.updatesChannel <- ComponentLifeTimeMessage{
-			Stage:     ltu,
-			Component: l,
-		}
-	}()
+	*l.life <- ComponentLifeTimeMessage{
+		Stage:     ltu,
+		Component: l,
+	}
 }
 
 func (l *LiveComponent) addWSConnectScript(template string) string {
@@ -303,7 +261,6 @@ func (l *LiveComponent) addWSConnectScript(template string) string {
 	`
 }
 
-// TODO: improve this urgently
 func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 	found := re.FindString(template)
 	if found != "" {
@@ -313,24 +270,8 @@ func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 	return template
 }
 
-// Kill ...
-func (l *LiveComponent) Kill() error {
-
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     WillUnmount,
-		Component: l,
-	}
-
-	l.Exited = true
-	// Set all to nil to garbage collector act
-	l.component = nil
-	l.updatesChannel = nil
-	l.htmlTemplate = nil
-
-	// *l.updatesChannel <- ComponentLifeTimeMessage{
-	// 	Stage:     Unmounted,
-	// 	Component: l,
-	// }
-
-	return nil
+func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) {
+	return template.New(l.Name).Funcs(template.FuncMap{
+		"render": l.RenderChild,
+	}).Parse(ts)
 }

@@ -72,18 +72,22 @@ func (lp *Page) SetContent(c PageContent) {
 	lp.content = c
 }
 
-func (lp *Page) Mount() {
+func (lp *Page) Mount() error {
 	lp.handleComponentsLifeTime()
 
 	// Call the component in sequence of life cycle
-	err := lp.entry.Create()
+	err := lp.entry.Create(lp.ComponentsLifeCycle)
 
 	if err != nil {
 		panic(err)
 	}
 
-	lp.entry.Prepare(lp.ComponentsLifeCycle)
-	lp.entry.Mount()
+	err = lp.entry.Mount()
+
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func (lp *Page) Render() (string, error) {
@@ -92,8 +96,6 @@ func (lp *Page) Render() (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	lp.entry.rendered = rendered
 
 	lp.content.Body = template.HTML(rendered)
 	lp.content.Enum = PageEnum{

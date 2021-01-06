@@ -99,12 +99,7 @@ func CreateDOMFromString(data string) (*html.Node, error) {
 func RenderNodeToString(e *html.Node) (string, error) {
 	var b bytes.Buffer
 	err := html.Render(&b, e)
-
-	if err != nil {
-		return "", err
-	}
-
-	return b.String(), nil
+	return b.String(), err
 }
 
 // RenderNodesToString todo
@@ -128,10 +123,6 @@ func RenderChildren(parent *html.Node) (string, error) {
 	return RenderNodesToString(GetChildrenFromNode(parent))
 }
 
-func getClassesSeparated(s string) string {
-	return strings.Join(strings.Split(strings.TrimSpace(s), " "), ".")
-}
-
 func SelfIndexOfNode(n *html.Node) int {
 	ix := 0
 
@@ -142,8 +133,18 @@ func SelfIndexOfNode(n *html.Node) int {
 	return ix
 }
 
-func IsChildrenTheSame(n *html.Node, other *html.Node) bool {
-	return RenderNodesToString(GetChildrenFromNode(n)) == RenderNodesToString(GetChildrenFromNode(other))
+func IsChildrenTheSame(actual, proposed *html.Node) bool {
+	proposedString, err := RenderNodesToString(GetChildrenFromNode(proposed))
+	if err != nil {
+		return false
+	}
+
+	actualString, err := RenderNodesToString(GetChildrenFromNode(actual))
+	if err != nil {
+		return false
+	}
+
+	return actualString == proposedString
 }
 
 func GetAllChildrenRecursive(n *html.Node) []*html.Node {
@@ -155,10 +156,7 @@ func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		result = append(result, c)
-
-		if c != nil {
-			result = append(result, GetAllChildrenRecursive(c)...)
-		}
+		result = append(result, GetAllChildrenRecursive(c)...)
 	}
 
 	return result
@@ -263,4 +261,13 @@ func addNodeAttribute(e *html.Node, key, value string) {
 		Key: key,
 		Val: value,
 	})
+}
+
+func getAttribute(e *html.Node, key string) *html.Attribute {
+	for _, attr := range e.Attr {
+		if attr.Key == key {
+			return &attr
+		}
+	}
+	return nil
 }

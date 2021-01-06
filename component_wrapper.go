@@ -7,8 +7,8 @@ type LiveComponentWrapper struct {
 	component *LiveComponent
 }
 
-func (l *LiveComponentWrapper) Prepare(lc *LiveComponent) {
-	l.lifeCycle = lc.updatesChannel
+func (l *LiveComponentWrapper) Create(lc *LiveComponent) {
+	l.lifeCycle = lc.life
 	l.component = lc
 }
 
