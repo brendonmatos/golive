@@ -196,17 +196,18 @@ func signLiveUIToSelector(e *html.Node, selector *DOMElemSelector) bool {
 }
 
 // SelectorFromNode
-func SelectorFromNode(e *html.Node) (string, error) {
+func SelectorFromNode(e *html.Node) (*DOMSelector, error) {
 
 	selector := NewDOMSelector()
 
+	// Every element must be signed with "go-live-uid"
 	if e.Type == html.ElementNode {
 
 		es := selector.addChild()
 		es.setElemen("*")
 
 		if !signLiveUIToSelector(e, es) {
-			return "", ErrElementNotSigned
+			return nil, ErrElementNotSigned
 		}
 	}
 
@@ -220,9 +221,14 @@ func SelectorFromNode(e *html.Node) (string, error) {
 		if signLiveUIToSelector(parent, es) {
 			selector.addParentSelector(es)
 		}
+
+		if goLiveComponentIdAttr := getAttribute(parent, "go-live-component-id"); goLiveComponentIdAttr != nil {
+			es.addAttr("go-live-component-id", goLiveComponentIdAttr.Val)
+			return selector, nil
+		}
 	}
 
-	return selector.toString(), nil
+	return nil, ErrCouldNotProvideValidSelector
 }
 
 // PathToComponentRoot todo
