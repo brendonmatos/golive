@@ -30,9 +30,11 @@ func (h *Home) Mounted(_ *golive.LiveComponent) {
 
 func (h *Home) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
+	<div>
 		{{render .Clock}}
 		{{render .Todo}}
 		{{render .Slider}}
+	</div>
 	`
 }
 

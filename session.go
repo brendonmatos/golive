@@ -71,6 +71,46 @@ func (s *Session) ActivatePage(lp *Page) {
 	}()
 }
 
+func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, error) {
+
+	bp := make([]*PatchBrowser, 0)
+
+	for _, instruction := range diff.instructions {
+
+		selector, componentId, err := SelectorFromNode(instruction.Element)
+
+		var patch *PatchBrowser
+
+		for _, pb := range bp {
+			if pb.ComponentID == componentId {
+				patch = pb
+				break
+			}
+		}
+
+		if patch == nil {
+			patch = NewPatchBrowser(componentId)
+			patch.Name = EventLiveDom
+			bp = append(bp, patch)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		patch.AddInstruction(PatchInstruction{
+			Name:     EventLiveDom,
+			Type:     strconv.Itoa(int(instruction.Type)),
+			Attr:     instruction.Attr,
+			Content:  instruction.Content,
+			Selector: selector,
+		})
+	}
+	return bp, nil
+}
+
+// LiveRenderComponent render the updated component and compare with
+// last state. It may apply with *all child components*
 func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 	var err error
 
@@ -80,26 +120,10 @@ func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 		return err
 	}
 
-	om := NewPatchBrowser(c.Name)
-	om.Name = EventLiveDom
-
-	for _, instruction := range diff.instructions {
-
-		selector, err := SelectorFromNode(instruction.Element)
-
-		if err != nil {
-			return err
-		}
-
-		om.AddInstruction(PatchInstruction{
-			Name:     EventLiveDom,
-			Type:     strconv.Itoa(int(instruction.Type)),
-			Attr:     instruction.Attr,
-			Content:  instruction.Content,
-			Selector: selector,
-		})
+	patches, err := s.generateBrowserPatchesFromDiff(diff)
+	for _, om := range patches {
+		s.QueueMessage(*om)
 	}
 
-	s.QueueMessage(*om)
 	return nil
 }

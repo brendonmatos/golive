@@ -92,12 +92,14 @@ func (lp *Page) Mount() {
 }
 
 func (lp *Page) Render() (string, error) {
+	// Render entry component
 	rendered, err := lp.entry.Render()
 
 	if err != nil {
 		return "", err
 	}
 
+	// Body content
 	lp.content.Body = template.HTML(rendered)
 	lp.content.Enum = PageEnum{
 		EventLiveInput:   EventLiveInput,
@@ -111,7 +113,7 @@ func (lp *Page) Render() (string, error) {
 		DiffAppend:       Append,
 	}
 
-	writer := bytes.NewBufferString("")
+	writer := bytes.NewBuffer([]byte{})
 	err = BasePage.Execute(writer, lp.content)
 	return writer.String(), err
 }
@@ -163,21 +165,21 @@ func (lp *Page) receiveComponentsLifeCycle() {
 
 	go func() {
 		for {
-			update := <-*lp.ComponentsLifeCycle
+			ls := <-*lp.ComponentsLifeCycle
 
-			switch update.Stage {
+			switch ls.Stage {
 			case WillMount:
 				break
 			case Mounted:
-				lp.Components[update.Component.Name] = update.Component
+				lp.Components[ls.Component.Name] = ls.Component
 				break
 			case Updated:
-				lp.SendSessionEvent(Updated, update.Component)
+				lp.SendSessionEvent(Updated, ls.Component)
 				break
 			case WillUnmount:
 				break
 			case Unmounted:
-				lp.Components[update.Component.Name] = nil
+				lp.Components[ls.Component.Name] = nil
 				break
 			case Rendered:
 				break
