@@ -2,7 +2,6 @@ package golive
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,6 +36,8 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 	if err != nil {
 		return nil, err
 	}
+
+	s.Log(LogInfo, "http request", logEx{"component": lc.Name, "session": sessionKey})
 
 	session.log = s.Log
 
@@ -73,8 +74,6 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 
 		return
 	}
-
-	s.Log(LogInfo, "http request", logEx{"component": lc.Name, "session": lr.Session})
 
 	ctx.Cookie(&fiber.Cookie{
 		Name:    s.CookieName,
@@ -139,13 +138,31 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 	c.EnableWriteCompression(true)
 
 	sessionKey := c.Cookies(s.CookieName)
-	session := s.Wire.GetSession(sessionKey)
 
 	s.Log(LogInfo, "websocket open", logEx{"session": sessionKey})
 
-	errors := make(chan error)
-	exit := make(chan int)
+	session := s.Wire.GetSession(sessionKey)
 
+	if session == nil {
+		s.Log(LogWarn, "session not found", logEx{"session": sessionKey})
+
+		var msg OutMessage
+		msg.Name = EventLiveError
+		msg.Type = LiveErrorSessionNotFound
+		if err := c.WriteJSON(msg); err != nil {
+			s.Log(LogError, "handle ws request: write json", logEx{"error": err})
+		}
+
+		if err := c.Close(); err != nil {
+			s.Log(LogError, "close websocket connection", logEx{"error": err})
+		}
+
+		s.Log(LogInfo, "websocket close", logEx{"session": sessionKey})
+
+		return
+	}
+
+	exit := make(chan int)
 	exited := false
 
 	go func() {
@@ -154,32 +171,33 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 			case msg := <-session.OutChannel:
 				s.Log(LogDebug, "message out", logEx{"msg": msg, "session": sessionKey})
 
-				err := c.WriteJSON(msg)
-				if err != nil {
-					errors <- err
+				if err := c.WriteJSON(msg); err != nil {
+					s.Log(LogError, "handle ws request: write json", logEx{"error": err})
 				}
-
 			case <-exit:
 				exited = true
 
 				if err := c.Close(); err != nil {
-					errors <- fmt.Errorf("close websocket connection: %w", err)
+					s.Log(LogError, "close websocket connection", logEx{"error": err})
 				}
 
 				if err := session.LivePage.entry.Kill(); err != nil {
-					errors <- fmt.Errorf("kill page entry component: %w", err)
+					s.Log(LogError, "handle ws request: kill page", logEx{"error": err})
 				}
+
+				s.Wire.DeleteSession(sessionKey)
 
 				s.Log(LogInfo, "websocket close", logEx{"session": sessionKey})
 
 				return
-			case err := <-errors:
-				s.Log(LogError, "websocket error", logEx{"error": err, "session": sessionKey})
 			}
 		}
 	}()
 
 	c.SetCloseHandler(func(code int, text string) error {
+		// Close codes defined in RFC 6455, section 11.7.
+		s.Log(LogTrace, "ws close handler", logEx{"code": code, "text": text})
+
 		exit <- 1
 		return nil
 	})
@@ -191,16 +209,28 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 		inMsg := InMessage{}
 
-		err := c.ReadJSON(&inMsg)
-		if err != nil {
-			errors <- err
+		// Loop blocks here
+		if err := c.ReadJSON(&inMsg); err != nil {
+			if websocket.IsUnexpectedCloseError(err) {
+				// This seems to happen when running in Docker
+				if !exited {
+					s.Log(LogWarn, "handle ws request: unexpected connection close", nil)
+
+					exit <- 1
+				}
+
+				return
+			}
+
+			s.Log(LogError, "handle ws request: read json", logEx{"error": err})
+
+			continue
 		}
 
 		s.Log(LogDebug, "message in", logEx{"msg": inMsg, "session": sessionKey})
 
-		err = session.IngestMessage(inMsg)
-		if err != nil {
-			errors <- err
+		if err := session.IngestMessage(inMsg); err != nil {
+			s.Log(LogError, "handle ws request: ingest message", logEx{"error": err})
 		}
 	}
 }

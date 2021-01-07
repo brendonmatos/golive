@@ -1,11 +1,24 @@
 package golive
 
+import "fmt"
+
 const (
 	EventLiveInput      = "li"
 	EventLiveMethod     = "lm"
 	EventLiveDom        = "ld"
 	EventLiveDisconnect = "lx"
+	EventLiveError      = "le"
 )
+
+var (
+	LiveErrorSessionNotFound = "session_not_found"
+)
+
+func LiveErrorMap() map[string]string {
+	return map[string]string{
+		"LiveErrorSessionNotFound": LiveErrorSessionNotFound,
+	}
+}
 
 type InMessage struct {
 	Name        string            `json:"name"`
@@ -55,6 +68,14 @@ func (s *Session) QueueMessages(messages []OutMessage) {
 }
 
 func (s *Session) IngestMessage(message InMessage) error {
+	defer func() {
+		payload := recover()
+		if payload != nil {
+			// TODO: get session key in log
+			s.log(LogWarn, fmt.Sprintf("ingest message: recover from panic: %v", payload), logEx{"message": message})
+		}
+	}()
+
 	err := s.LivePage.HandleMessage(message)
 	if err != nil {
 		return err
