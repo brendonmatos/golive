@@ -288,6 +288,14 @@
       },
     };
 
+
+    goLive.once.on("WS_CONNECTION_OPEN", () => {
+      goLive.on("{{ .Enum.EventLiveConnectElement }}", (message) => {
+        const cid = message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]
+        goLive.connect(cid)
+      })
+    })
+
     goLive.server.onmessage = (rawMessage) => {
       try {
         const message = JSON.parse(rawMessage.data);
@@ -301,6 +309,7 @@
     goLive.server.onopen = () => {
       goLive.once.emit("WS_CONNECTION_OPEN")
     };
+
   </script>
 
   <body>
