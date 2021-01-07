@@ -292,6 +292,14 @@ var BasePageString = `
 						handleChange[message.type.toLowerCase()](message);
 					}
 				})
+
+                goLive.on('{{ .Enum.EventLiveError }}', (message) => {
+                    console.error(message.type);
+
+                    if (message.type === '{{ index .EnumLiveError ` + "`LiveErrorSessionNotFound`" + `}}') {
+                        window.location.reload(false);
+                    }
+                })
 			},
 
 			connect(id) {
