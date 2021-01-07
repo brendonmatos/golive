@@ -157,7 +157,7 @@ func (d *Diff) DiffBetweenText(from, to *html.Node) {
 	}
 
 	parent := to.Parent
-	rendered, _ := RenderChildren(parent)
+	rendered, _ := RenderNodeChildren(parent)
 
 	d.instructions = append(d.instructions, ChangeInstruction{
 		Type:    SetInnerHtml,

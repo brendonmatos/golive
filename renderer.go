@@ -22,7 +22,7 @@ func (ls *LiveState) setText(text string) error {
 
 func (ls *LiveState) setHTML(node *html.Node) error {
 	var err error
-	ls.text, err = RenderChildren(node)
+	ls.text, err = RenderNodeChildren(node)
 	ls.html = node
 	return err
 }
@@ -105,7 +105,7 @@ func signPreRenderText(text string, l *LiveComponent) (string, error) {
 
 	signPreRender(dom, l)
 
-	return RenderChildren(dom)
+	return RenderNodeChildren(dom)
 }
 
 func signPreRender(dom *html.Node, l *LiveComponent) {

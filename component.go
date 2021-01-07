@@ -76,12 +76,15 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	}
 
 	l.renderer.setTemplate(ct, ts)
+
+	//
 	l.renderer.useFormatter(func(t string) string {
 		d, _ := CreateDOMFromString(t)
 		signRender(d, l)
-		t, _ = RenderChildren(d)
+		t, _ = RenderNodeChildren(d)
 		return t
 	})
+
 	// Calling component creation
 	l.component.Create(l)
 
@@ -178,6 +181,13 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 	v := reflect.ValueOf(c).Elem()
 
 	for _, s := range strings.Split(path, ".") {
+
+		if reflect.ValueOf(v).IsZero() {
+			l.log(LogError, "field not found in component", logEx{
+				"component": l.Name,
+				"path":      path,
+			})
+		}
 
 		// If it`s array this will work
 		if i, err := strconv.Atoi(s); err == nil {
@@ -288,6 +298,7 @@ func signRender(dom *html.Node, l *LiveComponent) {
 		attrs := AttrMapFromNode(node)
 
 		if isElementDisabled, ok := attrs[":disabled"]; ok {
+			removeNodeAttribute(node, ":disabled")
 			if isElementDisabled == "true" {
 				addNodeAttribute(node, "disabled", "disabled")
 			} else {
@@ -296,6 +307,7 @@ func signRender(dom *html.Node, l *LiveComponent) {
 		}
 
 		if goLiveInputParam, ok := attrs[":value"]; ok {
+			removeNodeAttribute(node, ":value")
 			f := l.GetFieldFromPath(goLiveInputParam)
 			if inputType, ok := attrs["type"]; ok {
 				switch inputType {
@@ -307,6 +319,8 @@ func signRender(dom *html.Node, l *LiveComponent) {
 					}
 					break
 				}
+			} else {
+				addNodeAttribute(node, "value", fmt.Sprintf("%v", f))
 			}
 		}
 	}
