@@ -124,7 +124,7 @@ func RenderNodesToString(nodes []*html.Node) (string, error) {
 	return text, nil
 }
 
-func RenderChildren(parent *html.Node) (string, error) {
+func RenderNodeChildren(parent *html.Node) (string, error) {
 	return RenderNodesToString(GetChildrenFromNode(parent))
 }
 
@@ -179,10 +179,11 @@ func GetChildrenFromNode(n *html.Node) []*html.Node {
 }
 
 // SelectorFromNode
-func SelectorFromNode(e *html.Node) (string, error) {
+func SelectorFromNode(e *html.Node) (string, string, error) {
 
 	err := fmt.Errorf("could not provide a valid selector")
 
+	componentId := ""
 	selector := NewDOMSelector()
 
 	if e.Type == html.ElementNode {
@@ -208,16 +209,14 @@ func SelectorFromNode(e *html.Node) (string, error) {
 		es := NewDOMElementSelector()
 		es.setElemen("*")
 
-		found := false
-
 		if attr, ok := attrs["go-live-component-id"]; ok {
 			es.addAttr("go-live-component-id", attr)
+
+			componentId = attr
 
 			if attr, ok := attrs["key"]; ok {
 				es.addAttr("key", attr)
 			}
-
-			found = true
 		}
 
 		if attr, ok := attrs["go-live-uid"]; ok {
@@ -226,20 +225,18 @@ func SelectorFromNode(e *html.Node) (string, error) {
 			if attr, ok := attrs["key"]; ok {
 				es.addAttr("key", attr)
 			}
-
-			found = true
-		}
-
-		if !found {
-			continue
 		}
 
 		selector.addParentSelector(es)
 
-		return selector.toString(), nil
+		if componentId == "" {
+			continue
+		}
+
+		return selector.toString(), componentId, nil
 	}
 
-	return "", err
+	return "", "", err
 }
 
 // PathToComponentRoot todo

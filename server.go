@@ -61,7 +61,6 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 		}, err
 	}
 
-	// 4.
 	session.ActivatePage(p)
 
 	return &LiveResponse{Rendered: rendered, Session: sessionKey}, nil
