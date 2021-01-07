@@ -15,6 +15,9 @@ func NewWire() *LiveWire {
 func (w *LiveWire) GetSession(s string) *Session {
 	return w.Sessions[s]
 }
+func (w *LiveWire) DeleteSession(s string) {
+	delete(w.Sessions, s)
+}
 
 func (w *LiveWire) CreateSession() (string, *Session, error) {
 	key, _ := GenerateRandomString(48)

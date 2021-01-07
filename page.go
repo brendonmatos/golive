@@ -20,6 +20,7 @@ type PageEnum struct {
 	EventLiveInput   string
 	EventLiveMethod  string
 	EventLiveDom     string
+	EventLiveError   string
 	DiffSetAttr      string
 	DiffRemoveAttr   string
 	DiffReplace      string
@@ -47,12 +48,13 @@ type Page struct {
 }
 
 type PageContent struct {
-	Lang   string
-	Body   template.HTML
-	Head   template.HTML
-	Script string
-	Title  string
-	Enum   PageEnum
+	Lang          string
+	Body          template.HTML
+	Head          template.HTML
+	Script        string
+	Title         string
+	Enum          PageEnum
+	EnumLiveError map[string]string
 }
 
 func NewLivePage(c *LiveComponent) *Page {
@@ -90,6 +92,7 @@ func (lp *Page) Render() (string, error) {
 		EventLiveInput:   EventLiveInput,
 		EventLiveMethod:  EventLiveMethod,
 		EventLiveDom:     EventLiveDom,
+		EventLiveError:   EventLiveError,
 		DiffSetAttr:      SetAttr.String(),
 		DiffRemoveAttr:   RemoveAttr.String(),
 		DiffReplace:      Replace.String(),
@@ -97,6 +100,7 @@ func (lp *Page) Render() (string, error) {
 		DiffSetInnerHtml: SetInnerHtml.String(),
 		DiffAppend:       Append.String(),
 	}
+	lp.content.EnumLiveError = LiveErrorMap()
 
 	writer := bytes.NewBufferString("")
 	err := BasePage.Execute(writer, lp.content)

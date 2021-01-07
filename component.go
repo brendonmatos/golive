@@ -290,6 +290,10 @@ func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 
 // Kill ...
 func (l *LiveComponent) Kill() error {
+	if l.component == nil {
+		return errors.New("component nil")
+	}
+
 	l.KillChildren()
 
 	l.log(LogTrace, "WillUnmount", logEx{"name": l.Name})
