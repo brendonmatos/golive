@@ -9,6 +9,11 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
+var (
+	ErrCouldNotProvideValidSelector = fmt.Errorf("could not provide a valid selector")
+	ErrElementNotSigned             = fmt.Errorf("element is not signed with go-live-uid")
+)
+
 type DOMElemSelector struct {
 	query []string
 }
@@ -178,65 +183,46 @@ func GetChildrenFromNode(n *html.Node) []*html.Node {
 	return children
 }
 
+func signLiveUIToSelector(e *html.Node, selector *DOMElemSelector) bool {
+	if goLiveUidAttr := getAttribute(e, "go-live-uid"); goLiveUidAttr != nil {
+		selector.addAttr("go-live-uid", goLiveUidAttr.Val)
+
+		if keyAttr := getAttribute(e, "key"); keyAttr != nil {
+			selector.addAttr("key", keyAttr.Val)
+		}
+		return true
+	}
+	return false
+}
+
 // SelectorFromNode
-func SelectorFromNode(e *html.Node) (string, string, error) {
+func SelectorFromNode(e *html.Node) (string, error) {
 
-	err := fmt.Errorf("could not provide a valid selector")
-
-	componentId := ""
 	selector := NewDOMSelector()
 
 	if e.Type == html.ElementNode {
 
-		attrs := AttrMapFromNode(e)
-
 		es := selector.addChild()
 		es.setElemen("*")
 
-		if attr, ok := attrs["go-live-uid"]; ok {
-			es.addAttr("go-live-uid", attr)
-
-			if attr, ok := attrs["key"]; ok {
-				es.addAttr("key", attr)
-			}
+		if !signLiveUIToSelector(e, es) {
+			return "", ErrElementNotSigned
 		}
 	}
 
 	for parent := e.Parent; parent != nil; parent = parent.Parent {
 
-		attrs := AttrMapFromNode(parent)
+		//attrs := AttrMapFromNode(parent)
 
 		es := NewDOMElementSelector()
 		es.setElemen("*")
 
-		if attr, ok := attrs["go-live-component-id"]; ok {
-			es.addAttr("go-live-component-id", attr)
-
-			componentId = attr
-
-			if attr, ok := attrs["key"]; ok {
-				es.addAttr("key", attr)
-			}
+		if signLiveUIToSelector(parent, es) {
+			selector.addParentSelector(es)
 		}
-
-		if attr, ok := attrs["go-live-uid"]; ok {
-			es.addAttr("go-live-uid", attr)
-
-			if attr, ok := attrs["key"]; ok {
-				es.addAttr("key", attr)
-			}
-		}
-
-		selector.addParentSelector(es)
-
-		if componentId == "" {
-			continue
-		}
-
-		return selector.toString(), componentId, nil
 	}
 
-	return "", "", err
+	return selector.toString(), nil
 }
 
 // PathToComponentRoot todo

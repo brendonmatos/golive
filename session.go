@@ -1,12 +1,15 @@
 package golive
 
-import "strconv"
+import (
+	"strconv"
+)
 
 const (
-	EventLiveInput      = "li"
-	EventLiveMethod     = "lm"
-	EventLiveDom        = "ld"
-	EventLiveDisconnect = "lx"
+	EventLiveInput          = "li"
+	EventLiveMethod         = "lm"
+	EventLiveDom            = "ld"
+	EventLiveConnectElement = "lce"
+	EventLiveDisconnect     = "lx"
 )
 
 type BrowserEvent struct {
@@ -38,13 +41,11 @@ func (s *Session) QueueMessage(message PatchBrowser) {
 
 func (s *Session) IngestMessage(message BrowserEvent) error {
 
-	err := s.LivePage.HandleMessage(message)
+	err := s.LivePage.HandleBrowserEvent(message)
 
 	if err != nil {
 		return err
 	}
-
-	s.LivePage.SendUpdate()
 
 	return nil
 }
@@ -57,15 +58,21 @@ func (s *Session) ActivatePage(lp *Page) {
 	go func() {
 		for {
 			// Receive all the events from page
-			evt := <-lp.SessionEvents
-			if evt.Type == int(Updated) {
+			evt := <-s.LivePage.Events
+
+			switch evt.Type {
+			case PageComponentUpdated:
 				if err := s.LiveRenderComponent(evt.Component); err != nil {
 					s.log(LogError, "component live render", logEx{"error": err})
 				}
-			}
-			if evt.Type == int(Unmounted) {
-				// TODO: Treat unmount
-				return
+				break
+			case PageComponentMounted:
+				s.QueueMessage(PatchBrowser{
+					ComponentID:  evt.Component.Name,
+					Name:         EventLiveConnectElement,
+					Instructions: nil,
+				})
+				break
 			}
 		}
 	}()
@@ -77,10 +84,21 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 
 	for _, instruction := range diff.instructions {
 
-		selector, componentId, err := SelectorFromNode(instruction.Element)
+		selector, err := SelectorFromNode(instruction.Element)
+
+		if err != nil {
+			return nil, err
+		}
+
+		componentId, err := ComponentIdFromNode(instruction.Element)
+
+		if err != nil {
+			return nil, err
+		}
 
 		var patch *PatchBrowser
 
+		// find if there is already a patch
 		for _, pb := range bp {
 			if pb.ComponentID == componentId {
 				patch = pb
@@ -88,14 +106,11 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 			}
 		}
 
+		// IF there is no patch
 		if patch == nil {
 			patch = NewPatchBrowser(componentId)
 			patch.Name = EventLiveDom
 			bp = append(bp, patch)
-		}
-
-		if err != nil {
-			return nil, err
 		}
 
 		patch.AddInstruction(PatchInstruction{
@@ -121,6 +136,11 @@ func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 	}
 
 	patches, err := s.generateBrowserPatchesFromDiff(diff)
+
+	if err != nil {
+		return err
+	}
+
 	for _, om := range patches {
 		s.QueueMessage(*om)
 	}

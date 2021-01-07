@@ -34,6 +34,8 @@ type LiveComponent struct {
 	life      *ComponentLifeCycle
 	component ComponentLifeTime
 	renderer  LiveRenderer
+
+	children []*LiveComponent
 }
 
 // NewLiveComponent ...
@@ -65,9 +67,7 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 
 	// Prepare the template content adding
 	// golive specific
-	ts = l.addWSConnectScript(ts)
 	ts = l.addGoLiveComponentIDAttribute(ts)
-	ts, err = signPreRenderText(ts, l)
 
 	// Generate go std template
 	ct, err := l.generateTemplate(ts)
@@ -81,7 +81,7 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	//
 	l.renderer.useFormatter(func(t string) string {
 		d, _ := CreateDOMFromString(t)
-		signRender(d, l)
+		l.signRender(d)
 		t, _ = RenderNodeChildren(d)
 		return t
 	})
@@ -90,7 +90,7 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	l.component.Create(l)
 
 	// Creating children
-	err = l.CreateChildren()
+	err = l.createChildren()
 
 	if err != nil {
 		return err
@@ -103,15 +103,39 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	return err
 }
 
-func (l *LiveComponent) CreateChildren() error {
+func (l *LiveComponent) createChildren() error {
 	var err error
 	for _, child := range l.getChildrenComponents() {
 		err = child.Create(l.life)
 		if err != nil {
-			return err
+			panic(err)
 		}
+
+		l.children = append(l.children, child)
 	}
 	return err
+}
+
+func (l *LiveComponent) findComponentById(id string) *LiveComponent {
+	if l.Name == id {
+		return l
+	}
+
+	for _, child := range l.children {
+		if child.Name == id {
+			return l
+		}
+	}
+
+	for _, child := range l.children {
+		found := child.findComponentById(id)
+
+		if found != nil {
+			return found
+		}
+	}
+
+	return nil
 }
 
 // Mount 2. the component loading html
@@ -171,17 +195,20 @@ func (l *LiveComponent) LiveRender() (*Diff, error) {
 	return l.renderer.LiveRender(l.component)
 }
 
+func (l *LiveComponent) Update() {
+	l.notifyStage(Updated)
+}
+
 // Kill ...
 func (l *LiveComponent) Kill() error {
 
-	*l.life <- ComponentLifeTimeMessage{
-		Stage:     WillUnmount,
-		Component: l,
-	}
+	l.notifyStage(WillUnmount)
 
 	l.Exited = true
 	l.component = nil
 	l.life = nil
+
+	l.notifyStage(Unmounted)
 
 	return nil
 }
@@ -245,12 +272,11 @@ func (l *LiveComponent) InvokeMethodInPath(path string, valuePath string) error 
 	return nil
 }
 
-var re = regexp.MustCompile(`<([a-z0-9]+)`)
-
 func (l *LiveComponent) createUniqueName() string {
 	return l.Name + "_" + NewLiveId().GenerateSmall()
 }
 
+// TODO: maybe nested components?
 func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
 	components := make([]*LiveComponent, 0)
 	v := reflect.ValueOf(l.component).Elem()
@@ -276,18 +302,10 @@ func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
 	}
 }
 
-func (l *LiveComponent) addWSConnectScript(template string) string {
-	return template + `
-		<script type="application/javascript">
-			goLive.once('WS_CONNECTION_OPEN', function() {
-				goLive.connect('` + l.Name + `')
-			})
-		</script>
-	`
-}
+var rxTagName = regexp.MustCompile(`<([a-z0-9]+)`)
 
 func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
-	found := re.FindString(template)
+	found := rxTagName.FindString(template)
 	if found != "" {
 		replaceWith := found + ` go-live-component-id="` + l.Name + `" `
 		template = strings.Replace(template, found, replaceWith, 1)
@@ -301,27 +319,38 @@ func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) 
 	}).Parse(ts)
 }
 
-func signRender(dom *html.Node, l *LiveComponent) {
+func (l *LiveComponent) signRender(dom *html.Node) error {
 
 	// Post treatment
-	for _, node := range GetAllChildrenRecursive(dom) {
+	for index, node := range GetAllChildrenRecursive(dom) {
 
-		attrs := AttrMapFromNode(node)
-
-		if isElementDisabled, ok := attrs[":disabled"]; ok {
-			removeNodeAttribute(node, ":disabled")
-			if isElementDisabled == "true" {
-				addNodeAttribute(node, "disabled", "disabled")
-			} else {
-				removeNodeAttribute(node, "disabled")
-			}
+		if goLiveIdAttr := getAttribute(node, "go-live-uid"); goLiveIdAttr == nil {
+			addNodeAttribute(node, "go-live-uid", strconv.FormatInt(int64(index), 16))
 		}
 
-		if goLiveInputParam, ok := attrs[":value"]; ok {
+		if goLiveInputAttr := getAttribute(node, "go-live-input"); goLiveInputAttr != nil {
+			addNodeAttribute(node, ":value", goLiveInputAttr.Val)
+		}
+
+		if valueAttr := getAttribute(node, ":value"); valueAttr != nil {
 			removeNodeAttribute(node, ":value")
-			f := l.GetFieldFromPath(goLiveInputParam)
-			if inputType, ok := attrs["type"]; ok {
-				switch inputType {
+
+			cid, err := ComponentIdFromNode(node)
+
+			if err != nil {
+				return err
+			}
+
+			c := l.findComponentById(cid)
+
+			if c == nil {
+				return fmt.Errorf("component not found")
+			}
+
+			f := c.GetFieldFromPath(valueAttr.Val)
+
+			if inputTypeAttr := getAttribute(node, "type"); inputTypeAttr != nil {
+				switch inputTypeAttr.Val {
 				case "checkbox":
 					if f.Bool() {
 						addNodeAttribute(node, "checked", "checked")
@@ -334,6 +363,26 @@ func signRender(dom *html.Node, l *LiveComponent) {
 				addNodeAttribute(node, "value", fmt.Sprintf("%v", f))
 			}
 		}
+
+		if disabledAttr := getAttribute(node, ":disabled"); disabledAttr != nil {
+			removeNodeAttribute(node, ":disabled")
+			if disabledAttr.Val == "true" {
+				addNodeAttribute(node, "disabled", "disabled")
+			} else {
+				removeNodeAttribute(node, "disabled")
+			}
+		}
+
 	}
 
+	return nil
+}
+
+func ComponentIdFromNode(e *html.Node) (string, error) {
+	for parent := e; parent != nil; parent = parent.Parent {
+		if componentAttr := getAttribute(parent, "go-live-component-id"); componentAttr != nil {
+			return componentAttr.Val, nil
+		}
+	}
+	return "", fmt.Errorf("node not found")
 }
