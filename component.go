@@ -81,7 +81,7 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	//
 	l.renderer.useFormatter(func(t string) string {
 		d, _ := CreateDOMFromString(t)
-		l.signRender(d)
+		_ = l.signRender(d)
 		t, _ = RenderNodeChildren(d)
 		return t
 	})
@@ -123,7 +123,7 @@ func (l *LiveComponent) findComponentById(id string) *LiveComponent {
 
 	for _, child := range l.children {
 		if child.Name == id {
-			return l
+			return child
 		}
 	}
 
@@ -322,10 +322,10 @@ func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) 
 func (l *LiveComponent) signRender(dom *html.Node) error {
 
 	// Post treatment
-	for index, node := range GetAllChildrenRecursive(dom) {
+	for _, node := range GetAllChildrenRecursive(dom) {
 
 		if goLiveIdAttr := getAttribute(node, "go-live-uid"); goLiveIdAttr == nil {
-			addNodeAttribute(node, "go-live-uid", strconv.FormatInt(int64(index), 16))
+			addNodeAttribute(node, "go-live-uid", strconv.FormatInt(int64(SelfIndexOfNode(node)), 16))
 		}
 
 		if goLiveInputAttr := getAttribute(node, "go-live-input"); goLiveInputAttr != nil {
@@ -341,13 +341,13 @@ func (l *LiveComponent) signRender(dom *html.Node) error {
 				return err
 			}
 
-			c := l.findComponentById(cid)
+			foundComponent := l.findComponentById(cid)
 
-			if c == nil {
+			if foundComponent == nil {
 				return fmt.Errorf("component not found")
 			}
 
-			f := c.GetFieldFromPath(valueAttr.Val)
+			f := foundComponent.GetFieldFromPath(valueAttr.Val)
 
 			if inputTypeAttr := getAttribute(node, "type"); inputTypeAttr != nil {
 				switch inputTypeAttr.Val {
