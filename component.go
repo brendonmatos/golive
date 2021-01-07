@@ -3,12 +3,13 @@ package golive
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/html"
 	"html/template"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/net/html"
 )
 
 //
@@ -89,7 +90,12 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	l.component.Create(l)
 
 	// Creating children
-	l.CreateChildren()
+	err = l.CreateChildren()
+
+	if err != nil {
+		return err
+	}
+
 	l.IsCreated = true
 
 	l.notifyStage(Created)
@@ -97,10 +103,15 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	return err
 }
 
-func (l *LiveComponent) CreateChildren() {
+func (l *LiveComponent) CreateChildren() error {
+	var err error
 	for _, child := range l.getChildrenComponents() {
-		_ = child.Create(l.life)
+		err = child.Create(l.life)
+		if err != nil {
+			return err
+		}
 	}
+	return err
 }
 
 // Mount 2. the component loading html
