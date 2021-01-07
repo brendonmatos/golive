@@ -3,12 +3,10 @@ package golive
 // LiveComponentWrapper is a struct
 type LiveComponentWrapper struct {
 	Name      string
-	lifeCycle *ComponentLifeCycle
 	component *LiveComponent
 }
 
-func (l *LiveComponentWrapper) Prepare(lc *LiveComponent) {
-	l.lifeCycle = lc.updatesChannel
+func (l *LiveComponentWrapper) Create(lc *LiveComponent) {
 	l.component = lc
 }
 
@@ -33,14 +31,10 @@ func (l *LiveComponentWrapper) BeforeUnmount(_ *LiveComponent) {
 func (l *LiveComponentWrapper) Commit() {
 	l.component.log(LogTrace, "Updated", logEx{"name": l.component.Name})
 
-	if l.lifeCycle == nil {
+	if l.component.life == nil {
 		l.component.log(LogError, "call to commit on unmounted component", logEx{"name": l.component.Name})
-
 		return
 	}
 
-	*l.lifeCycle <- ComponentLifeTimeMessage{
-		Stage:     Updated,
-		Component: l.component,
-	}
+	l.component.Update()
 }

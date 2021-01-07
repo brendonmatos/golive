@@ -1,6 +1,4 @@
-package golive
-
-var BasePageString = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="{{ .Lang }}">
   <head>
     <meta charset="UTF-8" />
@@ -87,7 +85,7 @@ var BasePageString = `<!DOCTYPE html>
       el.parentElement.removeChild(el);
     }
 
-    function handleDiffSetInnerHTML(message, el, componentId) {
+    function handleDiffSetInnerHTML(message, el) {
       const { content } = message;
 
       if (el.nodeType === Node.TEXT_NODE) {
@@ -100,14 +98,14 @@ var BasePageString = `<!DOCTYPE html>
       goLive.connectElement( el);
     }
 
-    function handleDiffAppend(message, el, componentId) {
+    function handleDiffAppend(message, el) {
       const { content } = message;
 
       const wrapper = document.createElement("div");
       wrapper.innerHTML = content;
+
       const child = wrapper.firstChild;
       el.appendChild(child);
-
       goLive.connectElement( el);
     }
 
@@ -218,7 +216,6 @@ var BasePageString = `<!DOCTYPE html>
         );
 
         liveChildren.forEach((child) => {
-          const componentId = child.getAttribute(GO_LIVE_COMPONENT_ID);
           this.connectElement( child);
         });
       },
@@ -250,6 +247,7 @@ var BasePageString = `<!DOCTYPE html>
         });
 
         liveInputs.forEach(function (element) {
+
           const type = element.getAttribute("type");
           const componentId = getComponentIdFromElement(element)
 
@@ -272,68 +270,65 @@ var BasePageString = `<!DOCTYPE html>
         });
       },
 
-                        if (!el) {
-                            console.warn("Path not found with selector", path)
-                            return
-                        }
+      connect(id) {
+        const element = goLive.getLiveComponent(id);
 
-                        if (el.nodeType === Node.TEXT_NODE) {
-                            el.textContent = content
-                            return
-                        }
+        goLive.connectElement(element);
 
-                        el.innerHTML = content
+        goLive.on("{{ .Enum.EventLiveDom }}", function handleLiveDom(message) {
+          if (id === message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]) {
+            for (const instruction of message[EVENT_LIVE_DOM_INSTRUCTIONS_KEY]) {
+              const type = instruction[EVENT_LIVE_DOM_TYPE_KEY];
+              const content = instruction[EVENT_LIVE_DOM_CONTENT_KEY];
+              const attr = instruction[EVENT_LIVE_DOM_ATTR_KEY];
+              const selector = instruction[EVENT_LIVE_DOM_SELECTOR_KEY];
 
-                        // Add listeners to new elements
-                        goLive.connectElement(scopeId, el)
-                    },
-                    '{{ .Enum.DiffAppend }}': (message) => {
-                        const {
-                            content,
-                            path
-                        } = message
+              const element = document.querySelector(selector)
 
-                        const el = getElementByIndexPath(path, viewElement)
+              if (!element) {
+                console.error("Element not found", selector)
+                return
+              }
 
-                        if (!el) {
-                            console.warn("Path not found with selector", path)
-                            return
-                        }
+              handleChange[type](
+                {
+                  content: content,
+                  attr: attr,
+                },
+                element,
+                id
+              );
+            }
+          }
+        });
+      },
+    };
 
-                        const wrapper = document.createElement('div');
-                        wrapper.innerHTML = content;
 
-                        if (content.trim().length > 0) {
-                            el.appendChild(wrapper.firstChild)
-                        }
-
-                        goLive.connectElement(scopeId, el.lastChild)
-                    }
-                }
-
-                if (viewElement.getAttribute("go-live-component-id") === message.component_id) {
-                    handleChange[message.type.toLowerCase()](message)
-                }
-            })
-        },
-
-        connect(id) {
-            goLive.connectElement(id, goLive.getLiveComponent(id))
-        },
-    }
+    goLive.once.on("WS_CONNECTION_OPEN", () => {
+      goLive.on("{{ .Enum.EventLiveConnectElement }}", (message) => {
+        const cid = message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]
+        goLive.connect(cid)
+      })
+    })
 
     goLive.server.onmessage = (rawMessage) => {
-        const message = JSON.parse(rawMessage.data)
-        goLive.emit(message.name, message)
-    }
+      try {
+        const message = JSON.parse(rawMessage.data);
+        goLive.emit(message.n, message);
+      } catch (e) {
+        console.log("Error", e);
+        console.log("Error message", rawMessage.data);
+      }
+    };
 
     goLive.server.onopen = () => {
-        goLive.emitOnce('WS_CONNECTION_OPEN')
-    }
+      goLive.once.emit("WS_CONNECTION_OPEN")
+    };
 
-</script>
-<body>
-{{ .Body }}
-</body>
+  </script>
+
+  <body>
+    {{ .Body }}
+  </body>
 </html>
-`
