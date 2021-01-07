@@ -10,6 +10,12 @@ var BasePageString = `<!DOCTYPE html>
   <script type="application/javascript">
     const GO_LIVE_CONNECTED = "go-live-connected";
     const GO_LIVE_COMPONENT_ID = "go-live-component-id";
+    const EVENT_LIVE_DOM_COMPONENT_ID_KEY = 'cid'
+    const EVENT_LIVE_DOM_INSTRUCTIONS_KEY = 'i'
+    const EVENT_LIVE_DOM_TYPE_KEY = 't'
+    const EVENT_LIVE_DOM_CONTENT_KEY = 'c'
+    const EVENT_LIVE_DOM_ATTR_KEY = 'a'
+    const EVENT_LIVE_DOM_SELECTOR_KEY = 's'
 
     const findLiveInputsFromElement = (el) => {
       return el.querySelectorAll(
@@ -67,7 +73,7 @@ var BasePageString = `<!DOCTYPE html>
 
       el.removeAttribute(attr.Name);
     }
-    
+
     function handleDiffReplace(message, el) {
       const { content } = message;
 
@@ -76,11 +82,11 @@ var BasePageString = `<!DOCTYPE html>
 
       el.parentElement.replaceChild(wrapper.firstChild, el);
     }
-    
+
     function handleDiffRemove(message, el) {
       el.parentElement.removeChild(el);
     }
-    
+
     function handleDiffSetInnerHTML(message, el, componentId) {
       const { content } = message;
 
@@ -93,7 +99,7 @@ var BasePageString = `<!DOCTYPE html>
 
       goLive.connectElement(componentId, el);
     }
-    
+
     function handleDiffAppend(message, el, componentId) {
       const { content } = message;
 
@@ -114,11 +120,51 @@ var BasePageString = `<!DOCTYPE html>
       "{{ .Enum.DiffAppend }}": handleDiffAppend,
     };
 
+    const createOnceEmitter = () => {
+      const handlers = {
+      }
+      const createHandler = (name, called) => {
+        handlers[name] = {
+          called,
+          cbs: [],
+        }
+
+        return handlers[name]
+      }
+
+      return {
+        on(name, cb) {
+          let handler = handlers[name];
+
+          if (!handler) {
+            handler = createHandler(name, false);
+          }
+
+          handler.cbs.push(cb);
+        },
+        emit(name, ...attrs) {
+          const handler = handlers[name];
+
+          if (!handler) {
+            createHandler(name, true);
+            return;
+          }
+
+          for (const cb of handler.cbs) {
+            cb();
+          }
+        }
+      }
+    }
+
     const goLive = {
+
       server: new WebSocket(["ws://", window.location.host, "/ws"].join("")),
 
       handlers: [],
       onceHandlers: {},
+
+      once: createOnceEmitter(),
 
       getLiveComponent(id) {
         return document.querySelector(
@@ -132,36 +178,6 @@ var BasePageString = `<!DOCTYPE html>
           handler,
         });
         return newSize - 1;
-      },
-
-      emitOnce(name) {
-        const handler = this.onceHandlers[name];
-        if (!handler) {
-          this.createOnceHandler(name, true);
-          return;
-        }
-        for (const cb of handler.cbs) {
-          cb();
-        }
-      },
-
-      createOnceHandler(name, called) {
-        this.onceHandlers[name] = {
-          called,
-          cbs: [],
-        };
-
-        return this.onceHandlers[name];
-      },
-
-      once(name, cb) {
-        let handler = this.onceHandlers[name];
-
-        if (!handler) {
-          handler = this.createOnceHandler(name, false);
-        }
-
-        handler.cbs.push(cb);
       },
 
       findHandler(name) {
@@ -183,12 +199,12 @@ var BasePageString = `<!DOCTYPE html>
             JSON.stringify(message))
       },
 
-      connectChilds(viewElement) {
-        const liveChilds = viewElement.querySelectorAll(
+      connectChildren(viewElement) {
+        const liveChildren = viewElement.querySelectorAll(
           "*[" + GO_LIVE_COMPONENT_ID + "]"
         );
 
-        liveChilds.forEach((child) => {
+        liveChildren.forEach((child) => {
           const componentId = child.getAttribute(GO_LIVE_COMPONENT_ID);
           this.connectElement(componentId, child);
         });
@@ -234,7 +250,7 @@ var BasePageString = `<!DOCTYPE html>
                 key: element.getAttribute("go-live-input"),
                 value: String(value),
             })
-        
+
           });
           element.setAttribute(GO_LIVE_CONNECTED, true);
         });
@@ -246,18 +262,18 @@ var BasePageString = `<!DOCTYPE html>
         goLive.connectElement(id, element);
 
         goLive.on("{{ .Enum.EventLiveDom }}", function handleLiveDom(message) {
-          if (id === message.cid) {
-            for (const instruction of message.i) {
-              const type = instruction.t;
-              const content = instruction.c;
-              const attr = instruction.a;
-              const selector = instruction.s;
+          if (id === message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]) {
+            for (const instruction of message[EVENT_LIVE_DOM_INSTRUCTIONS_KEY]) {
+              const type = instruction[EVENT_LIVE_DOM_TYPE_KEY];
+              const content = instruction[EVENT_LIVE_DOM_CONTENT_KEY];
+              const attr = instruction[EVENT_LIVE_DOM_ATTR_KEY];
+              const selector = instruction[EVENT_LIVE_DOM_SELECTOR_KEY];
 
               const element = document.querySelector(selector)
 
               if (!element) {
                 console.error("Element not found", selector)
-                return 
+                return
               }
 
               handleChange[type](
@@ -274,6 +290,14 @@ var BasePageString = `<!DOCTYPE html>
       },
     };
 
+
+    goLive.once.on("WS_CONNECTION_OPEN", () => {
+      goLive.on("{{ .Enum.EventLiveConnectElement }}", (message) => {
+        const cid = message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]
+        goLive.connect(cid)
+      })
+    })
+
     goLive.server.onmessage = (rawMessage) => {
       try {
         const message = JSON.parse(rawMessage.data);
@@ -285,8 +309,9 @@ var BasePageString = `<!DOCTYPE html>
     };
 
     goLive.server.onopen = () => {
-      goLive.emitOnce("WS_CONNECTION_OPEN");
+      goLive.once.emit("WS_CONNECTION_OPEN")
     };
+
   </script>
 
   <body>

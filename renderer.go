@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"golang.org/x/net/html"
 	"html/template"
-	"strconv"
 )
 
 type LiveState struct {
@@ -94,28 +93,4 @@ func (lr *LiveRenderer) LiveRender(data interface{}) (*Diff, error) {
 
 func (lr *LiveRenderer) useFormatter(f func(t string) string) {
 	lr.formatters = append(lr.formatters, f)
-}
-
-func signPreRenderText(text string, l *LiveComponent) (string, error) {
-	dom, err := CreateDOMFromString(text)
-
-	if err != nil {
-		return "", err
-	}
-
-	signPreRender(dom, l)
-
-	return RenderNodeChildren(dom)
-}
-
-func signPreRender(dom *html.Node, l *LiveComponent) {
-	// Post treatment
-	for index, node := range GetAllChildrenRecursive(dom) {
-
-		addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(index), 16))
-
-		if attr := getAttribute(node, "go-live-input"); attr != nil {
-			addNodeAttribute(node, ":value", attr.Val)
-		}
-	}
 }

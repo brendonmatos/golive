@@ -48,6 +48,11 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 	// Set page content
 	p.SetContent(c)
 
+	// activation should be before mount,
+	// because in activation will setup page channels
+	// that will be needed in mount
+	session.ActivatePage(p)
+
 	// Mount page
 	p.Mount()
 
@@ -60,8 +65,6 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 			Session:  "",
 		}, err
 	}
-
-	session.ActivatePage(p)
 
 	return &LiveResponse{Rendered: rendered, Session: sessionKey}, nil
 }
@@ -84,6 +87,7 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 		Value:   lr.Session,
 		Expires: time.Now().Add(24 * time.Hour),
 	})
+
 	ctx.Response().Header.SetContentType("text/html")
 	ctx.Response().AppendBodyString(lr.Rendered)
 }

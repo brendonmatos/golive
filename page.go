@@ -18,15 +18,16 @@ func init() {
 }
 
 type PageEnum struct {
-	EventLiveInput   string
-	EventLiveMethod  string
-	EventLiveDom     string
-	DiffSetAttr      DiffType
-	DiffRemoveAttr   DiffType
-	DiffReplace      DiffType
-	DiffRemove       DiffType
-	DiffSetInnerHTML DiffType
-	DiffAppend       DiffType
+	EventLiveInput          string
+	EventLiveMethod         string
+	EventLiveDom            string
+	EventLiveConnectElement string
+	DiffSetAttr             DiffType
+	DiffRemoveAttr          DiffType
+	DiffReplace             DiffType
+	DiffRemove              DiffType
+	DiffSetInnerHTML        DiffType
+	DiffAppend              DiffType
 }
 
 type LivePageEvent struct {
@@ -38,7 +39,7 @@ type LiveEventsChannel chan LivePageEvent
 
 type Page struct {
 	content             PageContent
-	SessionEvents       LiveEventsChannel
+	Events              LiveEventsChannel
 	ComponentsLifeCycle *ComponentLifeCycle
 
 	entry *LiveComponent
@@ -62,7 +63,7 @@ func NewLivePage(c *LiveComponent) *Page {
 
 	return &Page{
 		entry:               c,
-		SessionEvents:       pageEventsChannel,
+		Events:              pageEventsChannel,
 		ComponentsLifeCycle: &componentsUpdatesChannel,
 		Components:          make(map[string]*LiveComponent),
 	}
@@ -72,11 +73,13 @@ func (lp *Page) SetContent(c PageContent) {
 	lp.content = c
 }
 
+// Call the component in sequence of life cycle
 func (lp *Page) Mount() {
 
-	lp.receiveComponentsLifeCycle()
+	// Enable components lifecycle channel receiver
+	lp.enableComponentLifeCycleReceiver()
 
-	// Call the component in sequence of life cycle
+	// pass mount live component with lifecycle channel
 	err := lp.entry.Create(lp.ComponentsLifeCycle)
 
 	if err != nil {
@@ -102,15 +105,16 @@ func (lp *Page) Render() (string, error) {
 	// Body content
 	lp.content.Body = template.HTML(rendered)
 	lp.content.Enum = PageEnum{
-		EventLiveInput:   EventLiveInput,
-		EventLiveMethod:  EventLiveMethod,
-		EventLiveDom:     EventLiveDom,
-		DiffSetAttr:      SetAttr,
-		DiffRemoveAttr:   RemoveAttr,
-		DiffReplace:      Replace,
-		DiffRemove:       Remove,
-		DiffSetInnerHTML: SetInnerHtml,
-		DiffAppend:       Append,
+		EventLiveInput:          EventLiveInput,
+		EventLiveMethod:         EventLiveMethod,
+		EventLiveDom:            EventLiveDom,
+		EventLiveConnectElement: EventLiveConnectElement,
+		DiffSetAttr:             SetAttr,
+		DiffRemoveAttr:          RemoveAttr,
+		DiffReplace:             Replace,
+		DiffRemove:              Remove,
+		DiffSetInnerHTML:        SetInnerHtml,
+		DiffAppend:              Append,
 	}
 
 	writer := bytes.NewBuffer([]byte{})
@@ -118,68 +122,63 @@ func (lp *Page) Render() (string, error) {
 	return writer.String(), err
 }
 
-func (lp *Page) SendSessionEvent(lts LifeTimeStage, c *LiveComponent) {
+func (lp *Page) Emit(lts int, c *LiveComponent) {
 	if c == nil {
 		c = lp.entry
 	}
 
-	go func() {
-		lp.SessionEvents <- LivePageEvent{
-			Type:      int(lts),
-			Component: c,
-		}
-	}()
+	lp.Events <- LivePageEvent{
+		Type:      lts,
+		Component: c,
+	}
 }
 
-func (lp *Page) SendUpdate() {
-	lp.SendSessionEvent(Updated, nil)
-}
+func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
-func (lp *Page) HandleMessage(m BrowserEvent) error {
+	c := lp.entry.findComponentById(m.ComponentID)
 
-	c, ok := lp.Components[m.ComponentID]
-
-	if !ok {
+	if c == nil {
 		return fmt.Errorf("component not found with id: %s", m.ComponentID)
 	}
 
+	var err error
 	switch m.Name {
 	case EventLiveInput:
-		{
-			return c.SetValueInPath(m.StateValue, m.StateKey)
-		}
+		err = c.SetValueInPath(m.StateValue, m.StateKey)
 	case EventLiveMethod:
-		{
-			return c.InvokeMethodInPath(m.MethodName, m.MethodParams)
-		}
+		err = c.InvokeMethodInPath(m.MethodName, m.MethodParams)
 	case EventLiveDisconnect:
-		{
-			return c.Kill()
-		}
+		err = c.Kill()
 	}
 
-	return nil
+	lp.entry.Update()
+
+	return err
 }
 
-func (lp *Page) receiveComponentsLifeCycle() {
+const PageComponentUpdated = 1
+const PageComponentMounted = 2
+
+func (lp *Page) enableComponentLifeCycleReceiver() {
 
 	go func() {
 		for {
 			ls := <-*lp.ComponentsLifeCycle
 
 			switch ls.Stage {
+			case Created:
+				lp.Emit(PageComponentMounted, ls.Component)
+				break
 			case WillMount:
 				break
 			case Mounted:
-				lp.Components[ls.Component.Name] = ls.Component
 				break
 			case Updated:
-				lp.SendSessionEvent(Updated, ls.Component)
+				lp.Emit(PageComponentUpdated, ls.Component)
 				break
 			case WillUnmount:
 				break
 			case Unmounted:
-				lp.Components[ls.Component.Name] = nil
 				break
 			case Rendered:
 				break
