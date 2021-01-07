@@ -23,10 +23,13 @@ type LiveResponse struct {
 }
 
 func NewServer() *LiveServer {
+	logger := NewLoggerBasic()
+	logger.Level = LogTrace
+
 	return &LiveServer{
 		Wire:       NewWire(),
 		CookieName: "_csrf_token",
-		Log:        NewLoggerBasic().Log,
+		Log:        logger.Log,
 	}
 }
 
@@ -41,17 +44,21 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 
 	session.log = s.Log
 
-	/* Instantiate a page to attach to a session */
+	// Instantiate a page to attach to a session
 	p := NewLivePage(lc)
+
+	// Set page content
 	p.SetContent(c)
 
-	// 1.
-	p.Prepare()
+	// activation should be before mount,
+	// because in activation will setup page channels
+	// that will be needed in mount
+	session.ActivatePage(p)
 
-	// 2.
+	// Mount page
 	p.Mount()
 
-	/*  */
+	// Render page
 	rendered, err := p.Render()
 
 	if err != nil {
@@ -61,17 +68,21 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 		}, err
 	}
 
-	/*  */
-	session.ActivatePage(p)
-
 	return &LiveResponse{Rendered: rendered, Session: sessionKey}, nil
 }
 
 func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c PageContent) {
+
 	lr, err := s.HandleFirstRequest(lc, c)
+
 	if lr == nil {
 		s.Log(LogPanic, "no live page", logEx{"error": err})
+		return
+	}
 
+	if err != nil {
+		s.Log(LogError, "handle html request", logEx{"error": err})
+		ctx.Response().SetStatusCode(500)
 		return
 	}
 
@@ -80,13 +91,9 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 		Value:   lr.Session,
 		Expires: time.Now().Add(24 * time.Hour),
 	})
+
 	ctx.Response().Header.SetContentType("text/html")
 	ctx.Response().AppendBodyString(lr.Rendered)
-
-	if err != nil {
-		s.Log(LogError, "handle html request", logEx{"error": err})
-		ctx.Response().SetStatusCode(500)
-	}
 }
 
 func (s *LiveServer) CreateHTMLHandler(f func() *LiveComponent, c PageContent) func(ctx *fiber.Ctx) error {
@@ -207,7 +214,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 			return
 		}
 
-		inMsg := InMessage{}
+		inMsg := BrowserEvent{}
 
 		// Loop blocks here
 		if err := c.ReadJSON(&inMsg); err != nil {

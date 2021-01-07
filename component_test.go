@@ -1,7 +1,10 @@
 package golive
 
 import (
+	"fmt"
+	"sync"
 	"testing"
+	"time"
 )
 
 type Pet struct {
@@ -90,4 +93,95 @@ func TestLiveComponent_SetValueInPathWithBoolean2(t *testing.T) {
 	if field.Bool() {
 		t.Error("The field has not been set")
 	}
+}
+
+type Clock struct {
+	LiveComponentWrapper
+}
+
+func NewClock() *LiveComponent {
+	return NewLiveComponent("Clock", &Clock{})
+}
+
+func (c *Clock) ActualTime() string {
+	return time.Now().Format(time.RFC3339Nano)
+}
+
+func (c *Clock) Mounted(l *LiveComponent) {
+	go func() {
+		for {
+			if l.Exited {
+				return
+			}
+			time.Sleep(time.Second)
+			c.Commit()
+		}
+	}()
+}
+
+func (c *Clock) TemplateHandler(_ *LiveComponent) string {
+	return `
+		<div>
+			<span>Time: {{ .ActualTime }}</span>
+		</div>
+	`
+}
+
+func TestComponentLifeCycleSequence(t *testing.T) {
+
+	c := NewClock()
+
+	lc := make(ComponentLifeCycle)
+
+	desired := []LifeTimeStage{
+		WillCreate,
+		Created,
+		WillMount,
+		WillMountChildren,
+		ChildrenMounted,
+		Mounted,
+		Rendered,
+		Updated,
+		WillUnmount,
+		Unmounted,
+	}
+
+	wg := sync.WaitGroup{}
+
+	// Test until mounted
+	wg.Add(5)
+
+	go func() {
+		count := 0
+		for {
+			a := <-lc
+
+			if desired[count] != a.Stage {
+				t.Error("Stage not expected, expecting", desired[count], "received", a.Stage)
+			}
+
+			count++
+
+			if a.Stage == Mounted {
+				return
+			}
+
+			wg.Done()
+
+		}
+	}()
+
+	err := c.Create(&lc)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = c.Mount()
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println(c.Render())
+
+	wg.Wait()
 }
