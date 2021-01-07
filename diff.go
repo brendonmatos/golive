@@ -1,13 +1,9 @@
 package golive
 
 import (
-	"fmt"
 	"golang.org/x/net/html"
-	"regexp"
 	"strconv"
 )
-
-var spaceRegex = regexp.MustCompile(`\s+`)
 
 type DiffType int
 
@@ -26,131 +22,118 @@ const (
 
 // ChangeInstruction todo
 type ChangeInstruction struct {
-	Type        DiffType
-	Element     string
-	Content     string
-	Attr        interface{}
-	componentId string
+	Type    DiffType
+	Element *html.Node
+	Content string
+	Attr    AttrChange
 }
 
-// Attr todo
-type Attr struct {
+// AttrChange todo
+type AttrChange struct {
 	Name  string
 	Value string
 }
 
-// GetDiffFromNodes todo
-func GetDiffFromNodes(start, end *html.Node) []ChangeInstruction {
-	instructions := make([]ChangeInstruction, 0)
-	childrenFrom := GetChildrenFromNode(start)
-	childrenTo := GetChildrenFromNode(end)
-	RecursiveDiff(&instructions, childrenFrom, childrenTo)
-	return instructions
+type Diff struct {
+	actual       *html.Node
+	instructions []ChangeInstruction
 }
 
-func ComponentIdFromNode(e *html.Node) (string, error) {
-	for parent := e; parent != nil; parent = parent.Parent {
+func NewDiff(actual *html.Node) *Diff {
+	return &Diff{
+		actual:       actual,
+		instructions: make([]ChangeInstruction, 0),
+	}
+}
 
-		attrs := AttrMapFromNode(parent)
+func (d *Diff) Propose(proposed *html.Node) {
 
-		if parent.Type == html.ElementNode {
-			if id, ok := attrs["go-live-component-id"]; ok {
-				return id, nil
+	actualChildren := GetChildrenFromNode(d.actual)
+	proposedChildren := GetChildrenFromNode(proposed)
+
+	d.DiffBetweenNodes(actualChildren, proposedChildren)
+}
+
+func (d *Diff) DiffBetweenNodes(actual, proposed []*html.Node) {
+	actualLen := len(actual)
+	proposedLen := len(proposed)
+
+	minLen := actualLen
+
+	// Iterate over all the proposed nodes
+	// And verify is have some text change
+	clSize := len(d.instructions)
+	for index, proposedNode := range proposed {
+		if proposedNode.Type == html.TextNode {
+
+			actualNode := &html.Node{}
+
+			// node index exists in actual?
+			if index < len(actual) {
+				actualNode = actual[index]
 			}
+
+			d.DiffBetweenText(actualNode, proposedNode)
 		}
 	}
 
-	return "", fmt.Errorf("node not found")
-}
-
-// GetChildrenFromNode todo
-func GetChildrenFromNode(n *html.Node) []*html.Node {
-	children := make([]*html.Node, 0)
-
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		children = append(children, child)
-	}
-
-	return children
-}
-
-// RecursiveDiff todo
-func RecursiveDiff(changeList *[]ChangeInstruction, from, to []*html.Node) {
-	fromLen := len(from)
-	toLen := len(to)
-	minLen := fromLen
-
-	clSize := len(*changeList)
-
-	for index, toNode := range to {
-		if toNode.Type == html.TextNode {
-			fromNode := &html.Node{}
-			if index < len(from) {
-				fromNode = from[index]
-			}
-			TextDiff(changeList, fromNode, toNode)
-		}
-	}
-
-	if len(*changeList) > clSize {
+	// If some text has been changed
+	// the entire node will be replaced
+	if len(d.instructions) > clSize {
 		return
 	}
 
-	if fromLen < toLen {
-		toAppendNodes := to[fromLen:]
+	if actualLen < proposedLen {
+		toAppendNodes := proposed[actualLen:]
 
 		for _, node := range toAppendNodes {
 			rendered, _ := RenderNodeToString(node)
-			componentId, _ := ComponentIdFromNode(node)
-			*changeList = append(*changeList, ChangeInstruction{
-				Type:        Append,
-				Element:     SelectorFromNode(node.Parent),
-				Content:     rendered,
-				componentId: componentId,
+			d.instructions = append(d.instructions, ChangeInstruction{
+				Type:    Append,
+				Element: node.Parent,
+				Content: rendered,
 			})
 		}
 
-		minLen = fromLen
+		minLen = actualLen
 	}
 
-	if fromLen > toLen {
+	if actualLen > proposedLen {
 
-		toRemoveNodes := from[toLen:]
+		// Remove the resting nodes
+		toRemoveNodes := actual[proposedLen:]
 
 		for _, node := range toRemoveNodes {
 
 			if node.Type == html.TextNode {
-				TextDiff(changeList, &html.Node{}, node)
+				d.DiffBetweenText(&html.Node{}, node)
 				break
 			}
 
-			componentId, _ := ComponentIdFromNode(node)
-
-			*changeList = append(*changeList, ChangeInstruction{
-				Type:        Remove,
-				Element:     SelectorFromNode(node),
-				componentId: componentId,
+			d.instructions = append(d.instructions, ChangeInstruction{
+				Type:    Remove,
+				Element: node,
 			})
 		}
-		minLen = toLen
+		minLen = proposedLen
 	}
 
 	// Diff children
 	for i := 0; i < minLen; i++ {
 
-		fromNode := from[i]
-		toNode := to[i]
+		fromNode := actual[i]
+		toNode := proposed[i]
 
-		AttributesDiff(changeList, fromNode, toNode)
+		d.DiffNodeAttributes(fromNode, toNode)
 
 		/**
 		If is a text node and has some difference between them
 		so, we'll be replacing the entire content of parent
-		- So, we recommend you to always set the reactive
-		  text to be inside of any dom element
+		- So, we recommend you proposed always set the reactive
+		  text proposed be inside of any dom element
 		*/
 		if toNode.Type == html.TextNode {
-			TextDiff(changeList, fromNode, toNode)
+			d.DiffBetweenText(fromNode, toNode)
 		} else if !IsChildrenTheSame(toNode, fromNode) {
 			if fromNode.Type == html.TextNode {
 				continue
@@ -158,14 +141,12 @@ func RecursiveDiff(changeList *[]ChangeInstruction, from, to []*html.Node) {
 			if toNode.Type == html.TextNode {
 				continue
 			}
-			RecursiveDiff(changeList, GetChildrenFromNode(fromNode), GetChildrenFromNode(toNode))
+			d.DiffBetweenNodes(GetChildrenFromNode(fromNode), GetChildrenFromNode(toNode))
 		}
-
 	}
-
 }
 
-func TextDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
+func (d *Diff) DiffBetweenText(from, to *html.Node) {
 
 	if to.Type != html.TextNode {
 		// It is not text
@@ -178,21 +159,19 @@ func TextDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 	}
 
 	parent := to.Parent
-	componentId, _ := ComponentIdFromNode(parent)
-	rendered := RenderChildren(parent)
+	rendered, _ := RenderNodeChildren(parent)
 
-	*changeList = append(*changeList, ChangeInstruction{
-		Type:        SetInnerHtml,
-		Content:     rendered,
-		Element:     SelectorFromNode(to),
-		componentId: componentId,
+	d.instructions = append(d.instructions, ChangeInstruction{
+		Type:    SetInnerHtml,
+		Content: rendered,
+		Element: parent,
 	})
 }
 
-// AttributesDiff compares the attributes in el to the attributes in otherEl
-// and adds the necessary patches to make the attributes in el match those in
-// otherEl
-func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
+func (d *Diff) DiffNodeAttributes(from, to *html.Node) {
+	// AttributesDiff compares the attributes in el to the attributes in otherEl
+	// and adds the necessary patches to make the attributes in el match those in
+	// otherEl
 	otherAttrs := AttrMapFromNode(to)
 	attrs := AttrMapFromNode(from)
 
@@ -201,12 +180,10 @@ func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 		value, found := attrs[name]
 		if !found || value != otherValue {
 
-			componentId, _ := ComponentIdFromNode(from)
-			*changeList = append(*changeList, ChangeInstruction{
-				Type:        SetAttr,
-				componentId: componentId,
-				Element:     SelectorFromNode(from),
-				Attr: Attr{
+			d.instructions = append(d.instructions, ChangeInstruction{
+				Type:    SetAttr,
+				Element: from,
+				Attr: AttrChange{
 					Name:  name,
 					Value: otherValue,
 				},
@@ -217,12 +194,10 @@ func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 	for attrName := range attrs {
 		if _, found := otherAttrs[attrName]; !found {
 
-			componentId, _ := ComponentIdFromNode(from)
-			*changeList = append(*changeList, ChangeInstruction{
-				Type:        RemoveAttr,
-				componentId: componentId,
-				Element:     SelectorFromNode(from),
-				Attr: Attr{
+			d.instructions = append(d.instructions, ChangeInstruction{
+				Type:    RemoveAttr,
+				Element: from,
+				Attr: AttrChange{
 					Name: attrName,
 				},
 			})
@@ -232,23 +207,20 @@ func AttributesDiff(changeList *[]ChangeInstruction, from, to *html.Node) {
 }
 
 // IsChildrenTheSame todo
-func IsChildrenTheSame(n *html.Node, other *html.Node) bool {
-	return RenderNodesToString(GetChildrenFromNode(n)) == RenderNodesToString(GetChildrenFromNode(other))
-}
 
-// GetDiffFromRawHTML todo
-func GetDiffFromRawHTML(start string, end string) ([]ChangeInstruction, error) {
-	startN, err := CreateDOMFromString(start)
-
-	if err != nil {
-		return nil, err
-	}
-
-	endN, err := CreateDOMFromString(end)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return GetDiffFromNodes(startN, endN), nil
-}
+//// GetDiffFromRawHTML todo
+//func GetDiffFromRawHTML(start string, end string) ([]ChangeInstruction, error) {
+//	startN, err := CreateDOMFromString(start)
+//
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	endN, err := CreateDOMFromString(end)
+//
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return GetDiffFromNodes(startN, endN), nil
+//}

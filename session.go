@@ -1,6 +1,9 @@
 package golive
 
-import "fmt"
+import (
+	"strconv"
+	"fmt"
+)
 
 const (
 	EventLiveInput      = "li"
@@ -8,6 +11,7 @@ const (
 	EventLiveDom        = "ld"
 	EventLiveDisconnect = "lx"
 	EventLiveError      = "le"
+	EventLiveConnectElement = "lce"
 )
 
 var (
@@ -20,9 +24,9 @@ func LiveErrorMap() map[string]string {
 	}
 }
 
-type InMessage struct {
+type BrowserEvent struct {
 	Name        string            `json:"name"`
-	ComponentId string            `json:"component_id"`
+	ComponentID string            `json:"component_id"`
 	MethodName  string            `json:"method_name"`
 	MethodData  map[string]string `json:"method_data"`
 	StateKey    string            `json:"key"`
@@ -45,29 +49,24 @@ type OutMessage struct {
 
 type Session struct {
 	LivePage   *Page
-	OutChannel chan OutMessage
+	OutChannel chan PatchBrowser
 	log        Log
 }
 
 func NewSession() *Session {
 	return &Session{
-		OutChannel: make(chan OutMessage),
+		OutChannel: make(chan PatchBrowser),
 	}
 }
 
-func (s *Session) QueueMessage(message OutMessage) {
+func (s *Session) QueueMessage(message PatchBrowser) {
 	go func() {
 		s.OutChannel <- message
 	}()
 }
 
-func (s *Session) QueueMessages(messages []OutMessage) {
-	for _, message := range messages {
-		s.QueueMessage(message)
-	}
-}
+func (s *Session) IngestMessage(message BrowserEvent) error {
 
-func (s *Session) IngestMessage(message InMessage) error {
 	defer func() {
 		payload := recover()
 		if payload != nil {
@@ -76,56 +75,109 @@ func (s *Session) IngestMessage(message InMessage) error {
 		}
 	}()
 
-	err := s.LivePage.HandleMessage(message)
+	err := s.LivePage.HandleBrowserEvent(message)
+
 	if err != nil {
 		return err
 	}
-	s.LivePage.ForceUpdate()
+
 	return nil
 }
 
 func (s *Session) ActivatePage(lp *Page) {
 	s.LivePage = lp
 
-	// Pre-render to ensure we have something to diff against
-	for _, component := range lp.Components {
-		if component.rendered == "" {
-			s.log(LogTrace, "pre-render", logEx{"name": component.Name})
-
-			if err := s.LiveRenderComponent(component); err != nil {
-				s.log(LogError, "activate page: pre-render component", logEx{"error": err})
-			}
-		}
-	}
-
 	// Here is the location that get all the components updates *notified* by
 	// the page!
 	go func() {
 		for {
-			// Receive all the events from the page!
-			pageUpdate := <-lp.Events
-			if pageUpdate.Type == Updated {
-				if err := s.LiveRenderComponent(pageUpdate.Component); err != nil {
-					s.log(LogError, "activate page: component live render", logEx{"error": err})
+			// Receive all the events from page
+			evt := <-s.LivePage.Events
+
+			switch evt.Type {
+			case PageComponentUpdated:
+				if err := s.LiveRenderComponent(evt.Component); err != nil {
+					s.log(LogError, "component live render", logEx{"error": err})
 				}
-			}
-			if pageUpdate.Type == Unmounted {
-				return
+				break
+			case PageComponentMounted:
+				s.QueueMessage(PatchBrowser{
+					ComponentID:  evt.Component.Name,
+					Name:         EventLiveConnectElement,
+					Instructions: nil,
+				})
+				break
 			}
 		}
 	}()
 }
 
+func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, error) {
+
+	bp := make([]*PatchBrowser, 0)
+
+	for _, instruction := range diff.instructions {
+
+		selector, err := SelectorFromNode(instruction.Element)
+
+		if err != nil {
+			return nil, err
+		}
+
+		componentId, err := ComponentIdFromNode(instruction.Element)
+
+		if err != nil {
+			return nil, err
+		}
+
+		var patch *PatchBrowser
+
+		// find if there is already a patch
+		for _, pb := range bp {
+			if pb.ComponentID == componentId {
+				patch = pb
+				break
+			}
+		}
+
+		// IF there is no patch
+		if patch == nil {
+			patch = NewPatchBrowser(componentId)
+			patch.Name = EventLiveDom
+			bp = append(bp, patch)
+		}
+
+		patch.AddInstruction(PatchInstruction{
+			Name:     EventLiveDom,
+			Type:     strconv.Itoa(int(instruction.Type)),
+			Attr:     instruction.Attr,
+			Content:  instruction.Content,
+			Selector: selector.toString(),
+		})
+	}
+	return bp, nil
+}
+
+// LiveRenderComponent render the updated component and compare with
+// last state. It may apply with *all child components*
 func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 	var err error
 
-	changes, err := c.LiveRender()
+	diff, err := c.LiveRender()
 
 	if err != nil {
 		return err
 	}
 
-	s.QueueMessages(changes)
+	patches, err := s.generateBrowserPatchesFromDiff(diff)
+
+	if err != nil {
+		return err
+	}
+
+	for _, om := range patches {
+		s.QueueMessage(*om)
+	}
 
 	return nil
 }
