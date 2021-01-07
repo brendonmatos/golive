@@ -2,10 +2,7 @@ package golive
 
 import (
 	"golang.org/x/net/html"
-	"regexp"
 )
-
-var spaceRegex = regexp.MustCompile(`\s+`)
 
 type DiffType int
 
@@ -67,7 +64,7 @@ func (d *Diff) DiffBetweenNodes(actual, proposed []*html.Node) {
 			actualNode := &html.Node{}
 
 			// node index exists in actual?
-			if index <= actualLen {
+			if index < len(actual) {
 				actualNode = actual[index]
 			}
 
