@@ -97,7 +97,7 @@ var BasePageString = `<!DOCTYPE html>
 
       el.innerHTML = content;
 
-      goLive.connectElement(componentId, el);
+      goLive.connectElement( el);
     }
 
     function handleDiffAppend(message, el, componentId) {
@@ -108,7 +108,7 @@ var BasePageString = `<!DOCTYPE html>
       const child = wrapper.firstChild;
       el.appendChild(child);
 
-      goLive.connectElement(componentId, el);
+      goLive.connectElement( el);
     }
 
     const handleChange = {
@@ -155,6 +155,19 @@ var BasePageString = `<!DOCTYPE html>
           }
         }
       }
+    }
+
+    const getComponentIdFromElement = (element) => {
+      const attr = element.getAttribute("go-live-component-id")
+      if ( attr ) {
+        return attr
+      }
+
+      if(element.parentElement) {
+        return getComponentIdFromElement(element.parentElement)
+      }
+
+      return undefined
     }
 
     const goLive = {
@@ -206,11 +219,11 @@ var BasePageString = `<!DOCTYPE html>
 
         liveChildren.forEach((child) => {
           const componentId = child.getAttribute(GO_LIVE_COMPONENT_ID);
-          this.connectElement(componentId, child);
+          this.connectElement( child);
         });
       },
 
-      connectElement(componentId, viewElement) {
+      connectElement(viewElement) {
         if (typeof viewElement === "string") {
           return;
         }
@@ -222,7 +235,9 @@ var BasePageString = `<!DOCTYPE html>
         const liveInputs = findLiveInputsFromElement(viewElement);
         const clickElements = findLiveClicksFromElement(viewElement);
 
+
         clickElements.forEach(function (element) {
+          const componentId = getComponentIdFromElement(element)
           element.addEventListener("click", function (_) {
             goLive.send({
                 name: "{{ .Enum.EventLiveMethod }}",
@@ -236,6 +251,7 @@ var BasePageString = `<!DOCTYPE html>
 
         liveInputs.forEach(function (element) {
           const type = element.getAttribute("type");
+          const componentId = getComponentIdFromElement(element)
 
           element.addEventListener("input", function (_) {
             let value = element.value;
@@ -259,7 +275,7 @@ var BasePageString = `<!DOCTYPE html>
       connect(id) {
         const element = goLive.getLiveComponent(id);
 
-        goLive.connectElement(id, element);
+        goLive.connectElement(element);
 
         goLive.on("{{ .Enum.EventLiveDom }}", function handleLiveDom(message) {
           if (id === message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]) {

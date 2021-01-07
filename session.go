@@ -118,7 +118,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 			Type:     strconv.Itoa(int(instruction.Type)),
 			Attr:     instruction.Attr,
 			Content:  instruction.Content,
-			Selector: selector,
+			Selector: selector.toString(),
 		})
 	}
 	return bp, nil
