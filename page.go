@@ -84,7 +84,7 @@ func (lp *Page) Mount() {
 	err := lp.entry.Create(lp.ComponentsLifeCycle)
 
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("mount: create entry: %w", err))
 	}
 
 	err = lp.entry.Mount()
