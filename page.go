@@ -21,7 +21,7 @@ type PageEnum struct {
 	EventLiveMethod         string
 	EventLiveDom            string
 	EventLiveConnectElement string
-	EventLiveError   string
+	EventLiveError          string
 	DiffSetAttr             DiffType
 	DiffRemoveAttr          DiffType
 	DiffReplace             DiffType
@@ -109,7 +109,7 @@ func (lp *Page) Render() (string, error) {
 		EventLiveInput:          EventLiveInput,
 		EventLiveMethod:         EventLiveMethod,
 		EventLiveDom:            EventLiveDom,
-		EventLiveError:   EventLiveError,
+		EventLiveError:          EventLiveError,
 		EventLiveConnectElement: EventLiveConnectElement,
 		DiffSetAttr:             SetAttr,
 		DiffRemoveAttr:          RemoveAttr,
@@ -138,7 +138,7 @@ func (lp *Page) Emit(lts int, c *LiveComponent) {
 
 func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
-	c := lp.entry.findComponentById(m.ComponentID)
+	c := lp.entry.findComponentByID(m.ComponentID)
 
 	if c == nil {
 		return fmt.Errorf("component not found with id: %s", m.ComponentID)

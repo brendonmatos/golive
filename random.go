@@ -13,7 +13,7 @@ type Random struct {
 var instantiated *Random
 var once sync.Once
 
-func NewLiveId() *Random {
+func NewLiveID() *Random {
 	once.Do(func() {
 		instantiated = &Random{}
 	})

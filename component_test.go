@@ -1,7 +1,6 @@
 package golive
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -131,6 +130,8 @@ func TestComponentLifeCycleSequence(t *testing.T) {
 
 	c := NewClock()
 
+	c.log = NewLoggerBasic().Log
+
 	lc := make(ComponentLifeCycle)
 
 	desired := []LifeTimeStage{
@@ -180,8 +181,6 @@ func TestComponentLifeCycleSequence(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	fmt.Println(c.Render())
 
 	wg.Wait()
 }

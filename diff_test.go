@@ -1,7 +1,6 @@
 package golive
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -15,6 +14,9 @@ func TestDiff(t *testing.T) {
 
 	diff.Propose(b)
 
-	fmt.Println(diff.instructions)
+	setTextInstructions := diff.GetInstructionsByType(SetInnerHtml)
 
+	if len(setTextInstructions) != 1 {
+		t.Error("unexpected quantity of set text instructions expecting length 1")
+	}
 }
