@@ -77,7 +77,7 @@ func (b *Books) GetFilteredList() []Book {
 	return filtered
 }
 
-func (b *Books) ToggleFilter() {
+func (b *Books) SetFilter() {
 	b.Filter.Do = !b.Filter.Do
 }
 
@@ -88,11 +88,11 @@ func NewBooksComponent() *golive.LiveComponent {
 func (b *Books) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
 		<div>
-			<button go-live-click="ToggleFilter">Toggle</button>
+			<button go-live-click="SetFilter" go-live-data="">Toggle</button>
 
 			<div>
 				{{ range $index, $Book := .GetFilteredList }}
-					<div>
+					<div key="{{$index}}">
 						<span>{{ $Book.Name }}</span>
 					</div>
 				{{ end }}
