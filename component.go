@@ -13,6 +13,11 @@ import (
 	"golang.org/x/net/html"
 )
 
+var (
+	ErrComponentNotPrepared = errors.New("component need to be prepared")
+	ErrComponentWithoutLog  = errors.New("component without log defined")
+)
+
 //
 type ComponentLifeTime interface {
 	Create(component *LiveComponent)
@@ -57,6 +62,10 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	var err error
 
 	l.life = life
+
+	if l.log == nil {
+		return ErrComponentWithoutLog
+	}
 
 	// The first notification, will notify
 	// an component without unique name
@@ -108,12 +117,12 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 func (l *LiveComponent) createChildren() error {
 	var err error
 	for _, child := range l.getChildrenComponents() {
+		child.log = l.log
+
 		err = child.Create(l.life)
 		if err != nil {
 			panic(err)
 		}
-
-		child.log = l.log
 
 		l.children = append(l.children, child)
 	}
@@ -146,14 +155,21 @@ func (l *LiveComponent) findComponentByID(id string) *LiveComponent {
 func (l *LiveComponent) Mount() error {
 
 	if !l.IsCreated {
-		return fmt.Errorf("component need to be prepared")
+		return ErrComponentNotPrepared
 	}
 
 	l.notifyStage(WillMount)
 
 	l.component.BeforeMount(l)
+
+	err := l.MountChildren()
+
+	if err != nil {
+		return fmt.Errorf("mount children: %w", err)
+	}
+
 	l.component.Mounted(l)
-	l.MountChildren()
+
 	l.IsMounted = true
 
 	l.notifyStage(Mounted)
@@ -161,12 +177,17 @@ func (l *LiveComponent) Mount() error {
 	return nil
 }
 
-func (l *LiveComponent) MountChildren() {
+func (l *LiveComponent) MountChildren() error {
 	l.notifyStage(WillMountChildren)
 	for _, child := range l.getChildrenComponents() {
-		_ = child.Mount()
+		err := child.Mount()
+
+		if err != nil {
+			return fmt.Errorf("child mount: %w", err)
+		}
 	}
 	l.notifyStage(ChildrenMounted)
+	return nil
 }
 
 // Render ...
@@ -222,9 +243,10 @@ func (l *LiveComponent) Kill() error {
 
 	l.Exited = true
 	l.component = nil
-	l.life = nil
 
 	l.notifyStage(Unmounted)
+
+	l.life = nil
 
 	return nil
 }
@@ -360,7 +382,7 @@ func (l *LiveComponent) signRender(dom *html.Node) error {
 	for _, node := range GetAllChildrenRecursive(dom) {
 
 		if goLiveIDAttr := getAttribute(node, "go-live-uid"); goLiveIDAttr == nil {
-			addNodeAttribute(node, "go-live-uid", strconv.FormatInt(int64(SelfIndexOfNode(node)), 16))
+			addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(SelfIndexOfNode(node)), 16))
 		}
 
 		if goLiveInputAttr := getAttribute(node, "go-live-input"); goLiveInputAttr != nil {

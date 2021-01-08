@@ -3,8 +3,9 @@ package golive
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/net/html"
 	"html/template"
+
+	"golang.org/x/net/html"
 )
 
 type LiveState struct {
@@ -46,6 +47,10 @@ func (lr *LiveRenderer) renderToText(data interface{}) (string, error) {
 	s := bytes.NewBufferString("")
 
 	err := lr.template.Execute(s, data)
+
+	if err != nil {
+		err = fmt.Errorf("template execute: %w", err)
+	}
 
 	text := s.String()
 	for _, f := range lr.formatters {
