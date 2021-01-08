@@ -1,16 +1,16 @@
 package golive
 
 import (
-	"strconv"
 	"fmt"
+	"strconv"
 )
 
 const (
-	EventLiveInput      = "li"
-	EventLiveMethod     = "lm"
-	EventLiveDom        = "ld"
-	EventLiveDisconnect = "lx"
-	EventLiveError      = "le"
+	EventLiveInput          = "li"
+	EventLiveMethod         = "lm"
+	EventLiveDom            = "ld"
+	EventLiveDisconnect     = "lx"
+	EventLiveError          = "le"
 	EventLiveConnectElement = "lce"
 )
 
@@ -40,7 +40,7 @@ type DOMEvent struct {
 
 type OutMessage struct {
 	Name        string      `json:"name"`
-	ComponentId string      `json:"component_id"`
+	ComponentID string      `json:"component_id"`
 	Type        string      `json:"type"`
 	Attr        interface{} `json:"attr,omitempty"`
 	Content     string      `json:"content,omitempty"`
@@ -124,7 +124,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 			return nil, err
 		}
 
-		componentId, err := ComponentIdFromNode(instruction.Element)
+		componentID, err := ComponentIDFromNode(instruction.Element)
 
 		if err != nil {
 			return nil, err
@@ -134,7 +134,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 
 		// find if there is already a patch
 		for _, pb := range bp {
-			if pb.ComponentID == componentId {
+			if pb.ComponentID == componentID {
 				patch = pb
 				break
 			}
@@ -142,7 +142,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 
 		// IF there is no patch
 		if patch == nil {
-			patch = NewPatchBrowser(componentId)
+			patch = NewPatchBrowser(componentID)
 			patch.Name = EventLiveDom
 			bp = append(bp, patch)
 		}

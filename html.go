@@ -212,8 +212,6 @@ func SelectorFromNode(e *html.Node) (*DOMSelector, error) {
 
 	for parent := e.Parent; parent != nil; parent = parent.Parent {
 
-		//attrs := AttrMapFromNode(parent)
-
 		es := NewDOMElementSelector()
 		es.setElemen("*")
 
@@ -221,8 +219,8 @@ func SelectorFromNode(e *html.Node) (*DOMSelector, error) {
 			selector.addParentSelector(es)
 		}
 
-		if goLiveComponentIdAttr := getAttribute(parent, "go-live-component-id"); goLiveComponentIdAttr != nil {
-			es.addAttr("go-live-component-id", goLiveComponentIdAttr.Val)
+		if goLiveComponentIDAttr := getAttribute(parent, "go-live-component-id"); goLiveComponentIDAttr != nil {
+			es.addAttr("go-live-component-id", goLiveComponentIDAttr.Val)
 			return selector, nil
 		}
 	}

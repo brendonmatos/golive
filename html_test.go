@@ -1,6 +1,7 @@
 package golive
 
 import (
+	"reflect"
 	"testing"
 )
 
