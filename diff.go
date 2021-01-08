@@ -46,6 +46,18 @@ func NewDiff(actual *html.Node) *Diff {
 	}
 }
 
+func (d *Diff) GetInstructionsByType(t DiffType) []ChangeInstruction {
+	s := make([]ChangeInstruction, 0)
+
+	for _, i := range d.instructions {
+		if i.Type == t {
+			s = append(s, i)
+		}
+	}
+
+	return s
+}
+
 func (d *Diff) Propose(proposed *html.Node) {
 
 	actualChildren := GetChildrenFromNode(d.actual)
@@ -205,22 +217,3 @@ func (d *Diff) DiffNodeAttributes(from, to *html.Node) {
 	}
 
 }
-
-// IsChildrenTheSame todo
-
-//// GetDiffFromRawHTML todo
-//func GetDiffFromRawHTML(start string, end string) ([]ChangeInstruction, error) {
-//	startN, err := CreateDOMFromString(start)
-//
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	endN, err := CreateDOMFromString(end)
-//
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return GetDiffFromNodes(startN, endN), nil
-//}

@@ -24,8 +24,6 @@ type LiveResponse struct {
 
 func NewServer() *LiveServer {
 	logger := NewLoggerBasic()
-	logger.Level = LogTrace
-
 	return &LiveServer{
 		Wire:       NewWire(),
 		CookieName: "_csrf_token",

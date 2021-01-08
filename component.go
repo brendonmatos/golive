@@ -41,10 +41,10 @@ type LiveComponent struct {
 }
 
 // NewLiveComponent ...
-func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
+func NewLiveComponent(name string, component ComponentLifeTime) *LiveComponent {
 	return &LiveComponent{
 		Name:      name,
-		component: time,
+		component: component,
 		renderer: LiveRenderer{
 			state:      &LiveState{},
 			template:   nil,
@@ -75,7 +75,7 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	ct, err := l.generateTemplate(ts)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("generate template: %w", err)
 	}
 
 	l.renderer.setTemplate(ct, ts)
@@ -120,7 +120,7 @@ func (l *LiveComponent) createChildren() error {
 	return err
 }
 
-func (l *LiveComponent) findComponentById(id string) *LiveComponent {
+func (l *LiveComponent) findComponentByID(id string) *LiveComponent {
 	if l.Name == id {
 		return l
 	}
@@ -132,7 +132,7 @@ func (l *LiveComponent) findComponentById(id string) *LiveComponent {
 	}
 
 	for _, child := range l.children {
-		found := child.findComponentById(id)
+		found := child.findComponentByID(id)
 
 		if found != nil {
 			return found
@@ -212,7 +212,6 @@ func (l *LiveComponent) Update() {
 // Kill ...
 func (l *LiveComponent) Kill() error {
 
-
 	l.KillChildren()
 
 	l.log(LogTrace, "WillUnmount", logEx{"name": l.Name})
@@ -230,7 +229,6 @@ func (l *LiveComponent) Kill() error {
 	return nil
 }
 
-
 func (l *LiveComponent) KillChildren() {
 	for _, child := range l.children {
 		if err := child.Kill(); err != nil {
@@ -238,7 +236,6 @@ func (l *LiveComponent) KillChildren() {
 		}
 	}
 }
-
 
 // GetFieldFromPath ...
 func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
@@ -311,7 +308,7 @@ func (l *LiveComponent) InvokeMethodInPath(path string, data map[string]string, 
 }
 
 func (l *LiveComponent) createUniqueName() string {
-	return l.Name + "_" + NewLiveId().GenerateSmall()
+	return l.Name + "_" + NewLiveID().GenerateSmall()
 }
 
 // TODO: maybe nested components?
@@ -362,7 +359,7 @@ func (l *LiveComponent) signRender(dom *html.Node) error {
 	// Post treatment
 	for _, node := range GetAllChildrenRecursive(dom) {
 
-		if goLiveIdAttr := getAttribute(node, "go-live-uid"); goLiveIdAttr == nil {
+		if goLiveIDAttr := getAttribute(node, "go-live-uid"); goLiveIDAttr == nil {
 			addNodeAttribute(node, "go-live-uid", strconv.FormatInt(int64(SelfIndexOfNode(node)), 16))
 		}
 
@@ -373,13 +370,13 @@ func (l *LiveComponent) signRender(dom *html.Node) error {
 		if valueAttr := getAttribute(node, ":value"); valueAttr != nil {
 			removeNodeAttribute(node, ":value")
 
-			cid, err := ComponentIdFromNode(node)
+			cid, err := ComponentIDFromNode(node)
 
 			if err != nil {
 				return err
 			}
 
-			foundComponent := l.findComponentById(cid)
+			foundComponent := l.findComponentByID(cid)
 
 			if foundComponent == nil {
 				return fmt.Errorf("component not found")
@@ -414,8 +411,7 @@ func (l *LiveComponent) signRender(dom *html.Node) error {
 	return nil
 }
 
-
-func ComponentIdFromNode(e *html.Node) (string, error) {
+func ComponentIDFromNode(e *html.Node) (string, error) {
 	for parent := e; parent != nil; parent = parent.Parent {
 		if componentAttr := getAttribute(parent, "go-live-component-id"); componentAttr != nil {
 			return componentAttr.Val, nil

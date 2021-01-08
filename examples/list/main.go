@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/brendonferreira/golive"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -61,30 +59,22 @@ func NewBooks() *Books {
 }
 
 func (b *Books) GetFilteredList() []Book {
-	// filtered := make([]Book, 0)
+	filtered := make([]Book, 0)
 
-	// for _, book := range b.List {
-	// 	match := true
-	// 	if b.Filter.Genre != nil && book.Genre != *b.Filter.Genre {
-	// 		match = false
-	// 	}
-	// 	if b.Filter.Writter != nil && book.Writter != *b.Filter.Writter {
-	// 		match = false
-	// 	}
-	// 	if match {
-	// 		filtered = append(filtered, book)
-	// 	}
-	// }
-
-	// return filtered
-
-	if b.Filter.Do {
-		fmt.Println("Rendering empty")
-		return make([]Book, 0)
+	for _, book := range b.List {
+		match := true
+		if b.Filter.Genre != nil && book.Genre != *b.Filter.Genre {
+			match = false
+		}
+		if b.Filter.Writter != nil && book.Writter != *b.Filter.Writter {
+			match = false
+		}
+		if match {
+			filtered = append(filtered, book)
+		}
 	}
 
-	fmt.Println("Rendering fullfilled")
-	return b.List
+	return filtered
 }
 
 func (b *Books) ToggleFilter() {

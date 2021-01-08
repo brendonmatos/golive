@@ -21,9 +21,9 @@ type PatchBrowser struct {
 	Instructions []PatchInstruction `json:"i"`
 }
 
-func NewPatchBrowser(componentId string) *PatchBrowser {
+func NewPatchBrowser(componentID string) *PatchBrowser {
 	return &PatchBrowser{
-		ComponentID:  componentId,
+		ComponentID:  componentID,
 		Instructions: make([]PatchInstruction, 0),
 	}
 }
