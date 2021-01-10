@@ -1,7 +1,6 @@
 package golive
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,11 +9,19 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/net/html"
+)
+
+var (
+	ErrComponentNotPrepared = errors.New("component need to be prepared")
+	ErrComponentWithoutLog  = errors.New("component without log defined")
+	ErrComponentNil         = errors.New("component nil")
 )
 
 //
 type ComponentLifeTime interface {
-	Prepare(component *LiveComponent)
+	Create(component *LiveComponent)
 	TemplateHandler(component *LiveComponent) string
 	Mounted(component *LiveComponent)
 	BeforeMount(component *LiveComponent)
@@ -25,39 +32,186 @@ type ChildLiveComponent interface{}
 
 //
 type LiveComponent struct {
-	Name               string
-	component          ComponentLifeTime
-	updatesChannel     *ComponentLifeCycle
-	htmlTemplateString string
-	htmlTemplate       *template.Template
-	rendered           string
-	IsMounted          bool
-	Prepared           bool
-	Exited             bool
-	log                Log
+	Name string
+
+	IsMounted bool
+	IsCreated bool
+	Exited    bool
+
+	log       Log
+	life      *ComponentLifeCycle
+	component ComponentLifeTime
+	renderer  LiveRenderer
+
+	children []*LiveComponent
 }
 
 // NewLiveComponent ...
-func NewLiveComponent(name string, time ComponentLifeTime) *LiveComponent {
+func NewLiveComponent(name string, component ComponentLifeTime) *LiveComponent {
 	return &LiveComponent{
 		Name:      name,
-		component: time,
+		component: component,
+		renderer: LiveRenderer{
+			state:      &LiveState{},
+			template:   nil,
+			formatters: make([]func(t string) string, 0),
+		},
 	}
 }
 
-func (l *LiveComponent) getName() string {
-	return l.Name + "_" + NewLiveId().GenerateSmall()
+func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
+	var err error
+
+	l.life = life
+
+	if l.log == nil {
+		return ErrComponentWithoutLog
+	}
+
+	// The first notification, will notify
+	// an component without unique name
+	l.notifyStage(WillCreate)
+
+	l.Name = l.createUniqueName()
+
+	// Get the template defined on component
+	ts := l.component.TemplateHandler(l)
+
+	// Prepare the template content adding
+	// golive specific
+	ts = l.addGoLiveComponentIDAttribute(ts)
+	ts = l.signTemplateString(ts)
+
+	// Generate go std template
+	ct, err := l.generateTemplate(ts)
+
+	if err != nil {
+		return fmt.Errorf("generate template: %w", err)
+	}
+
+	l.renderer.setTemplate(ct, ts)
+
+	//
+	l.renderer.useFormatter(func(t string) string {
+		d, _ := NodeFromString(t)
+		_ = l.treatRender(d)
+		t, _ = RenderChildrenNodes(d)
+		return t
+	})
+
+	// Calling component creation
+	l.component.Create(l)
+
+	// Creating children
+	err = l.createChildren()
+
+	if err != nil {
+		return err
+	}
+
+	l.IsCreated = true
+
+	l.notifyStage(Created)
+
+	return err
+}
+
+func (l *LiveComponent) createChildren() error {
+	var err error
+	for _, child := range l.getChildrenComponents() {
+		child.log = l.log
+
+		err = child.Create(l.life)
+		if err != nil {
+			panic(err)
+		}
+
+		l.children = append(l.children, child)
+	}
+	return err
+}
+
+func (l *LiveComponent) findComponentByID(id string) *LiveComponent {
+	if l.Name == id {
+		return l
+	}
+
+	for _, child := range l.children {
+		if child.Name == id {
+			return child
+		}
+	}
+
+	for _, child := range l.children {
+		found := child.findComponentByID(id)
+
+		if found != nil {
+			return found
+		}
+	}
+
+	return nil
+}
+
+// Mount 2. the component loading html
+func (l *LiveComponent) Mount() error {
+
+	if !l.IsCreated {
+		return ErrComponentNotPrepared
+	}
+
+	l.notifyStage(WillMount)
+
+	l.component.BeforeMount(l)
+
+	err := l.MountChildren()
+
+	if err != nil {
+		return fmt.Errorf("mount children: %w", err)
+	}
+
+	l.component.Mounted(l)
+
+	l.IsMounted = true
+
+	l.notifyStage(Mounted)
+
+	return nil
+}
+
+func (l *LiveComponent) MountChildren() error {
+	l.notifyStage(WillMountChildren)
+	for _, child := range l.getChildrenComponents() {
+		err := child.Mount()
+
+		if err != nil {
+			return fmt.Errorf("child mount: %w", err)
+		}
+	}
+	l.notifyStage(ChildrenMounted)
+	return nil
+}
+
+// Render ...
+func (l *LiveComponent) Render() (string, error) {
+	l.log(LogTrace, "Render", logEx{"name": l.Name})
+
+	if l.component == nil {
+		return "", ErrComponentNil
+	}
+
+	text, _, err := l.renderer.Render(l.component)
+	return text, err
 }
 
 func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
+
 	child, ok := fn.Interface().(*LiveComponent)
+
 	if !ok {
 		l.log(LogError, "child not a *golive.LiveComponent", nil)
-
 		return ""
 	}
-
-	child.Mount()
 
 	render, err := child.Render()
 	if err != nil {
@@ -67,84 +221,43 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 	return template.HTML(render)
 }
 
-// Prepare 1.
-func (l *LiveComponent) Prepare() {
-	l.log(LogTrace, "Prepare", logEx{"name": l.Name})
-
-	l.Name = l.getName()
-
-	l.htmlTemplateString = l.component.TemplateHandler(l)
-	l.htmlTemplateString = l.addWSConnectScript(l.htmlTemplateString)
-	l.htmlTemplateString = l.addGoLiveComponentIDAttribute(l.htmlTemplateString)
-
-	l.htmlTemplate, _ = template.New(l.Name).Funcs(template.FuncMap{
-		"render": l.RenderChild,
-	}).Parse(l.htmlTemplateString)
-
-	l.component.Prepare(l)
-
-	l.PrepareChildren()
-
-	l.Prepared = true
+// LiveRender render a new version of the component, and detect
+// differences from the last render
+// and sets the "new old" version  of render
+func (l *LiveComponent) LiveRender() (*Diff, error) {
+	return l.renderer.LiveRender(l.component)
 }
 
-func (l *LiveComponent) PrepareChildren() {
-	v := reflect.ValueOf(l.component).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		if !v.Field(i).CanInterface() {
-			continue
-		}
+func (l *LiveComponent) Update() {
+	l.notifyStage(Updated)
+}
 
-		lc, ok := v.Field(i).Interface().(*LiveComponent)
+// Kill ...
+func (l *LiveComponent) Kill() error {
 
-		if !ok {
-			continue
-		}
+	l.KillChildren()
 
-		lc.updatesChannel = l.updatesChannel
-		lc.log = l.log
-		lc.Prepare()
-	}
+	l.log(LogTrace, "WillUnmount", logEx{"name": l.Name})
+
+	l.component.BeforeUnmount(l)
+
+	l.notifyStage(WillUnmount)
+
+	l.Exited = true
+	l.component = nil
+
+	l.notifyStage(Unmounted)
+
+	l.life = nil
+
+	return nil
 }
 
 func (l *LiveComponent) KillChildren() {
-	v := reflect.ValueOf(l.component).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		if !v.Field(i).CanInterface() {
-			continue
+	for _, child := range l.children {
+		if err := child.Kill(); err != nil {
+			l.log(LogError, "kill child", logEx{"name": child.Name})
 		}
-
-		lc, ok := v.Field(i).Interface().(*LiveComponent)
-
-		if !ok {
-			continue
-		}
-
-		if err := lc.Kill(); err != nil {
-			l.log(LogError, "kill child", logEx{"name": lc.Name})
-		}
-	}
-}
-
-// Mount 2. the component loading html
-func (l *LiveComponent) Mount() {
-	l.log(LogTrace, "WillMount", logEx{"name": l.Name})
-
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     WillMount,
-		Component: l,
-	}
-
-	l.component.BeforeMount(l)
-	l.IsMounted = true
-
-	l.component.Mounted(l)
-
-	l.log(LogTrace, "Mounted", logEx{"name": l.Name})
-
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     Mounted,
-		Component: l,
 	}
 }
 
@@ -154,6 +267,13 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 	v := reflect.ValueOf(c).Elem()
 
 	for _, s := range strings.Split(path, ".") {
+
+		if reflect.ValueOf(v).IsZero() {
+			l.log(LogError, "field not found in component", logEx{
+				"component": l.Name,
+				"path":      path,
+			})
+		}
 
 		// If it`s array this will work
 		if i, err := strconv.Atoi(s); err == nil {
@@ -211,113 +331,145 @@ func (l *LiveComponent) InvokeMethodInPath(path string, data map[string]string, 
 	return nil
 }
 
-// Render ...
-func (l *LiveComponent) Render() (string, error) {
-	l.log(LogTrace, "Render", logEx{"name": l.Name})
-
-	if l.component == nil {
-		return "", errors.New("component nil")
-	}
-
-	s := bytes.NewBufferString("")
-
-	err := l.htmlTemplate.Execute(s, l.component)
-
-	if err != nil {
-		return "", err
-	}
-
-	return s.String(), nil
+func (l *LiveComponent) createUniqueName() string {
+	return l.Name + "_" + NewLiveID().GenerateSmall()
 }
 
-// LiveRender render a new version of the component, and detect
-// differences from the last render
-// and sets the "new old" version  of render
-func (l *LiveComponent) LiveRender() ([]OutMessage, error) {
-	newRender, err := l.Render()
-
-	if err != nil {
-		return nil, fmt.Errorf("render component: %w", err)
-	}
-
-	oms := make([]OutMessage, 0)
-	if len(l.rendered) > 0 {
-
-		changeInstructions, err := GetDiffFromRawHTML(l.rendered, newRender)
-
-		if err != nil {
-			l.log(LogPanic, "there is a error in diff", logEx{"error": err})
+// TODO: maybe nested components?
+func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
+	components := make([]*LiveComponent, 0)
+	v := reflect.ValueOf(l.component).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		if !v.Field(i).CanInterface() {
+			continue
 		}
 
-		for _, instruction := range changeInstructions {
-			oms = append(oms, OutMessage{
-				Name:        EventLiveDom,
-				Type:        strconv.Itoa(int(instruction.Type)),
-				Attr:        instruction.Attr,
-				ComponentId: instruction.componentId,
-				Content:     instruction.Content,
-				Element:     instruction.Element,
-			})
+		lc, ok := v.Field(i).Interface().(*LiveComponent)
+		if !ok {
+			continue
 		}
+
+		components = append(components, lc)
+	}
+	return components
+}
+
+func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
+	if l.life == nil {
+		l.log(LogWarn, "component life updates channel is nil", nil)
+		return
 	}
 
-	l.rendered = newRender
-
-	return oms, nil
+	*l.life <- ComponentLifeTimeMessage{
+		Stage:     ltu,
+		Component: l,
+	}
 }
 
-var re = regexp.MustCompile(`<([a-z0-9]+)`)
+var rxTagName = regexp.MustCompile(`<([a-z0-9]+[ ]?)`)
 
-func (l *LiveComponent) addWSConnectScript(template string) string {
-	return template + `
-		<script type="application/javascript">
-			goLive.once('WS_CONNECTION_OPEN', function() {
-				goLive.connect('` + l.Name + `')
-			})
-		</script>
-	`
-}
-
-// TODO: improve this urgently
 func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
-	found := re.FindString(l.htmlTemplateString)
+	found := rxTagName.FindString(template)
 	if found != "" {
 		replaceWith := found + ` go-live-component-id="` + l.Name + `" `
-		template = strings.Replace(l.htmlTemplateString, found, replaceWith, 1)
+		template = strings.Replace(template, found, replaceWith, 1)
 	}
 	return template
 }
 
-// Kill ...
-func (l *LiveComponent) Kill() error {
-	if l.component == nil {
-		return errors.New("component nil")
+func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) {
+	return template.New(l.Name).Funcs(template.FuncMap{
+		"render": l.RenderChild,
+	}).Parse(ts)
+}
+
+func (l *LiveComponent) treatRender(dom *html.Node) error {
+
+	// Post treatment
+	for _, node := range GetAllChildrenRecursive(dom) {
+
+		if goLiveInputAttr := getAttribute(node, "go-live-input"); goLiveInputAttr != nil {
+			addNodeAttribute(node, ":value", goLiveInputAttr.Val)
+		}
+
+		if valueAttr := getAttribute(node, ":value"); valueAttr != nil {
+			removeNodeAttribute(node, ":value")
+
+			cid, err := ComponentIDFromNode(node)
+
+			if err != nil {
+				return err
+			}
+
+			foundComponent := l.findComponentByID(cid)
+
+			if foundComponent == nil {
+				return fmt.Errorf("component not found")
+			}
+
+			f := foundComponent.GetFieldFromPath(valueAttr.Val)
+
+			if inputTypeAttr := getAttribute(node, "type"); inputTypeAttr != nil {
+				switch inputTypeAttr.Val {
+				case "checkbox":
+					if f.Bool() {
+						addNodeAttribute(node, "checked", "checked")
+					} else {
+						removeNodeAttribute(node, "checked")
+					}
+					break
+				}
+			} else {
+				addNodeAttribute(node, "value", fmt.Sprintf("%v", f))
+			}
+		}
+
+		if disabledAttr := getAttribute(node, ":disabled"); disabledAttr != nil {
+			removeNodeAttribute(node, ":disabled")
+			if disabledAttr.Val == "true" {
+				addNodeAttribute(node, "disabled", "disabled")
+			} else {
+				removeNodeAttribute(node, "disabled")
+			}
+		}
 	}
-
-	l.KillChildren()
-
-	l.log(LogTrace, "WillUnmount", logEx{"name": l.Name})
-
-	l.component.BeforeUnmount(l)
-
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     WillUnmount,
-		Component: l,
-	}
-
-	l.Exited = true
-	// Set all to nil to garbage collector act
-	l.component = nil
-	l.htmlTemplate = nil
-
-	l.log(LogTrace, "Unmounted", logEx{"name": l.Name})
-
-	*l.updatesChannel <- ComponentLifeTimeMessage{
-		Stage:     Unmounted,
-		Component: l,
-	}
-
-	l.updatesChannel = nil
-
 	return nil
+}
+
+func (l *LiveComponent) signTemplateString(ts string) string {
+	matches := rxTagName.FindAllStringSubmatchIndex(ts, -1)
+
+	ReverseSlice(matches)
+
+	for _, match := range matches {
+		startIndex := match[0]
+		endIndex := match[1]
+
+		startSlice := ts[:startIndex]
+		endSlide := ts[endIndex:]
+		matchedSlice := ts[startIndex:endIndex]
+
+		uid := l.Name + "_" + NewLiveID().GenerateSmall()
+		replaceWith := matchedSlice + ` go-live-uid="` + uid + `" `
+		ts = startSlice + replaceWith + endSlide
+	}
+
+	return ts
+}
+
+func ComponentIDFromNode(e *html.Node) (string, error) {
+	for parent := e; parent != nil; parent = parent.Parent {
+		if componentAttr := getAttribute(parent, "go-live-component-id"); componentAttr != nil {
+			return componentAttr.Val, nil
+		}
+	}
+	return "", fmt.Errorf("node not found")
+}
+
+func ReverseSlice(s interface{}) {
+	size := reflect.ValueOf(s).Len()
+	swap := reflect.Swapper(s)
+	for i, j := 0, size-1; i < j; i, j = i+1, j-1 {
+		swap(i, j)
+	}
 }
