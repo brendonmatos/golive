@@ -121,7 +121,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 		selector, err := SelectorFromNode(instruction.Element)
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("selector from node: %w instruction: %v", err, instruction)
 		}
 
 		componentID, err := ComponentIDFromNode(instruction.Element)
