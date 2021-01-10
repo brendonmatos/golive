@@ -1,8 +1,9 @@
 package components
 
 import (
-	"github.com/brendonferreira/golive"
 	"strings"
+
+	"github.com/brendonferreira/golive"
 )
 
 type Task struct {
@@ -71,21 +72,18 @@ func (t *Todo) TaskDone(index int) {
 }
 
 func (t *Todo) CanAdd() bool {
-	return len(t.Text) == 0
+	return len(t.Text) > 0
 }
 
 func (t *Todo) TemplateHandler(_ *golive.LiveComponent) string {
 	return `
 		<div id="todo">
-
-			<input go-live-input="Text" value="{{.Text}}"/>
-			
-			<button {{ if .CanAdd }}disabled{{ end }} go-live-click="HandleAdd">Create</button>
-			
+			<input go-live-input="Text" />
+			<button :disabled="{{not .CanAdd}}" go-live-click="HandleAdd">Create</button>
 			<div class="todo-tasks">
 				{{ range $index, $task := .Tasks }}
-					<div class="{{ $task.GetClasses }}">
-						<input type="checkbox" go-live-input="Tasks.{{$index}}.Done" {{ if $task.Done }} checked {{ end }}/>
+					<div class="{{ $task.GetClasses }}" key="{{$index}}">
+						<input type="checkbox" go-live-input="Tasks.{{$index}}.Done"></input>
 						<span>{{ $task.Text }}</span>
 					</div>
 				{{ end }}
@@ -101,6 +99,6 @@ func (t *Todo) TemplateHandler(_ *golive.LiveComponent) string {
     				text-decoration: line-through;
 				}
 			</style>
-		</div>	
+		</div>
 	`
 }

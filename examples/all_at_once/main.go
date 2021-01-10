@@ -9,20 +9,40 @@ import (
 	"github.com/gofiber/websocket/v2"
 )
 
+type Home struct {
+	golive.LiveComponentWrapper
+	Clock  *golive.LiveComponent
+	Todo   *golive.LiveComponent
+	Slider *golive.LiveComponent
+}
+
+func NewHome() *golive.LiveComponent {
+	return golive.NewLiveComponent("Home", &Home{
+		Clock:  components.NewClock(),
+		Todo:   components.NewTodo(),
+		Slider: components.NewSlider(),
+	})
+}
+
+func (h *Home) Mounted(_ *golive.LiveComponent) {
+	return
+}
+
+func (h *Home) TemplateHandler(_ *golive.LiveComponent) string {
+	return `
+	<div>
+		{{render .Clock}}
+		{{render .Todo}}
+		{{render .Slider}}
+	</div>
+	`
+}
+
 func main() {
 	app := fiber.New()
 	liveServer := golive.NewServer()
 
-	app.Get("/clock", liveServer.CreateHTMLHandler(components.NewClock, golive.PageContent{
-		Lang:  "us",
-		Title: "Hello world",
-	}))
-	app.Get("/todo", liveServer.CreateHTMLHandler(components.NewTodo, golive.PageContent{
-		Lang:  "us",
-		Title: "Hello world",
-	}))
-
-	app.Get("/slider", liveServer.CreateHTMLHandler(components.NewSlider, golive.PageContent{
+	app.Get("/", liveServer.CreateHTMLHandler(NewHome, golive.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))

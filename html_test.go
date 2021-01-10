@@ -1,6 +1,7 @@
 package golive
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -8,7 +9,7 @@ func TestCreateDOMFromString(t *testing.T) {
 
 	html := `<body><h1>Hello world</h1></body>`
 
-	dom, err := CreateDOMFromString(html)
+	dom, err := NodeFromString(html)
 
 	if err != nil {
 		t.Error(err)
@@ -23,33 +24,52 @@ func TestCreateDOMFromString(t *testing.T) {
 }
 
 func TestSelectorFromNode(t *testing.T) {
-	html := `<body><h1>Hello world<span>a</span></h1></body>`
+	html := `<div go-live-component-id><h1>Hello world<span>a</span></h1></div>`
 
-	dom, _ := CreateDOMFromString(html)
+	dom, _ := NodeFromString(html)
 
-	node := dom.LastChild.LastChild.LastChild.LastChild.FirstChild
+	node := dom.FirstChild.FirstChild.LastChild.FirstChild
 	if node.Data != "a" {
 		t.Error("value was not parsed correctly")
 	}
 
-	if SelectorFromNode(node) != "html:nth-child(1) body:nth-child(2) h1:nth-child(1) span:nth-child(1)" {
-		t.Error("wrong selector returned")
+	path := PathToComponentRoot(node)
+	if !reflect.DeepEqual(path, []int{0, 0, 1, 0}) {
+		t.Error("wrong selector returned", path)
 	}
 }
 
 func TestSelectorFromEmptyNode(t *testing.T) {
-	a := `<body><h1>Hello world<span></span></h1></body>`
+	a := `<div go-live-component-id><h1>Hello world<span></span></h1></div>`
 
-	dom, _ := CreateDOMFromString(a)
+	dom, _ := NodeFromString(a)
 
-	node := dom.LastChild.LastChild.LastChild.LastChild
+	node := dom.LastChild.LastChild.LastChild
 
 	if node.Data != "span" || node.FirstChild != nil {
 		t.Error("value was not parsed correctly")
 	}
 
-	selector := SelectorFromNode(node)
-	if selector != "html:nth-child(1) body:nth-child(2) h1:nth-child(1) span:nth-child(1)" {
-		t.Error("wrong selector returned, given", selector)
+	path := PathToComponentRoot(node)
+	if !reflect.DeepEqual(path, []int{0, 0, 1}) {
+		t.Error("wrong selector returned", path)
+	}
+}
+
+func TestRenderChildrenNodesWithSingleText(t *testing.T) {
+	a, _ := NodeFromString(`aaaa`)
+	c, _ := RenderChildrenNodes(a)
+	if c != "aaaa" {
+		t.Error("expecting to children to be a single text node containing aaaa")
+	}
+}
+
+func TestRenderChildrenNodesWithMultipleNodes(t *testing.T) {
+	a, _ := NodeFromString(`aaaa<a>bbbb</a>`)
+
+	c, _ := RenderChildrenNodes(a)
+
+	if c != "aaaa<a>bbbb</a>" {
+		t.Error("expecting to children to be a single text node containing aaaa<a>bbbb</a>")
 	}
 }
