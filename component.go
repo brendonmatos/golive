@@ -16,6 +16,7 @@ import (
 var (
 	ErrComponentNotPrepared = errors.New("component need to be prepared")
 	ErrComponentWithoutLog  = errors.New("component without log defined")
+	ErrComponentNil         = errors.New("component nil")
 )
 
 //
@@ -79,6 +80,7 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	// Prepare the template content adding
 	// golive specific
 	ts = l.addGoLiveComponentIDAttribute(ts)
+	ts = l.signTemplateString(ts)
 
 	// Generate go std template
 	ct, err := l.generateTemplate(ts)
@@ -91,9 +93,9 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 
 	//
 	l.renderer.useFormatter(func(t string) string {
-		d, _ := CreateDOMFromString(t)
-		_ = l.signRender(d)
-		t, _ = RenderNodeChildren(d)
+		d, _ := NodeFromString(t)
+		_ = l.treatRender(d)
+		t, _ = RenderChildrenNodes(d)
 		return t
 	})
 
@@ -195,7 +197,7 @@ func (l *LiveComponent) Render() (string, error) {
 	l.log(LogTrace, "Render", logEx{"name": l.Name})
 
 	if l.component == nil {
-		return "", errors.New("component nil")
+		return "", ErrComponentNil
 	}
 
 	text, _, err := l.renderer.Render(l.component)
@@ -353,13 +355,18 @@ func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
 }
 
 func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
+	if l.life == nil {
+		l.log(LogWarn, "component life updates channel is nil", nil)
+		return
+	}
+
 	*l.life <- ComponentLifeTimeMessage{
 		Stage:     ltu,
 		Component: l,
 	}
 }
 
-var rxTagName = regexp.MustCompile(`<([a-z0-9]+)`)
+var rxTagName = regexp.MustCompile(`<([a-z0-9]+[ ]?)`)
 
 func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 	found := rxTagName.FindString(template)
@@ -376,14 +383,10 @@ func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) 
 	}).Parse(ts)
 }
 
-func (l *LiveComponent) signRender(dom *html.Node) error {
+func (l *LiveComponent) treatRender(dom *html.Node) error {
 
 	// Post treatment
 	for _, node := range GetAllChildrenRecursive(dom) {
-
-		if goLiveIDAttr := getAttribute(node, "go-live-uid"); goLiveIDAttr == nil {
-			addNodeAttribute(node, "go-live-uid", l.Name+"_"+strconv.FormatInt(int64(SelfIndexOfNode(node)), 16))
-		}
 
 		if goLiveInputAttr := getAttribute(node, "go-live-input"); goLiveInputAttr != nil {
 			addNodeAttribute(node, ":value", goLiveInputAttr.Val)
@@ -433,6 +436,27 @@ func (l *LiveComponent) signRender(dom *html.Node) error {
 	return nil
 }
 
+func (l *LiveComponent) signTemplateString(ts string) string {
+	matches := rxTagName.FindAllStringSubmatchIndex(ts, -1)
+
+	ReverseSlice(matches)
+
+	for _, match := range matches {
+		startIndex := match[0]
+		endIndex := match[1]
+
+		startSlice := ts[:startIndex]
+		endSlide := ts[endIndex:]
+		matchedSlice := ts[startIndex:endIndex]
+
+		uid := l.Name + "_" + NewLiveID().GenerateSmall()
+		replaceWith := matchedSlice + ` go-live-uid="` + uid + `" `
+		ts = startSlice + replaceWith + endSlide
+	}
+
+	return ts
+}
+
 func ComponentIDFromNode(e *html.Node) (string, error) {
 	for parent := e; parent != nil; parent = parent.Parent {
 		if componentAttr := getAttribute(parent, "go-live-component-id"); componentAttr != nil {
@@ -440,4 +464,12 @@ func ComponentIDFromNode(e *html.Node) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("node not found")
+}
+
+func ReverseSlice(s interface{}) {
+	size := reflect.ValueOf(s).Len()
+	swap := reflect.Swapper(s)
+	for i, j := 0, size-1; i < j; i, j = i+1, j-1 {
+		swap(i, j)
+	}
 }

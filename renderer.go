@@ -15,14 +15,14 @@ type LiveState struct {
 
 func (ls *LiveState) setText(text string) error {
 	var err error
-	ls.html, err = CreateDOMFromString(text)
+	ls.html, err = NodeFromString(text)
 	ls.text = text
 	return err
 }
 
 func (ls *LiveState) setHTML(node *html.Node) error {
 	var err error
-	ls.text, err = RenderNodeChildren(node)
+	ls.text, err = RenderChildrenNodes(node)
 	ls.html = node
 	return err
 }

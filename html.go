@@ -3,8 +3,6 @@ package golive
 import (
 	"bytes"
 	"fmt"
-	"strings"
-
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
@@ -13,66 +11,6 @@ var (
 	ErrCouldNotProvideValidSelector = fmt.Errorf("could not provide a valid selector")
 	ErrElementNotSigned             = fmt.Errorf("element is not signed with go-live-uid")
 )
-
-type DOMElemSelector struct {
-	query []string
-}
-
-func NewDOMElementSelector() *DOMElemSelector {
-	return &DOMElemSelector{
-		query: []string{},
-	}
-}
-
-func (de *DOMElemSelector) setElemen(elemn string) {
-	de.query = append(de.query, elemn)
-}
-
-func (de *DOMElemSelector) addAttr(key, value string) {
-	de.query = append(de.query, "[", key, "=\"", value, "\"]")
-}
-func (de *DOMElemSelector) toString() string {
-	return strings.Join(de.query, "")
-}
-
-type DOMSelector struct {
-	query []*DOMElemSelector
-}
-
-func NewDOMSelector() *DOMSelector {
-	return &DOMSelector{
-		query: make([]*DOMElemSelector, 0),
-	}
-}
-
-func (ds *DOMSelector) addChild() *DOMElemSelector {
-	de := NewDOMElementSelector()
-	ds.addChildSelector(de)
-	return de
-}
-
-func (ds *DOMSelector) addParentSelector(d *DOMElemSelector) {
-	ds.query = append([]*DOMElemSelector{d}, ds.query...)
-}
-
-func (ds *DOMSelector) addChildSelector(d *DOMElemSelector) {
-	ds.query = append(ds.query, d)
-}
-func (ds *DOMSelector) addParent() *DOMElemSelector {
-	de := NewDOMElementSelector()
-	ds.addParentSelector(de)
-	return de
-}
-
-func (ds *DOMSelector) toString() string {
-	var e []string
-
-	for _, q := range ds.query {
-		e = append(e, q.toString())
-	}
-
-	return strings.Join(e, " ")
-}
 
 // AttrMapFromNode todo
 func AttrMapFromNode(node *html.Node) map[string]string {
@@ -83,14 +21,15 @@ func AttrMapFromNode(node *html.Node) map[string]string {
 	return m
 }
 
-// CreateDOMFromString todo
-func CreateDOMFromString(data string) (*html.Node, error) {
+// NodeFromString todo
+func NodeFromString(data string) (*html.Node, error) {
 	reader := bytes.NewReader([]byte(data))
 
 	parent := &html.Node{
 		Type:     html.ElementNode,
-		Data:     "div",
-		DataAtom: atom.Div}
+		Data:     "body",
+		DataAtom: atom.Body,
+	}
 
 	fragments, err := html.ParseFragmentWithOptions(reader, parent)
 
@@ -129,8 +68,8 @@ func RenderNodesToString(nodes []*html.Node) (string, error) {
 	return text, nil
 }
 
-func RenderNodeChildren(parent *html.Node) (string, error) {
-	return RenderNodesToString(GetChildrenFromNode(parent))
+func RenderChildrenNodes(parent *html.Node) (string, error) {
+	return RenderNodesToString(NodeChildren(parent))
 }
 
 func SelfIndexOfNode(n *html.Node) int {
@@ -143,12 +82,12 @@ func SelfIndexOfNode(n *html.Node) int {
 }
 
 func IsChildrenTheSame(actual, proposed *html.Node) bool {
-	proposedString, err := RenderNodesToString(GetChildrenFromNode(proposed))
+	proposedString, err := RenderNodesToString(NodeChildren(proposed))
 	if err != nil {
 		return false
 	}
 
-	actualString, err := RenderNodesToString(GetChildrenFromNode(actual))
+	actualString, err := RenderNodesToString(NodeChildren(actual))
 	if err != nil {
 		return false
 	}
@@ -171,9 +110,13 @@ func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 	return result
 }
 
-// GetChildrenFromNode todo
-func GetChildrenFromNode(n *html.Node) []*html.Node {
+// NodeChildren todo
+func NodeChildren(n *html.Node) []*html.Node {
 	children := make([]*html.Node, 0)
+
+	if n == nil || n.FirstChild == nil {
+		return children
+	}
 
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
 		children = append(children, child)
@@ -196,6 +139,10 @@ func signLiveUIToSelector(e *html.Node, selector *DOMElemSelector) bool {
 
 // SelectorFromNode
 func SelectorFromNode(e *html.Node) (*DOMSelector, error) {
+
+	if e == nil {
+		return nil, ErrComponentNil
+	}
 
 	selector := NewDOMSelector()
 

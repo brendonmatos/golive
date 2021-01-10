@@ -1,6 +1,7 @@
 package golive
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -126,7 +127,7 @@ func (c *Clock) TemplateHandler(_ *LiveComponent) string {
 	`
 }
 
-func TestComponentLifeCycleSequence(t *testing.T) {
+func TestComponent_LifeCycleSequence(t *testing.T) {
 
 	c := NewClock()
 
@@ -183,4 +184,40 @@ func TestComponentLifeCycleSequence(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+type TestComp struct {
+	LiveComponentWrapper
+}
+
+func (tc *TestComp) TemplateHandler(_ *LiveComponent) string {
+	return `
+		<div>
+			<div></div>
+			<div>
+				<div></div>
+			</div>
+			<div></div>
+			<div></div>
+		</div>
+	`
+}
+
+func TestComponent_ComponentSignTemplate(t *testing.T) {
+	var err error
+	c := NewLiveComponent("Test", &TestComp{})
+	c.log = NewLoggerBasic().Log
+	err = c.Create(nil)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = c.Mount()
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println(c.renderer.templateString)
 }
