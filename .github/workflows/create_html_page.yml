@@ -1,0 +1,18 @@
+name: Create HTML Page File
+
+on: push
+
+jobs:
+  create_html_page:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Run a one-line script
+        run: go run ./ci/create_html_page.go
+#      - name: Update resources
+#        uses: test-room-7/action-update-file@v1
+#        with:
+#          file-path: html_page.go
+#          branch: ${{ github.ref }}
+#          commit-msg: Update resources
+#          github-token: ${{ secrets.GITHUB_TOKEN }}
