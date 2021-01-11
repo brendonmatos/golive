@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/net/html/atom"
 	"html/template"
 	"reflect"
 	"regexp"
@@ -275,6 +276,10 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 			})
 		}
 
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+
 		// If it`s array this will work
 		if i, err := strconv.Atoi(s); err == nil {
 			v = v.Index(i)
@@ -285,6 +290,15 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 	return &v
 }
 
+func jsonEscape(i string) string {
+	b, err := json.Marshal(i)
+	if err != nil {
+		panic(err)
+	}
+	s := string(b)
+	return s[1 : len(s)-1]
+}
+
 // SetValueInPath ...
 func (l *LiveComponent) SetValueInPath(value string, path string) error {
 
@@ -292,7 +306,7 @@ func (l *LiveComponent) SetValueInPath(value string, path string) error {
 	n := reflect.New(v.Type())
 
 	if v.Kind() == reflect.String {
-		value = fmt.Sprintf("\"%s\"", value)
+		value = `"` + jsonEscape(value) + `"`
 	}
 
 	err := json.Unmarshal([]byte(value), n.Interface())
@@ -419,6 +433,22 @@ func (l *LiveComponent) treatRender(dom *html.Node) error {
 					}
 					break
 				}
+			} else if node.DataAtom == atom.Textarea {
+				n, err := NodeFromString(fmt.Sprintf("%v", f))
+
+				if n == nil || n.FirstChild == nil {
+					continue
+				}
+
+				if err != nil {
+					continue
+				}
+
+				child := n.FirstChild
+
+				n.RemoveChild(child)
+
+				node.AppendChild(child)
 			} else {
 				addNodeAttribute(node, "value", fmt.Sprintf("%v", f))
 			}
