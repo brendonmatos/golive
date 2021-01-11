@@ -20,6 +20,7 @@ type BooksFilter struct {
 	Writer
 	Genre
 }
+
 type Books struct {
 	golive.LiveComponentWrapper
 	Filter BooksFilter
