@@ -1,13 +1,20 @@
 # GoLive
+Use Go and ***Zero JavaScript*** to program reactive front-ends!
 
-![](examples/demo.gif)
+![](examples/slider/slider.gif)
+
+## How?
+1. Render Server Side HTML 
+2. Connect to same server using Websocket 
+3. Send user events
+4. Change state of component in server
+5. Render Component and get the Diff
+6. The update instructions is sended to browser
+
 
 **Any suggestions are absolutely welcome**
 
 This project it's strongly inspired by Elixir Phoenix LiveView.
-
-## Getting Started
-`WIP`
 
 ## Component Example
 ```go
@@ -17,15 +24,14 @@ import (
 	"github.com/brendonferreira/golive"
 	"time"
 )
+
 type Clock struct {
 	golive.LiveComponentWrapper
 	ActualTime string
 }
 
 func NewClock() *golive.LiveComponent {
-	return golive.NewLiveComponent("Clock", &Clock{
-		ActualTime: "91230192301390193",
-	})
+	return golive.NewLiveComponent("Clock", &Clock{})
 }
 
 func (t *Clock) Mounted(_ *golive.LiveComponent) {
@@ -74,8 +80,19 @@ func main() {
 }
 ```
 
-## That's it!
+### That's it!
 ![](examples/clock/demo.gif)
+
+## More Examples
+
+### Slider
+![](examples/slider/slider.gif)
+
+### Simple todo
+![](examples/todo/todo.gif)
+
+### All at once using components!
+![](examples/all_at_once/all_at_once.gif)
 
 
 ## TODO
