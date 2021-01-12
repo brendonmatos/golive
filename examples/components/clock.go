@@ -1,8 +1,9 @@
 package components
 
 import (
-	"github.com/brendonferreira/golive"
 	"time"
+
+	"github.com/brendonmatos/golive"
 )
 
 type Clock struct {

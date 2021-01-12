@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/brendonferreira/golive"
-	components "github.com/brendonferreira/golive/examples/components"
+	"github.com/brendonmatos/golive"
+	components "github.com/brendonmatos/golive/examples/components"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )

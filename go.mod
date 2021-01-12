@@ -1,4 +1,4 @@
-module github.com/brendonferreira/golive
+module github.com/brendonmatos/golive
 
 go 1.15
 
