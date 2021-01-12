@@ -1,7 +1,7 @@
 package components
 
 import (
-	"github.com/brendonferreira/golive"
+	"github.com/brendonmatos/golive"
 )
 
 type Slider struct {

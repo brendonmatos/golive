@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/brendonferreira/golive"
-	"github.com/brendonferreira/golive/examples/components"
+	"github.com/brendonmatos/golive"
+	"github.com/brendonmatos/golive/examples/components"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
