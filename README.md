@@ -1,4 +1,5 @@
-# GoLive
+# GoLive 
+## 💻 Reactive HTML Server Side Rendered by GoLang over WebSockets 🚀
 Use Go and ***Zero JavaScript*** to program reactive front-ends!
 
 ![](examples/slider/slider.gif)
