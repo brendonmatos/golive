@@ -12,6 +12,10 @@ Use Go and ***Zero JavaScript*** to program reactive front-ends!
 5. Render Component and get the Diff
 6. The update instructions is sended to browser
 
+## Getting Started
+- [Bumped Todo Example](https://github.com/SamHennessy/golive-example)
+- [Project Examples](https://github.com/brendonferreira/golive/tree/master/examples)
+- [GoBook - Interactive Go REPL in browser](https://github.com/brendonferreira/gobook)
 
 **Any suggestions are absolutely welcome**
 
@@ -95,6 +99,9 @@ func main() {
 ### All at once using components!
 ![](examples/all_at_once/all_at_once.gif)
 
+### GoBook
+![](examples/gobook.gif)
+[Go to repo](https://github.com/brendonferreira/gobook)
 
 ## TODO
  - [ ] Establish version
