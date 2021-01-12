@@ -14,8 +14,8 @@ Use Go and ***Zero JavaScript*** to program reactive front-ends!
 
 ## Getting Started
 - [Bumped Todo Example](https://github.com/SamHennessy/golive-example)
-- [Project Examples](https://github.com/brendonferreira/golive/tree/master/examples)
-- [GoBook - Interactive Go REPL in browser](https://github.com/brendonferreira/gobook)
+- [Project Examples](https://github.com/brendonmatos/golive/tree/master/examples)
+- [GoBook - Interactive Go REPL in browser](https://github.com/brendonmatos/gobook)
 
 **Any suggestions are absolutely welcome**
 
@@ -26,7 +26,7 @@ This project it's strongly inspired by Elixir Phoenix LiveView.
 package components 
 
 import (
-	"github.com/brendonferreira/golive"
+	"github.com/brendonmatos/golive"
 	"time"
 )
 
@@ -64,8 +64,8 @@ func (t *Clock) TemplateHandler(_ *golive.LiveComponent) string {
 package main
 
 import (
-	"github.com/brendonferreira/golive"
-	"github.com/brendonferreira/golive/examples/components"
+	"github.com/brendonmatos/golive"
+	"github.com/brendonmatos/golive/examples/components"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
@@ -101,7 +101,7 @@ func main() {
 
 ### GoBook
 ![](examples/gobook.gif)
-[Go to repo](https://github.com/brendonferreira/gobook)
+[Go to repo](https://github.com/brendonmatos/gobook)
 
 ## TODO
  - [ ] Establish version

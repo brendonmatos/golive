@@ -1,6 +1,6 @@
 package components
 
-import "github.com/brendonferreira/golive"
+import "github.com/brendonmatos/golive"
 
 type DynamicInput struct {
 	golive.LiveComponentWrapper

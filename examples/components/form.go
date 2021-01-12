@@ -1,6 +1,6 @@
 package components
 
-import "github.com/brendonferreira/golive"
+import "github.com/brendonmatos/golive"
 
 type Form struct {
 	golive.LiveComponentWrapper

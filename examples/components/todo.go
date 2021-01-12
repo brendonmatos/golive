@@ -3,7 +3,7 @@ package components
 import (
 	"strings"
 
-	"github.com/brendonferreira/golive"
+	"github.com/brendonmatos/golive"
 )
 
 type Task struct {
