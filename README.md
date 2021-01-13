@@ -13,7 +13,7 @@ Use Go and ***Zero JavaScript*** to program reactive front-ends!
 6. The update instructions is sended to browser
 
 ## Getting Started
-- [Bumped Todo Example](https://github.com/SamHennessy/golive-example)
+- [Extended Version Todo Example](https://github.com/SamHennessy/golive-example)
 - [Project Examples](https://github.com/brendonmatos/golive/tree/master/examples)
 - [GoBook - Interactive Go REPL in browser](https://github.com/brendonmatos/gobook)
 
