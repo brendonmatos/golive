@@ -389,7 +389,11 @@ var BasePageString = `<!DOCTYPE html>
       }
 
       function handleDiffSetInnerHTML(message, el) {
-        const { content } = message;
+        let { content } = message;
+
+        if (content === undefined) {
+          content = "";
+        }
 
         if (el.nodeType === Node.TEXT_NODE) {
           el.textContent = content;
