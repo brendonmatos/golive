@@ -3,6 +3,7 @@ package golive
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -96,7 +97,7 @@ func (s *Session) ActivatePage(lp *Page) {
 
 			switch evt.Type {
 			case PageComponentUpdated:
-				if err := s.LiveRenderComponent(evt.Component); err != nil {
+				if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
 					s.log(LogError, "component live render", logEx{"error": err})
 				}
 				break
@@ -112,11 +113,15 @@ func (s *Session) ActivatePage(lp *Page) {
 	}()
 }
 
-func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, error) {
+func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource) ([]*PatchBrowser, error) {
 
 	bp := make([]*PatchBrowser, 0)
 
 	for _, instruction := range diff.instructions {
+
+		if skipUpdateValueOnInput(instruction, source) {
+			continue
+		}
 
 		selector, err := SelectorFromNode(instruction.Element)
 
@@ -140,7 +145,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 			}
 		}
 
-		// IF there is no patch
+		// If there is no patch
 		if patch == nil {
 			patch = NewPatchBrowser(componentID)
 			patch.Name = EventLiveDom
@@ -158,9 +163,25 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 	return bp, nil
 }
 
+func skipUpdateValueOnInput(in ChangeInstruction, source *EventSource) bool {
+	if in.Element == nil || source == nil || in.Type != SetAttr || strings.ToLower(in.Attr.Name) != "value" {
+		return false
+	}
+
+	for i := 0; i < len(in.Element.Attr); i++ {
+		attr := in.Element.Attr[i]
+		if attr.Key == "go-live-input" && source.Type == EventSourceInput &&
+			attr.Val == source.Value {
+			return true
+		}
+	}
+
+	return false
+}
+
 // LiveRenderComponent render the updated component and compare with
 // last state. It may apply with *all child components*
-func (s *Session) LiveRenderComponent(c *LiveComponent) error {
+func (s *Session) LiveRenderComponent(c *LiveComponent, source *EventSource) error {
 	var err error
 
 	diff, err := c.LiveRender()
@@ -169,7 +190,7 @@ func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 		return err
 	}
 
-	patches, err := s.generateBrowserPatchesFromDiff(diff)
+	patches, err := s.generateBrowserPatchesFromDiff(diff, source)
 
 	if err != nil {
 		return err

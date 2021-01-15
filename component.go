@@ -233,6 +233,10 @@ func (l *LiveComponent) Update() {
 	l.notifyStage(Updated)
 }
 
+func (l *LiveComponent) UpdateWithSource(source *EventSource) {
+	l.notifyStageWithSource(Updated, source)
+}
+
 // Kill ...
 func (l *LiveComponent) Kill() error {
 
@@ -369,6 +373,10 @@ func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
 }
 
 func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
+	l.notifyStageWithSource(ltu, nil)
+}
+
+func (l *LiveComponent) notifyStageWithSource(ltu LifeTimeStage, source *EventSource) {
 	if l.life == nil {
 		l.log(LogWarn, "component life updates channel is nil", nil)
 		return
@@ -377,6 +385,7 @@ func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
 	*l.life <- ComponentLifeTimeMessage{
 		Stage:     ltu,
 		Component: l,
+		Source:    source,
 	}
 }
 
