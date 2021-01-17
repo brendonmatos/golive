@@ -2,6 +2,7 @@ package golive
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -140,6 +141,13 @@ func (s *LiveServer) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context)
 }
 
 func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
+	defer func() {
+		payload := recover()
+		if payload != nil {
+			s.Log(LogWarn, fmt.Sprintf("ws request panic recovered: %v", payload), nil)
+		}
+	}()
+
 	c.EnableWriteCompression(true)
 
 	sessionKey := c.Cookies(s.CookieName)
