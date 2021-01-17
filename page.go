@@ -33,6 +33,7 @@ type PageEnum struct {
 type LivePageEvent struct {
 	Type      int
 	Component *LiveComponent
+	Source    *EventSource
 }
 
 type LiveEventsChannel chan LivePageEvent
@@ -126,6 +127,10 @@ func (lp *Page) Render() (string, error) {
 }
 
 func (lp *Page) Emit(lts int, c *LiveComponent) {
+	lp.EmitWithSource(lts, c, nil)
+}
+
+func (lp *Page) EmitWithSource(lts int, c *LiveComponent, source *EventSource) {
 	if c == nil {
 		c = lp.entry
 	}
@@ -133,6 +138,7 @@ func (lp *Page) Emit(lts int, c *LiveComponent) {
 	lp.Events <- LivePageEvent{
 		Type:      lts,
 		Component: c,
+		Source:    source,
 	}
 }
 
@@ -144,17 +150,20 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 		return fmt.Errorf("component not found with id: %s", m.ComponentID)
 	}
 
+	var source *EventSource
+
 	var err error
 	switch m.Name {
 	case EventLiveInput:
 		err = c.SetValueInPath(m.StateValue, m.StateKey)
+		source = &EventSource{Type: EventSourceInput, Value: m.StateKey}
 	case EventLiveMethod:
 		err = c.InvokeMethodInPath(m.MethodName, m.MethodData, m.DOMEvent)
 	case EventLiveDisconnect:
 		err = c.Kill()
 	}
 
-	lp.entry.Update()
+	lp.entry.UpdateWithSource(source)
 
 	return err
 }
@@ -177,7 +186,7 @@ func (lp *Page) enableComponentLifeCycleReceiver() {
 			case Mounted:
 				break
 			case Updated:
-				lp.Emit(PageComponentUpdated, ls.Component)
+				lp.EmitWithSource(PageComponentUpdated, ls.Component, ls.Source)
 				break
 			case WillUnmount:
 				break
