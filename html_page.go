@@ -200,7 +200,7 @@ var BasePageString = `<!DOCTYPE html>
                   const element = document.querySelector(selector);
 
                   if (!element) {
-                    console.error("Element not found", selector);
+                    console.error("element not found", selector);
                     return;
                   }
 
@@ -334,12 +334,12 @@ var BasePageString = `<!DOCTYPE html>
         let el = element.firstChild;
 
         if (el === Node.TEXT_NODE) {
-          throw new Error("Element is a text node, without children");
+          throw new Error("element is a text node, without children");
         }
 
         while (index > 0) {
           if (!el) {
-            console.log("Element not found in path", element);
+            console.log("element not found in path", element);
             return;
           }
 
@@ -362,17 +362,17 @@ var BasePageString = `<!DOCTYPE html>
       function handleDiffSetAttr(message, el) {
         const { attr } = message;
 
-        if (attr.Name === "value" && el.value) {
-          el.value = attr.Value;
+        if (attr.name === "value" && el.value) {
+          el.value = attr.value;
         } else {
-          el.setAttribute(attr.Name, attr.Value);
+          el.setAttribute(attr.name, attr.value);
         }
       }
 
       function handleDiffRemoveAttr(message, el) {
         const { attr } = message;
 
-        el.removeAttribute(attr.Name);
+        el.removeAttribute(attr.name);
       }
 
       function handleDiffReplace(message, el) {

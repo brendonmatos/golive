@@ -4,22 +4,48 @@ import (
 	"reflect"
 	"runtime/debug"
 	"testing"
+	"time"
 )
 
 type diffTest struct {
-	actual, propose string
-	diff            *Diff
+	template string
+	diff     *Diff
+}
+
+type diffComponent struct {
+	LiveComponentWrapper
+	testTemplate string
+	Check        bool
+}
+
+func (l *diffComponent) TemplateHandler(lc *LiveComponent) string {
+	return l.testTemplate
 }
 
 func newDiffTest(d diffTest) diffTest {
-	actual, _ := NodeFromString(d.actual)
-	propose, _ := NodeFromString(d.propose)
-	d.diff = NewDiff(actual)
-	d.diff.Propose(propose)
+	dc := diffComponent{}
+
+	c := NewLiveComponent("testcomp", &dc)
+
+	c.log = NewLoggerBasic().Log
+
+	dc.testTemplate = d.template
+
+	_ = c.Create(nil)
+	_ = c.Mount()
+
+	_, _ = c.Render()
+
+	dc.Check = true
+
+	df, _ := c.LiveRender()
+
+	d.diff = df
+
 	return d
 }
 
-func (d *diffTest) assert(expectations []ChangeInstruction, t *testing.T) {
+func (d *diffTest) assert(expectations []changeInstruction, t *testing.T) {
 
 	for indexExpected, expected := range expectations {
 
@@ -33,20 +59,20 @@ func (d *diffTest) assert(expectations []ChangeInstruction, t *testing.T) {
 				continue
 			}
 
-			if given.Type != expected.Type {
-				t.Error("type is different given:", given.Type, "expeted:", expected.Type)
+			if given.changeType != expected.changeType {
+				t.Error("type is different given:", given.changeType, "expeted:", expected.changeType)
 			}
 
-			if given.Content != expected.Content {
-				t.Error("contents are different given:", given.Content, "expeted:", expected.Content)
+			if given.content != expected.content {
+				t.Error("contents are different given:", given.content, "expeted:", expected.content)
 			}
 
-			if !reflect.DeepEqual(given.Attr, expected.Attr) {
-				t.Error("attributes are different given:", given.Attr, "expeted:", expected.Attr)
+			if !reflect.DeepEqual(given.attr, expected.attr) {
+				t.Error("attributes are different given:", given.attr, "expeted:", expected.attr)
 			}
 
-			if !reflect.DeepEqual(PathToComponentRoot(given.Element), PathToComponentRoot(expected.Element)) {
-				t.Error("elements with different elements given:", PathToComponentRoot(given.Element), "expeted:", PathToComponentRoot(expected.Element))
+			if !reflect.DeepEqual(pathToComponentRoot(given.element), pathToComponentRoot(expected.element)) {
+				t.Error("elements with different elements given:", pathToComponentRoot(given.element), "expeted:", pathToComponentRoot(expected.element))
 			}
 
 		}
@@ -58,7 +84,7 @@ func (d *diffTest) assert(expectations []ChangeInstruction, t *testing.T) {
 	}
 
 	if t.Failed() {
-		t.Log(string(debug.Stack()))
+		t.Log("Time", time.Now().Format(time.Kitchen), string(debug.Stack()))
 	}
 }
 
@@ -66,16 +92,15 @@ func TestDiff_RemovedNestedText(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<body><h1>Hello world<span>hello world</span></h1></body>`,
-		propose: `<body><h1>Hello world<span></span></h1></body>`,
+		template: `<h1>Hello world<span>{{ if not .Check }}hello world{{ end }}</span></h1>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    SetInnerHtml,
-			Element: dt.diff.actual.FirstChild.LastChild,
-			Content: "",
-			Attr:    AttrChange{},
+			changeType: SetInnerHTML,
+			element:    dt.diff.actual.FirstChild.LastChild,
+			content:    "",
+			attr:       attrChange{},
 		},
 	}, t)
 }
@@ -84,16 +109,15 @@ func TestDiff_ChangeNestedText(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div>Hello world<span>hello world</span></div>`,
-		propose: `<div>Hello world<span>hello</span></div>`,
+		template: `<div>Hello world<span>{{ if .Check }}hello world{{ else }}hello{{ end }}</span></div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    SetInnerHtml,
-			Element: dt.diff.actual.FirstChild.LastChild,
-			Content: "hello",
-			Attr:    AttrChange{},
+			changeType: SetInnerHTML,
+			element:    dt.diff.actual.FirstChild.LastChild,
+			content:    "hello",
+			attr:       attrChange{},
 		},
 	}, t)
 }
@@ -102,16 +126,15 @@ func TestDiff_RemoveElement(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div><div></div></div>`,
-		propose: `<div></div>`,
+		template: `<div>{{ if not .Check }}<div></div>{{ end }}</div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    Remove,
-			Element: dt.diff.actual.FirstChild.FirstChild,
-			Content: "",
-			Attr:    AttrChange{},
+			changeType: Remove,
+			element:    dt.diff.actual.FirstChild.FirstChild,
+			content:    "",
+			attr:       attrChange{},
 		},
 	}, t)
 }
@@ -120,16 +143,15 @@ func TestDiff_AppendElement(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div></div>`,
-		propose: `<div><div></div></div>`,
+		template: `<div>{{ if .Check }}<div></div>{{ end }}</div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    Append,
-			Element: dt.diff.actual.FirstChild,
-			Content: "<div></div>",
-			Attr:    AttrChange{},
+			changeType: Append,
+			element:    dt.diff.actual.FirstChild,
+			content:    "<div></div>",
+			attr:       attrChange{},
 		},
 	}, t)
 }
@@ -138,16 +160,15 @@ func TestDiff_AppendNestedElements(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div></div>`,
-		propose: `<div><div><div></div></div></div>`,
+		template: `<div>{{ if .Check }}<div><div></div></div>{{ end }}</div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    Append,
-			Element: dt.diff.actual.FirstChild,
-			Content: "<div><div></div></div>",
-			Attr:    AttrChange{},
+			changeType: Append,
+			element:    dt.diff.actual.FirstChild,
+			content:    "<div><div></div></div>",
+			attr:       attrChange{},
 		},
 	}, t)
 }
@@ -156,16 +177,15 @@ func TestDiff_ReplaceNestedElementsWithText(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div><span></span></div>`,
-		propose: `<div><div>a<div>a</div></div></div>`,
+		template: `<div>{{ if .Check }}<div>a<div>a</div></div>{{ else }}<span></span>{{end}}</div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    Replace,
-			Element: dt.diff.actual.FirstChild.FirstChild,
-			Content: "<div>a<div>a</div></div>",
-			Attr:    AttrChange{},
+			changeType: Replace,
+			element:    dt.diff.actual.FirstChild.FirstChild,
+			content:    "<div>a<div>a</div></div>",
+			attr:       attrChange{},
 		},
 	}, t)
 }
@@ -174,16 +194,15 @@ func TestDiff_ReplaceTagWithContent(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div><span>a</span></div>`,
-		propose: `<div><div>a</div></div>`,
+		template: `<div>{{ if .Check }}<div>a</div>{{ else }}<span>a</span>{{ end }}</div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    Replace,
-			Element: dt.diff.actual.FirstChild.FirstChild,
-			Content: "<div>a</div>",
-			Attr:    AttrChange{},
+			changeType: Replace,
+			element:    dt.diff.actual.FirstChild.FirstChild,
+			content:    "<div>a</div>",
+			attr:       attrChange{},
 		},
 	}, t)
 }
@@ -192,18 +211,17 @@ func TestDiff_AddAttribute(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div></div>`,
-		propose: `<div disabled></div>`,
+		template: `<div {{ if .Check }}disabled{{ end }}></div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    SetAttr,
-			Element: dt.diff.actual.FirstChild,
-			Content: "",
-			Attr: AttrChange{
-				Name:  "disabled",
-				Value: "",
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild,
+			content:    "",
+			attr: attrChange{
+				name:  "disabled",
+				value: "",
 			},
 		},
 	}, t)
@@ -213,18 +231,17 @@ func TestDiff_RemoveAttribute(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div disabled></div>`,
-		propose: `<div></div>`,
+		template: `<div {{ if not .Check }}disabled{{ end }}></div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    RemoveAttr,
-			Element: dt.diff.actual.FirstChild,
-			Content: "",
-			Attr: AttrChange{
-				Name:  "disabled",
-				Value: "",
+			changeType: RemoveAttr,
+			element:    dt.diff.actual.FirstChild,
+			content:    "",
+			attr: attrChange{
+				name:  "disabled",
+				value: "",
 			},
 		},
 	}, t)
@@ -234,16 +251,15 @@ func TestDiff_AddTextContent(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		actual:  `<div></div>`,
-		propose: `<div>aaaa</div>`,
+		template: `<div>{{ if .Check }}aaaa{{ end }}</div>`,
 	})
 
-	dt.assert([]ChangeInstruction{
+	dt.assert([]changeInstruction{
 		{
-			Type:    SetInnerHtml,
-			Element: dt.diff.actual.FirstChild,
-			Content: "aaaa",
-			Attr:    AttrChange{},
+			changeType: SetInnerHTML,
+			element:    dt.diff.actual.FirstChild,
+			content:    "aaaa",
+			attr:       attrChange{},
 		},
 	}, t)
 }

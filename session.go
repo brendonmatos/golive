@@ -118,13 +118,13 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 
 	for _, instruction := range diff.instructions {
 
-		selector, err := SelectorFromNode(instruction.Element)
+		selector, err := selectorFromNode(instruction.element)
 
 		if err != nil {
 			return nil, fmt.Errorf("selector from node: %w instruction: %v", err, instruction)
 		}
 
-		componentID, err := ComponentIDFromNode(instruction.Element)
+		componentID, err := ComponentIDFromNode(instruction.element)
 
 		if err != nil {
 			return nil, err
@@ -149,9 +149,9 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 
 		patch.AddInstruction(PatchInstruction{
 			Name:     EventLiveDom,
-			Type:     strconv.Itoa(int(instruction.Type)),
-			Attr:     instruction.Attr,
-			Content:  instruction.Content,
+			Type:     strconv.Itoa(int(instruction.changeType)),
+			Attr:     instruction.attr,
+			Content:  instruction.content,
 			Selector: selector.toString(),
 		})
 	}

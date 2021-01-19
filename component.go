@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/net/html/atom"
 	"html/template"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/net/html/atom"
 
 	"golang.org/x/net/html"
 )
@@ -400,7 +401,7 @@ func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) 
 func (l *LiveComponent) treatRender(dom *html.Node) error {
 
 	// Post treatment
-	for _, node := range GetAllChildrenRecursive(dom) {
+	for _, node := range getAllChildrenRecursive(dom) {
 
 		if goLiveInputAttr := getAttribute(node, "go-live-input"); goLiveInputAttr != nil {
 			addNodeAttribute(node, ":value", goLiveInputAttr.Val)
