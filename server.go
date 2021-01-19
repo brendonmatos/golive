@@ -159,9 +159,9 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 	if session == nil {
 		s.Log(LogWarn, "session not found", logEx{"session": sessionKey})
 
-		var msg OutMessage
-		msg.Name = EventLiveError
-		msg.Type = LiveErrorSessionNotFound
+		var msg PatchBrowser
+		msg.Type = EventLiveError
+		msg.Message = LiveErrorSessionNotFound
 		if err := c.WriteJSON(msg); err != nil {
 			s.Log(LogError, "handle ws request: write json", logEx{"error": err})
 		}
