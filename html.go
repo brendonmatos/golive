@@ -3,6 +3,7 @@ package golive
 import (
 	"bytes"
 	"fmt"
+
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
@@ -44,19 +45,19 @@ func NodeFromString(data string) (*html.Node, error) {
 	return parent, nil
 }
 
-// RenderNodeToString todo
-func RenderNodeToString(e *html.Node) (string, error) {
+// renderNodeToString todo
+func renderNodeToString(e *html.Node) (string, error) {
 	var b bytes.Buffer
 	err := html.Render(&b, e)
 	return b.String(), err
 }
 
-// RenderNodesToString todo
-func RenderNodesToString(nodes []*html.Node) (string, error) {
+// renderNodesToString todo
+func renderNodesToString(nodes []*html.Node) (string, error) {
 	text := ""
 
 	for _, node := range nodes {
-		rendered, err := RenderNodeToString(node)
+		rendered, err := renderNodeToString(node)
 
 		if err != nil {
 			return "", err
@@ -68,11 +69,11 @@ func RenderNodesToString(nodes []*html.Node) (string, error) {
 	return text, nil
 }
 
-func RenderChildrenNodes(parent *html.Node) (string, error) {
-	return RenderNodesToString(NodeChildren(parent))
+func renderChildrenNodes(parent *html.Node) (string, error) {
+	return renderNodesToString(nodeChildren(parent))
 }
 
-func SelfIndexOfNode(n *html.Node) int {
+func selfIndexOfNode(n *html.Node) int {
 	ix := 0
 	for prev := n.PrevSibling; prev != nil; prev = prev.PrevSibling {
 		ix++
@@ -81,13 +82,13 @@ func SelfIndexOfNode(n *html.Node) int {
 	return ix
 }
 
-func IsChildrenTheSame(actual, proposed *html.Node) bool {
-	proposedString, err := RenderNodesToString(NodeChildren(proposed))
+func isChildrenTheSame(actual, proposed *html.Node) bool {
+	proposedString, err := renderNodesToString(nodeChildren(proposed))
 	if err != nil {
 		return false
 	}
 
-	actualString, err := RenderNodesToString(NodeChildren(actual))
+	actualString, err := renderNodesToString(nodeChildren(actual))
 	if err != nil {
 		return false
 	}
@@ -95,7 +96,7 @@ func IsChildrenTheSame(actual, proposed *html.Node) bool {
 	return actualString == proposedString
 }
 
-func GetAllChildrenRecursive(n *html.Node) []*html.Node {
+func getAllChildrenRecursive(n *html.Node) []*html.Node {
 	result := make([]*html.Node, 0)
 
 	if n == nil {
@@ -104,14 +105,14 @@ func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		result = append(result, c)
-		result = append(result, GetAllChildrenRecursive(c)...)
+		result = append(result, getAllChildrenRecursive(c)...)
 	}
 
 	return result
 }
 
-// NodeChildren todo
-func NodeChildren(n *html.Node) []*html.Node {
+// nodeChildren todo
+func nodeChildren(n *html.Node) []*html.Node {
 	children := make([]*html.Node, 0)
 
 	if n == nil || n.FirstChild == nil {
@@ -137,8 +138,8 @@ func signLiveUIToSelector(e *html.Node, selector *DOMElemSelector) bool {
 	return false
 }
 
-// SelectorFromNode
-func SelectorFromNode(e *html.Node) (*DOMSelector, error) {
+// selectorFromNode
+func selectorFromNode(e *html.Node) (*DOMSelector, error) {
 
 	if e == nil {
 		return nil, ErrComponentNil
@@ -146,24 +147,15 @@ func SelectorFromNode(e *html.Node) (*DOMSelector, error) {
 
 	selector := NewDOMSelector()
 
-	// Every element must be signed with "go-live-uid"
-	if e.Type == html.ElementNode {
-
-		es := selector.addChild()
-		es.setElemen("*")
-
-		if !signLiveUIToSelector(e, es) {
-			return nil, ErrElementNotSigned
-		}
-	}
-
-	for parent := e.Parent; parent != nil; parent = parent.Parent {
+	for parent := e; parent != nil; parent = parent.Parent {
 
 		es := NewDOMElementSelector()
 		es.setElemen("*")
 
 		if signLiveUIToSelector(parent, es) {
 			selector.addParentSelector(es)
+		} else {
+			return nil, ErrElementNotSigned
 		}
 
 		if goLiveComponentIDAttr := getAttribute(parent, "go-live-component-id"); goLiveComponentIDAttr != nil {
@@ -175,8 +167,8 @@ func SelectorFromNode(e *html.Node) (*DOMSelector, error) {
 	return nil, ErrCouldNotProvideValidSelector
 }
 
-// PathToComponentRoot todo
-func PathToComponentRoot(e *html.Node) []int {
+// pathToComponentRoot todo
+func pathToComponentRoot(e *html.Node) []int {
 
 	path := make([]int, 0)
 
@@ -184,7 +176,7 @@ func PathToComponentRoot(e *html.Node) []int {
 
 		attrs := AttrMapFromNode(parent)
 
-		path = append([]int{SelfIndexOfNode(parent)}, path...)
+		path = append([]int{selfIndexOfNode(parent)}, path...)
 
 		if _, ok := attrs["go-live-component-id"]; ok {
 			return path
@@ -212,6 +204,12 @@ func addNodeAttribute(e *html.Node, key, value string) {
 		Key: key,
 		Val: value,
 	})
+}
+
+func getAttribute2(e *html.Node, key string) (*html.Attribute, bool) {
+	attr := getAttribute(e, key)
+
+	return attr, attr != nil
 }
 
 func getAttribute(e *html.Node, key string) *html.Attribute {

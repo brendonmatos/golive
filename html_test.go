@@ -33,7 +33,7 @@ func TestSelectorFromNode(t *testing.T) {
 		t.Error("value was not parsed correctly")
 	}
 
-	path := PathToComponentRoot(node)
+	path := pathToComponentRoot(node)
 	if !reflect.DeepEqual(path, []int{0, 0, 1, 0}) {
 		t.Error("wrong selector returned", path)
 	}
@@ -50,7 +50,7 @@ func TestSelectorFromEmptyNode(t *testing.T) {
 		t.Error("value was not parsed correctly")
 	}
 
-	path := PathToComponentRoot(node)
+	path := pathToComponentRoot(node)
 	if !reflect.DeepEqual(path, []int{0, 0, 1}) {
 		t.Error("wrong selector returned", path)
 	}
@@ -58,7 +58,7 @@ func TestSelectorFromEmptyNode(t *testing.T) {
 
 func TestRenderChildrenNodesWithSingleText(t *testing.T) {
 	a, _ := NodeFromString(`aaaa`)
-	c, _ := RenderChildrenNodes(a)
+	c, _ := renderChildrenNodes(a)
 	if c != "aaaa" {
 		t.Error("expecting to children to be a single text node containing aaaa")
 	}
@@ -67,7 +67,7 @@ func TestRenderChildrenNodesWithSingleText(t *testing.T) {
 func TestRenderChildrenNodesWithMultipleNodes(t *testing.T) {
 	a, _ := NodeFromString(`aaaa<a>bbbb</a>`)
 
-	c, _ := RenderChildrenNodes(a)
+	c, _ := renderChildrenNodes(a)
 
 	if c != "aaaa<a>bbbb</a>" {
 		t.Error("expecting to children to be a single text node containing aaaa<a>bbbb</a>")

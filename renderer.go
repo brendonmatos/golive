@@ -22,7 +22,7 @@ func (ls *LiveState) setText(text string) error {
 
 func (ls *LiveState) setHTML(node *html.Node) error {
 	var err error
-	ls.text, err = RenderChildrenNodes(node)
+	ls.text, err = renderChildrenNodes(node)
 	ls.html = node
 	return err
 }
@@ -80,9 +80,10 @@ func (lr *LiveRenderer) LiveRender(data interface{}) (*Diff, error) {
 	proposedRenderText, err := lr.renderToText(data)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("render to text: %w", err)
 	}
 
+	// TODO: maybe the right way to call a diff is calling based on state
 	diff := NewDiff(actualRender)
 
 	if actualRenderText == proposedRenderText {
@@ -91,7 +92,7 @@ func (lr *LiveRenderer) LiveRender(data interface{}) (*Diff, error) {
 
 	_ = lr.state.setText(proposedRenderText)
 
-	diff.Propose(lr.state.html)
+	diff.propose(lr.state.html)
 
 	return diff, nil
 }
