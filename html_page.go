@@ -42,7 +42,7 @@ var BasePageString = `<!DOCTYPE html>
           const newSize = this.handlers.push({
             name,
             handler,
-          });
+          })
           return newSize - 1;
         },
 
@@ -104,7 +104,7 @@ var BasePageString = `<!DOCTYPE html>
 
           const keydownElements = findLiveKeyDownFromElement(viewElement);
           keydownElements.forEach(function (element) {
-     
+
             const componentId = getComponentIdFromElement(element);
             const method = element.getAttribute("go-live-keydown");
 
@@ -170,7 +170,7 @@ var BasePageString = `<!DOCTYPE html>
                 value: String(value),
               });
             });
-            
+
             connectedElements.push(element)
           });
 
@@ -225,10 +225,9 @@ var BasePageString = `<!DOCTYPE html>
           goLive.connect(cid);
         });
         goLive.on("{{ .Enum.EventLiveError }}", (message) => {
-          console.error(message.type);
-
+          console.error("message", message.m)
           if (
-            message.type ===
+            message.m ===
             '{{ index .EnumLiveError ` + "`LiveErrorSessionNotFound`" + `}}'
           ) {
             window.location.reload(false);
@@ -239,7 +238,7 @@ var BasePageString = `<!DOCTYPE html>
       goLive.server.onmessage = (rawMessage) => {
         try {
           const message = JSON.parse(rawMessage.data);
-          goLive.emit(message.n, message);
+          goLive.emit(message.t, message);
         } catch (e) {
           console.log("Error", e);
           console.log("Error message", rawMessage.data);
