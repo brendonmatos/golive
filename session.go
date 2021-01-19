@@ -39,15 +39,6 @@ type DOMEvent struct {
 	KeyCode string `json:"keyCode"`
 }
 
-type OutMessage struct {
-	Name        string      `json:"name"`
-	ComponentID string      `json:"component_id"`
-	Type        string      `json:"type"`
-	Attr        interface{} `json:"attr,omitempty"`
-	Content     string      `json:"content,omitempty"`
-	Element     string      `json:"element"`
-}
-
 type Session struct {
 	LivePage   *Page
 	OutChannel chan PatchBrowser
@@ -104,7 +95,7 @@ func (s *Session) ActivatePage(lp *Page) {
 			case PageComponentMounted:
 				s.QueueMessage(PatchBrowser{
 					ComponentID:  evt.Component.Name,
-					Name:         EventLiveConnectElement,
+					Type:         EventLiveConnectElement,
 					Instructions: nil,
 				})
 				break
@@ -148,7 +139,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource
 		// If there is no patch
 		if patch == nil {
 			patch = NewPatchBrowser(componentID)
-			patch.Name = EventLiveDom
+			patch.Type = EventLiveDom
 			bp = append(bp, patch)
 		}
 
