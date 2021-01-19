@@ -22,6 +22,8 @@ var petComponent = NewLiveComponent("pet", &Pet{
 func TestLiveComponent_GetFieldFromPath(t *testing.T) {
 	field := petComponent.GetFieldFromPath("Name")
 
+	fmt.Printf("%v", field)
+
 	if field.String() != "Catdog" {
 		t.Error("The get field should return Catdog")
 	}

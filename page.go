@@ -115,7 +115,7 @@ func (lp *Page) Render() (string, error) {
 		DiffRemoveAttr:          RemoveAttr,
 		DiffReplace:             Replace,
 		DiffRemove:              Remove,
-		DiffSetInnerHTML:        SetInnerHtml,
+		DiffSetInnerHTML:        SetInnerHTML,
 		DiffAppend:              Append,
 	}
 	lp.content.EnumLiveError = LiveErrorMap()
