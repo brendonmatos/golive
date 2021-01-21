@@ -89,7 +89,7 @@ func (s *Session) ActivatePage(lp *Page) {
 			switch evt.Type {
 			case PageComponentUpdated:
 				if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
-					s.log(LogError, "component live render", logEx{"error": err})
+					s.log(LogError, "entryComponent live render", logEx{"error": err})
 				}
 				break
 			case PageComponentMounted:
@@ -110,17 +110,16 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource
 
 	for _, instruction := range diff.instructions {
 
+		selector, err := selectorFromNode(instruction.element)
 		if skipUpdateValueOnInput(instruction, source) {
 			continue
 		}
-
-		selector, err := SelectorFromNode(instruction.Element)
 
 		if err != nil {
 			return nil, fmt.Errorf("selector from node: %w instruction: %v", err, instruction)
 		}
 
-		componentID, err := ComponentIDFromNode(instruction.Element)
+		componentID, err := ComponentIDFromNode(instruction.element)
 
 		if err != nil {
 			return nil, err
@@ -144,10 +143,13 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource
 		}
 
 		patch.AddInstruction(PatchInstruction{
-			Name:     EventLiveDom,
-			Type:     strconv.Itoa(int(instruction.Type)),
-			Attr:     instruction.Attr,
-			Content:  instruction.Content,
+			Name: EventLiveDom,
+			Type: strconv.Itoa(int(instruction.changeType)),
+			Attr: map[string]string{
+				"Name":  instruction.attr.name,
+				"Value": instruction.attr.value,
+			},
+			Content:  instruction.content,
 			Selector: selector.toString(),
 		})
 	}

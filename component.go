@@ -4,15 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/net/html/atom"
 	"html/template"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"golang.org/x/net/html/atom"
+
 	"golang.org/x/net/html"
 )
+
+const ComponentIdAttrKey = "go-live-component-id"
 
 var (
 	ErrComponentNotPrepared = errors.New("component need to be prepared")
@@ -94,9 +97,9 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 
 	//
 	l.renderer.useFormatter(func(t string) string {
-		d, _ := NodeFromString(t)
+		d, _ := nodeFromString(t)
 		_ = l.treatRender(d)
-		t, _ = RenderChildrenNodes(d)
+		t, _ = renderInnerHTML(d)
 		return t
 	})
 
@@ -353,7 +356,6 @@ func (l *LiveComponent) createUniqueName() string {
 	return l.Name + "_" + NewLiveID().GenerateSmall()
 }
 
-// TODO: maybe nested components?
 func (l *LiveComponent) getChildrenComponents() []*LiveComponent {
 	components := make([]*LiveComponent, 0)
 	v := reflect.ValueOf(l.component).Elem()
@@ -394,7 +396,7 @@ var rxTagName = regexp.MustCompile(`<([a-z0-9]+[ ]?)`)
 func (l *LiveComponent) addGoLiveComponentIDAttribute(template string) string {
 	found := rxTagName.FindString(template)
 	if found != "" {
-		replaceWith := found + ` go-live-component-id="` + l.Name + `" `
+		replaceWith := found + ` ` + ComponentIdAttrKey + `="` + l.Name + `" `
 		template = strings.Replace(template, found, replaceWith, 1)
 	}
 	return template
@@ -409,7 +411,7 @@ func (l *LiveComponent) generateTemplate(ts string) (*template.Template, error) 
 func (l *LiveComponent) treatRender(dom *html.Node) error {
 
 	// Post treatment
-	for _, node := range GetAllChildrenRecursive(dom) {
+	for _, node := range getAllChildrenRecursive(dom) {
 
 		if goLiveInputAttr := getAttribute(node, "go-live-input"); goLiveInputAttr != nil {
 			addNodeAttribute(node, ":value", goLiveInputAttr.Val)
@@ -443,7 +445,7 @@ func (l *LiveComponent) treatRender(dom *html.Node) error {
 					break
 				}
 			} else if node.DataAtom == atom.Textarea {
-				n, err := NodeFromString(fmt.Sprintf("%v", f))
+				n, err := nodeFromString(fmt.Sprintf("%v", f))
 
 				if n == nil || n.FirstChild == nil {
 					continue
@@ -466,7 +468,7 @@ func (l *LiveComponent) treatRender(dom *html.Node) error {
 		if disabledAttr := getAttribute(node, ":disabled"); disabledAttr != nil {
 			removeNodeAttribute(node, ":disabled")
 			if disabledAttr.Val == "true" {
-				addNodeAttribute(node, "disabled", "disabled")
+				addNodeAttribute(node, "disabled", "")
 			} else {
 				removeNodeAttribute(node, "disabled")
 			}
@@ -498,7 +500,7 @@ func (l *LiveComponent) signTemplateString(ts string) string {
 
 func ComponentIDFromNode(e *html.Node) (string, error) {
 	for parent := e; parent != nil; parent = parent.Parent {
-		if componentAttr := getAttribute(parent, "go-live-component-id"); componentAttr != nil {
+		if componentAttr := getAttribute(parent, ComponentIdAttrKey); componentAttr != nil {
 			return componentAttr.Val, nil
 		}
 	}
