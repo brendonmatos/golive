@@ -22,8 +22,8 @@ func AttrMapFromNode(node *html.Node) map[string]string {
 	return m
 }
 
-// NodeFromString todo
-func NodeFromString(data string) (*html.Node, error) {
+// nodeFromString todo
+func nodeFromString(data string) (*html.Node, error) {
 	reader := bytes.NewReader([]byte(data))
 
 	parent := &html.Node{
@@ -69,7 +69,7 @@ func renderNodesToString(nodes []*html.Node) (string, error) {
 	return text, nil
 }
 
-func renderChildrenNodes(parent *html.Node) (string, error) {
+func renderInnerHTML(parent *html.Node) (string, error) {
 	return renderNodesToString(nodeChildren(parent))
 }
 
@@ -158,8 +158,8 @@ func selectorFromNode(e *html.Node) (*DOMSelector, error) {
 			return nil, ErrElementNotSigned
 		}
 
-		if goLiveComponentIDAttr := getAttribute(parent, "go-live-component-id"); goLiveComponentIDAttr != nil {
-			es.addAttr("go-live-component-id", goLiveComponentIDAttr.Val)
+		if goLiveComponentIDAttr := getAttribute(parent, ComponentIdAttrKey); goLiveComponentIDAttr != nil {
+			es.addAttr(ComponentIdAttrKey, goLiveComponentIDAttr.Val)
 			return selector, nil
 		}
 	}
@@ -178,7 +178,7 @@ func pathToComponentRoot(e *html.Node) []int {
 
 		path = append([]int{selfIndexOfNode(parent)}, path...)
 
-		if _, ok := attrs["go-live-component-id"]; ok {
+		if _, ok := attrs[ComponentIdAttrKey]; ok {
 			return path
 		}
 	}
