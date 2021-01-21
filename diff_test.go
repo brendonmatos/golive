@@ -2,14 +2,16 @@ package golive
 
 import (
 	"reflect"
+	"regexp"
 	"runtime/debug"
 	"testing"
 	"time"
 )
 
 type diffTest struct {
-	template string
-	diff     *Diff
+	template  string
+	diff      *Diff
+	component *LiveComponent
 }
 
 type diffComponent struct {
@@ -17,6 +19,8 @@ type diffComponent struct {
 	testTemplate string
 	Check        bool
 }
+
+var reSelectGoliveAttr = regexp.MustCompile(`[ ]?go-live-uid="[a-zA-Z0-9_\-]+"`)
 
 func (l *diffComponent) TemplateHandler(lc *LiveComponent) string {
 	return l.testTemplate
@@ -27,6 +31,7 @@ func newDiffTest(d diffTest) diffTest {
 
 	c := NewLiveComponent("testcomp", &dc)
 
+	d.component = c
 	c.log = NewLoggerBasic().Log
 
 	dc.testTemplate = d.template
@@ -62,9 +67,10 @@ func (d *diffTest) assert(expectations []changeInstruction, t *testing.T) {
 			if given.changeType != expected.changeType {
 				t.Error("type is different given:", given.changeType, "expeted:", expected.changeType)
 			}
+			a := reSelectGoliveAttr.ReplaceAllString(given.content, "")
 
-			if given.content != expected.content {
-				t.Error("contents are different given:", given.content, "expeted:", expected.content)
+			if a != expected.content {
+				t.Error("contents are different given:", a, "expeted:", expected.content)
 			}
 
 			if !reflect.DeepEqual(given.attr, expected.attr) {
@@ -92,7 +98,7 @@ func TestDiff_RemovedNestedText(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		template: `<h1>Hello world<span>{{ if not .Check }}hello world{{ end }}</span></h1>`,
+		template: `<h1><span>{{ if .Check }}{{else}}hello world{{ end }}</span></h1>`,
 	})
 
 	dt.assert([]changeInstruction{
@@ -109,7 +115,7 @@ func TestDiff_ChangeNestedText(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		template: `<div>Hello world<span>{{ if .Check }}hello world{{ else }}hello{{ end }}</span></div>`,
+		template: `<div>Hello world<span>{{ if .Check }}hello{{ else }}hello world{{ end }}</span></div>`,
 	})
 
 	dt.assert([]changeInstruction{
@@ -126,7 +132,7 @@ func TestDiff_RemoveElement(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		template: `<div>{{ if not .Check }}<div></div>{{ end }}</div>`,
+		template: `<div>{{ if .Check }}{{else}}<div></div>{{ end }}</div>`,
 	})
 
 	dt.assert([]changeInstruction{
@@ -143,7 +149,7 @@ func TestDiff_AppendElement(t *testing.T) {
 	t.Parallel()
 
 	dt := newDiffTest(diffTest{
-		template: `<div>{{ if .Check }}<div></div>{{ end }}</div>`,
+		template: `<div>{{ if .Check }}<div></div>{{else}}{{ end }}</div>`,
 	})
 
 	dt.assert([]changeInstruction{

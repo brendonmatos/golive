@@ -413,7 +413,7 @@ var BasePageString = `<!DOCTYPE html>
       }
 
       const getComponentIdFromElement = (element) => {
-        const attr = element.getAttribute("go-live-component-id");
+        const attr = element.getAttribute("go-live-entryComponent-id");
         if (attr) {
           return attr;
         }

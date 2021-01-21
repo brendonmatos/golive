@@ -97,7 +97,7 @@ func (s *Session) ActivatePage(lp *Page) {
 			switch evt.Type {
 			case PageComponentUpdated:
 				if err := s.LiveRenderComponent(evt.Component); err != nil {
-					s.log(LogError, "component live render", logEx{"error": err})
+					s.log(LogError, "entryComponent live render", logEx{"error": err})
 				}
 				break
 			case PageComponentMounted:
@@ -158,7 +158,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 	return bp, nil
 }
 
-// LiveRenderComponent render the updated component and compare with
+// LiveRenderComponent render the updated entryComponent and compare with
 // last state. It may apply with *all child components*
 func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 	var err error

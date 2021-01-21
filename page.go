@@ -42,7 +42,7 @@ type Page struct {
 	Events              LiveEventsChannel
 	ComponentsLifeCycle *ComponentLifeCycle
 
-	entry *LiveComponent
+	entryComponent *LiveComponent
 
 	// Components is a list that handle all the components from the page
 	Components map[string]*LiveComponent
@@ -63,7 +63,7 @@ func NewLivePage(c *LiveComponent) *Page {
 	pageEventsChannel := make(LiveEventsChannel)
 
 	return &Page{
-		entry:               c,
+		entryComponent:      c,
 		Events:              pageEventsChannel,
 		ComponentsLifeCycle: &componentsUpdatesChannel,
 		Components:          make(map[string]*LiveComponent),
@@ -81,13 +81,13 @@ func (lp *Page) Mount() {
 	lp.enableComponentLifeCycleReceiver()
 
 	// pass mount live component with lifecycle channel
-	err := lp.entry.Create(lp.ComponentsLifeCycle)
+	err := lp.entryComponent.Create(lp.ComponentsLifeCycle)
 
 	if err != nil {
-		panic(fmt.Errorf("mount: create entry: %w", err))
+		panic(fmt.Errorf("mount: create entryComponent: %w", err))
 	}
 
-	err = lp.entry.Mount()
+	err = lp.entryComponent.Mount()
 
 	if err != nil {
 		panic(err)
@@ -96,8 +96,7 @@ func (lp *Page) Mount() {
 }
 
 func (lp *Page) Render() (string, error) {
-	// Render entry component
-	rendered, err := lp.entry.Render()
+	rendered, err := lp.entryComponent.Render()
 
 	if err != nil {
 		return "", err
@@ -127,7 +126,7 @@ func (lp *Page) Render() (string, error) {
 
 func (lp *Page) Emit(lts int, c *LiveComponent) {
 	if c == nil {
-		c = lp.entry
+		c = lp.entryComponent
 	}
 
 	lp.Events <- LivePageEvent{
@@ -138,7 +137,7 @@ func (lp *Page) Emit(lts int, c *LiveComponent) {
 
 func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
-	c := lp.entry.findComponentByID(m.ComponentID)
+	c := lp.entryComponent.findComponentByID(m.ComponentID)
 
 	if c == nil {
 		return fmt.Errorf("component not found with id: %s", m.ComponentID)
@@ -154,7 +153,7 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 		err = c.Kill()
 	}
 
-	lp.entry.Update()
+	lp.entryComponent.Update()
 
 	return err
 }
