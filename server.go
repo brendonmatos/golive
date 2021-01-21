@@ -186,7 +186,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 					s.Log(LogError, "close websocket connection", logEx{"error": err})
 				}
 
-				if err := session.LivePage.entry.Kill(); err != nil {
+				if err := session.LivePage.entryComponent.Kill(); err != nil {
 					s.Log(LogError, "handle ws request: kill page", logEx{"error": err})
 				}
 
