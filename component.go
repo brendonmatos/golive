@@ -459,7 +459,7 @@ func (l *LiveComponent) treatRender(dom *html.Node) error {
 		if disabledAttr := getAttribute(node, ":disabled"); disabledAttr != nil {
 			removeNodeAttribute(node, ":disabled")
 			if disabledAttr.Val == "true" {
-				addNodeAttribute(node, "disabled", "disabled")
+				addNodeAttribute(node, "disabled", "")
 			} else {
 				removeNodeAttribute(node, "disabled")
 			}

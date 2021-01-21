@@ -12,6 +12,10 @@ func main() {
 	app := fiber.New()
 	liveServer := golive.NewServer()
 
+	loggerbsc := golive.NewLoggerBasic()
+	loggerbsc.Level = golive.LogDebug
+	liveServer.Log = loggerbsc.Log
+
 	app.Get("/", liveServer.CreateHTMLHandler(components.NewTodo, golive.PageContent{
 		Lang:  "us",
 		Title: "Hello world",

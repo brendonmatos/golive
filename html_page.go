@@ -104,7 +104,7 @@ var BasePageString = `<!DOCTYPE html>
 
           const keydownElements = findLiveKeyDownFromElement(viewElement);
           keydownElements.forEach(function (element) {
-     
+
             const componentId = getComponentIdFromElement(element);
             const method = element.getAttribute("go-live-keydown");
 
@@ -170,7 +170,7 @@ var BasePageString = `<!DOCTYPE html>
                 value: String(value),
               });
             });
-            
+
             connectedElements.push(element)
           });
 
@@ -200,7 +200,7 @@ var BasePageString = `<!DOCTYPE html>
                   const element = document.querySelector(selector);
 
                   if (!element) {
-                    console.error("element not found", selector);
+                    console.error("Element not found", selector);
                     return;
                   }
 
@@ -334,12 +334,12 @@ var BasePageString = `<!DOCTYPE html>
         let el = element.firstChild;
 
         if (el === Node.TEXT_NODE) {
-          throw new Error("element is a text node, without children");
+          throw new Error("Element is a text node, without children");
         }
 
         while (index > 0) {
           if (!el) {
-            console.log("element not found in path", element);
+            console.log("Element not found in path", element);
             return;
           }
 
@@ -362,17 +362,17 @@ var BasePageString = `<!DOCTYPE html>
       function handleDiffSetAttr(message, el) {
         const { attr } = message;
 
-        if (attr.name === "value" && el.value) {
-          el.value = attr.value;
+        if (attr.Name === "value" && el.value) {
+          el.value = attr.Value;
         } else {
-          el.setAttribute(attr.name, attr.value);
+          el.setAttribute(attr.Name, attr.Value);
         }
       }
 
       function handleDiffRemoveAttr(message, el) {
         const { attr } = message;
 
-        el.removeAttribute(attr.name);
+        el.removeAttribute(attr.Name);
       }
 
       function handleDiffReplace(message, el) {
@@ -413,7 +413,7 @@ var BasePageString = `<!DOCTYPE html>
       }
 
       const getComponentIdFromElement = (element) => {
-        const attr = element.getAttribute("go-live-entryComponent-id");
+        const attr = element.getAttribute("go-live-component-id");
         if (attr) {
           return attr;
         }
