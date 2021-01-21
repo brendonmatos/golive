@@ -16,9 +16,10 @@ type PatchTreeNode struct {
 }
 
 type PatchBrowser struct {
-	ComponentID  string             `json:"cid"`
-	Name         string             `json:"n"`
-	Instructions []PatchInstruction `json:"i"`
+	ComponentID  string             `json:"cid,omitempty"`
+	Type         string             `json:"t"`
+	Message      string             `json:"m"`
+	Instructions []PatchInstruction `json:"i,omitempty"`
 }
 
 func NewPatchBrowser(componentID string) *PatchBrowser {

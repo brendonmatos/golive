@@ -8,9 +8,9 @@ Use Go and ***Zero JavaScript*** to program reactive front-ends!
 1. Render Server Side HTML 
 2. Connect to same server using Websocket 
 3. Send user events
-4. Change state of component in server
-5. Render Component and get the Diff
-6. The update instructions is sended to browser
+4. Change state of [component](component.go) in server
+5. Render Component and get [diff](diff.go)
+6. Update instructions are sent to the browser
 
 ## Getting Started
 - [Extended Version Todo Example](https://github.com/SamHennessy/golive-example)
