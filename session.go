@@ -3,6 +3,7 @@ package golive
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -36,15 +37,6 @@ type BrowserEvent struct {
 
 type DOMEvent struct {
 	KeyCode string `json:"keyCode"`
-}
-
-type OutMessage struct {
-	Name        string      `json:"name"`
-	ComponentID string      `json:"component_id"`
-	Type        string      `json:"type"`
-	Attr        interface{} `json:"attr,omitempty"`
-	Content     string      `json:"content,omitempty"`
-	Element     string      `json:"element"`
 }
 
 type Session struct {
@@ -96,14 +88,14 @@ func (s *Session) ActivatePage(lp *Page) {
 
 			switch evt.Type {
 			case PageComponentUpdated:
-				if err := s.LiveRenderComponent(evt.Component); err != nil {
+				if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
 					s.log(LogError, "entryComponent live render", logEx{"error": err})
 				}
 				break
 			case PageComponentMounted:
 				s.QueueMessage(PatchBrowser{
 					ComponentID:  evt.Component.Name,
-					Name:         EventLiveConnectElement,
+					Type:         EventLiveConnectElement,
 					Instructions: nil,
 				})
 				break
@@ -112,13 +104,16 @@ func (s *Session) ActivatePage(lp *Page) {
 	}()
 }
 
-func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, error) {
+func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource) ([]*PatchBrowser, error) {
 
 	bp := make([]*PatchBrowser, 0)
 
 	for _, instruction := range diff.instructions {
 
 		selector, err := selectorFromNode(instruction.element)
+		if skipUpdateValueOnInput(instruction, source) {
+			continue
+		}
 
 		if err != nil {
 			return nil, fmt.Errorf("selector from node: %w instruction: %v", err, instruction)
@@ -140,10 +135,10 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 			}
 		}
 
-		// IF there is no patch
+		// If there is no patch
 		if patch == nil {
 			patch = NewPatchBrowser(componentID)
-			patch.Name = EventLiveDom
+			patch.Type = EventLiveDom
 			bp = append(bp, patch)
 		}
 
@@ -161,9 +156,25 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 	return bp, nil
 }
 
-// LiveRenderComponent render the updated entryComponent and compare with
+func skipUpdateValueOnInput(in ChangeInstruction, source *EventSource) bool {
+	if in.Element == nil || source == nil || in.Type != SetAttr || strings.ToLower(in.Attr.Name) != "value" {
+		return false
+	}
+
+	for i := 0; i < len(in.Element.Attr); i++ {
+		attr := in.Element.Attr[i]
+		if attr.Key == "go-live-input" && source.Type == EventSourceInput &&
+			attr.Val == source.Value {
+			return true
+		}
+	}
+
+	return false
+}
+
+// LiveRenderComponent render the updated component and compare with
 // last state. It may apply with *all child components*
-func (s *Session) LiveRenderComponent(c *LiveComponent) error {
+func (s *Session) LiveRenderComponent(c *LiveComponent, source *EventSource) error {
 	var err error
 
 	diff, err := c.LiveRender()
@@ -172,7 +183,7 @@ func (s *Session) LiveRenderComponent(c *LiveComponent) error {
 		return err
 	}
 
-	patches, err := s.generateBrowserPatchesFromDiff(diff)
+	patches, err := s.generateBrowserPatchesFromDiff(diff, source)
 
 	if err != nil {
 		return err
