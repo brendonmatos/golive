@@ -156,20 +156,14 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource
 	return bp, nil
 }
 
-func skipUpdateValueOnInput(in ChangeInstruction, source *EventSource) bool {
-	if in.Element == nil || source == nil || in.Type != SetAttr || strings.ToLower(in.Attr.Name) != "value" {
+func skipUpdateValueOnInput(in changeInstruction, source *EventSource) bool {
+	if in.element == nil || source == nil || in.changeType != SetAttr || strings.ToLower(in.attr.name) != "value" {
 		return false
 	}
 
-	for i := 0; i < len(in.Element.Attr); i++ {
-		attr := in.Element.Attr[i]
-		if attr.Key == "go-live-input" && source.Type == EventSourceInput &&
-			attr.Val == source.Value {
-			return true
-		}
-	}
+	attr := getAttribute(in.element, "go-live-input")
 
-	return false
+	return attr != nil && source.Type == EventSourceInput && attr.Val == source.Value
 }
 
 // LiveRenderComponent render the updated component and compare with
