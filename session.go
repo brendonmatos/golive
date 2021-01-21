@@ -148,9 +148,12 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff) ([]*PatchBrowser, e
 		}
 
 		patch.AddInstruction(PatchInstruction{
-			Name:     EventLiveDom,
-			Type:     strconv.Itoa(int(instruction.changeType)),
-			Attr:     instruction.attr,
+			Name: EventLiveDom,
+			Type: strconv.Itoa(int(instruction.changeType)),
+			Attr: map[string]string{
+				"Name":  instruction.attr.name,
+				"Value": instruction.attr.value,
+			},
 			Content:  instruction.content,
 			Selector: selector.toString(),
 		})

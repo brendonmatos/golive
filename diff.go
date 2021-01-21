@@ -98,8 +98,11 @@ actual:
 	for actualIndex, actualNode := range actualNodes {
 		for proposedIndex, proposedNode := range proposedNodes {
 			// TODO: comment why i'm skipping this here
-
 			if actualIndex == proposedIndex || hasSameElementRef(actualNode, proposedNode) {
+				continue actual
+			}
+
+			if !nodeRelevant(proposedNode) {
 				continue actual
 			}
 		}
@@ -131,6 +134,10 @@ proposed:
 					// place a checkpoint
 					d.checkpoint()
 
+					if !nodeRelevant(actualNode) && !nodeRelevant(proposedNode) {
+						continue proposed
+					}
+
 					// differentiate two text nodes
 					d.diffNodeText(actualNode, proposedNode)
 
@@ -142,6 +149,7 @@ proposed:
 					}
 				} else if proposedNode.Type == html.ElementNode {
 					d.diffNode(actualNode, proposedNode)
+					continue proposed
 				}
 			} else if hasSameElementRef(actualNode, proposedNode) {
 
@@ -208,7 +216,6 @@ func (d *Diff) diffNodeAttributes(actual, proposed *html.Node) {
 	for name, otherValue := range proposedAttrs {
 		value, found := actualAttrs[name]
 		if !found || value != otherValue {
-
 			d.instructions = append(d.instructions, changeInstruction{
 				changeType: SetAttr,
 				element:    actual,
@@ -235,7 +242,15 @@ func (d *Diff) diffNodeAttributes(actual, proposed *html.Node) {
 }
 
 func nodeRelevant(node *html.Node) bool {
-	return !(node.Type == html.TextNode && len(strings.TrimSpace(node.Data)) == 0)
+	if node == nil {
+		return false
+	}
+
+	if node.Type == html.TextNode && len(strings.TrimSpace(node.Data)) == 0 {
+		return false
+	}
+
+	return true
 }
 
 func hasSameElementRef(a, b *html.Node) bool {

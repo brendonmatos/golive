@@ -52,6 +52,10 @@ func newDiffTest(d diffTest) diffTest {
 
 func (d *diffTest) assert(expectations []changeInstruction, t *testing.T) {
 
+	if len(d.diff.instructions) != len(expectations) {
+		t.Error("The number of instruction are len", len(d.diff.instructions), "expected to be len", len(expectations))
+	}
+
 	for indexExpected, expected := range expectations {
 
 		foundGiven := false
@@ -73,7 +77,7 @@ func (d *diffTest) assert(expectations []changeInstruction, t *testing.T) {
 				t.Error("contents are different given:", a, "expeted:", expected.content)
 			}
 
-			if !reflect.DeepEqual(given.attr, expected.attr) {
+			if expected.attr != (attrChange{}) && !reflect.DeepEqual(given.attr, expected.attr) {
 				t.Error("attributes are different given:", given.attr, "expeted:", expected.attr)
 			}
 
@@ -266,6 +270,150 @@ func TestDiff_AddTextContent(t *testing.T) {
 			element:    dt.diff.actual.FirstChild,
 			content:    "aaaa",
 			attr:       attrChange{},
+		},
+	}, t)
+}
+
+func TestDiff_DiffWithTabs(t *testing.T) {
+	t.Parallel()
+
+	dt := newDiffTest(diffTest{
+		template: `{{ if .Check }}
+	<div></div>
+{{else}}
+<div></div>
+{{end}}`,
+	})
+
+	dt.assert([]changeInstruction{
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild.NextSibling,
+			content:    "",
+			attr:       attrChange{},
+		},
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild.NextSibling,
+			content:    "",
+			attr:       attrChange{},
+		},
+	}, t)
+}
+
+func TestDiff_DiffWithTabsAndBreakLine(t *testing.T) {
+	t.Parallel()
+
+	dt := newDiffTest(diffTest{
+		template: `{{ if .Check }}
+	<div></div>
+{{else}}
+
+<div></div>
+{{end}}`,
+	})
+
+	dt.assert([]changeInstruction{
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild.NextSibling,
+			content:    "",
+			attr:       attrChange{},
+		},
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild.NextSibling,
+			content:    "",
+			attr:       attrChange{},
+		},
+	}, t)
+}
+
+func TestDiff_DiffAttr(t *testing.T) {
+	t.Parallel()
+
+	dt := newDiffTest(diffTest{
+		template: `<button {{if .Check}}disabled="disabled"{{end}}></button>`,
+	})
+
+	dt.assert([]changeInstruction{
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild,
+			attr: attrChange{
+				name:  "disabled",
+				value: "disabled",
+			},
+		},
+	}, t)
+}
+
+func TestDiff_DiffAttrs(t *testing.T) {
+	t.Parallel()
+
+	dt := newDiffTest(diffTest{
+		template: `<button {{if .Check}}disabled="disabled" class="hello world"{{end}}></button>`,
+	})
+
+	dt.assert([]changeInstruction{
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild,
+			attr: attrChange{
+				name:  "disabled",
+				value: "disabled",
+			},
+		},
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild,
+			attr: attrChange{
+				name:  "class",
+				value: "hello world",
+			},
+		},
+	}, t)
+}
+
+func TestDiff_DiffMultiElementAndAttrs(t *testing.T) {
+	t.Parallel()
+
+	dt := newDiffTest(diffTest{
+		template: `<button {{if .Check}}disabled="disabled" class="hello world"{{end}}></button><button {{if .Check}}disabled="disabled" class="hello world"{{end}}></button>`,
+	})
+
+	dt.assert([]changeInstruction{
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild,
+			attr: attrChange{
+				name:  "disabled",
+				value: "disabled",
+			},
+		},
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild,
+			attr: attrChange{
+				name:  "class",
+				value: "hello world",
+			},
+		},
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild.NextSibling,
+			attr: attrChange{
+				name:  "disabled",
+				value: "disabled",
+			},
+		},
+		{
+			changeType: SetAttr,
+			element:    dt.diff.actual.FirstChild.NextSibling,
+			attr: attrChange{
+				name:  "class",
+				value: "hello world",
+			},
 		},
 	}, t)
 }
