@@ -126,7 +126,7 @@ func nodeChildren(n *html.Node) []*html.Node {
 	return children
 }
 
-func signLiveUIToSelector(e *html.Node, selector *DOMElemSelector) bool {
+func signLiveUIToSelector(e *html.Node, selector *domElemSelector) bool {
 	if goLiveUidAttr := getAttribute(e, "go-live-uid"); goLiveUidAttr != nil {
 		selector.addAttr("go-live-uid", goLiveUidAttr.Val)
 
@@ -139,17 +139,17 @@ func signLiveUIToSelector(e *html.Node, selector *DOMElemSelector) bool {
 }
 
 // selectorFromNode
-func selectorFromNode(e *html.Node) (*DOMSelector, error) {
+func selectorFromNode(e *html.Node) (*domSelector, error) {
 
 	if e == nil {
 		return nil, ErrComponentNil
 	}
 
-	selector := NewDOMSelector()
+	selector := newDomSelector()
 
 	for parent := e; parent != nil; parent = parent.Parent {
 
-		es := NewDOMElementSelector()
+		es := newDOMElementSelector()
 		es.setElemen("*")
 
 		if signLiveUIToSelector(parent, es) {

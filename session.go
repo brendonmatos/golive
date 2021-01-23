@@ -104,7 +104,7 @@ func (s *Session) ActivatePage(lp *Page) {
 	}()
 }
 
-func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource) ([]*PatchBrowser, error) {
+func (s *Session) generateBrowserPatchesFromDiff(diff *diff, source *EventSource) ([]*PatchBrowser, error) {
 
 	bp := make([]*PatchBrowser, 0)
 
@@ -119,7 +119,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *Diff, source *EventSource
 			return nil, fmt.Errorf("selector from node: %w instruction: %v", err, instruction)
 		}
 
-		componentID, err := ComponentIDFromNode(instruction.element)
+		componentID, err := componentIDFromNode(instruction.element)
 
 		if err != nil {
 			return nil, err

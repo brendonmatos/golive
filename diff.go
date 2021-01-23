@@ -36,20 +36,20 @@ type attrChange struct {
 	value string
 }
 
-type Diff struct {
+type diff struct {
 	actual       *html.Node
 	instructions []changeInstruction
 	quantity     int
 }
 
-func NewDiff(actual *html.Node) *Diff {
-	return &Diff{
+func newDiff(actual *html.Node) *diff {
+	return &diff{
 		actual:       actual,
 		instructions: make([]changeInstruction, 0),
 	}
 }
 
-func (d *Diff) instructionsByType(t DiffType) []changeInstruction {
+func (d *diff) instructionsByType(t DiffType) []changeInstruction {
 	s := make([]changeInstruction, 0)
 
 	for _, i := range d.instructions {
@@ -61,20 +61,20 @@ func (d *Diff) instructionsByType(t DiffType) []changeInstruction {
 	return s
 }
 
-func (d *Diff) checkpoint() {
+func (d *diff) checkpoint() {
 	d.quantity = len(d.instructions)
 }
 
 // Has changed since last checkpoint
-func (d *Diff) hasChanged() bool {
+func (d *diff) hasChanged() bool {
 	return len(d.instructions) != d.quantity
 }
 
-func (d *Diff) propose(proposed *html.Node) {
+func (d *diff) propose(proposed *html.Node) {
 	d.diffNode(d.actual, proposed)
 }
 
-func (d *Diff) diffNode(actual, proposed *html.Node) {
+func (d *diff) diffNode(actual, proposed *html.Node) {
 
 	if actual.Data != proposed.Data {
 		content, _ := renderNodeToString(proposed)
@@ -90,7 +90,7 @@ func (d *Diff) diffNode(actual, proposed *html.Node) {
 	d.diffChildren(actual, proposed)
 }
 
-func (d *Diff) diffChildren(actualParent, proposedParent *html.Node) {
+func (d *diff) diffChildren(actualParent, proposedParent *html.Node) {
 	actualNodes := nodeChildren(actualParent)
 	proposedNodes := nodeChildren(proposedParent)
 
@@ -185,7 +185,7 @@ proposed:
 
 }
 
-func (d *Diff) diffNodeText(actual, proposed *html.Node) {
+func (d *diff) diffNodeText(actual, proposed *html.Node) {
 
 	if actual == nil || proposed == nil || actual.Data == proposed.Data {
 		return
@@ -194,7 +194,7 @@ func (d *Diff) diffNodeText(actual, proposed *html.Node) {
 	d.forceRenderElementContent(proposed.Parent)
 }
 
-func (d *Diff) forceRenderElementContent(proposed *html.Node) {
+func (d *diff) forceRenderElementContent(proposed *html.Node) {
 	childrenHTML, _ := renderInnerHTML(proposed)
 
 	d.instructions = append(d.instructions, changeInstruction{
@@ -207,7 +207,7 @@ func (d *Diff) forceRenderElementContent(proposed *html.Node) {
 // diffNodeAttributes compares the attributes in el to the attributes in otherEl
 // and adds the necessary patches to make the attributes in el match those in
 // otherEl
-func (d *Diff) diffNodeAttributes(actual, proposed *html.Node) {
+func (d *diff) diffNodeAttributes(actual, proposed *html.Node) {
 
 	actualAttrs := AttrMapFromNode(actual)
 	proposedAttrs := AttrMapFromNode(proposed)
