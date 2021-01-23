@@ -228,7 +228,7 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 // LiveRender render a new version of the component, and detect
 // differences from the last render
 // and sets the "new old" version  of render
-func (l *LiveComponent) LiveRender() (*Diff, error) {
+func (l *LiveComponent) LiveRender() (*diff, error) {
 	return l.renderer.LiveRender(l.component)
 }
 
@@ -420,7 +420,7 @@ func (l *LiveComponent) treatRender(dom *html.Node) error {
 		if valueAttr := getAttribute(node, ":value"); valueAttr != nil {
 			removeNodeAttribute(node, ":value")
 
-			cid, err := ComponentIDFromNode(node)
+			cid, err := componentIDFromNode(node)
 
 			if err != nil {
 				return err
@@ -480,7 +480,7 @@ func (l *LiveComponent) treatRender(dom *html.Node) error {
 func (l *LiveComponent) signTemplateString(ts string) string {
 	matches := rxTagName.FindAllStringSubmatchIndex(ts, -1)
 
-	ReverseSlice(matches)
+	reverseSlice(matches)
 
 	for _, match := range matches {
 		startIndex := match[0]
@@ -498,7 +498,7 @@ func (l *LiveComponent) signTemplateString(ts string) string {
 	return ts
 }
 
-func ComponentIDFromNode(e *html.Node) (string, error) {
+func componentIDFromNode(e *html.Node) (string, error) {
 	for parent := e; parent != nil; parent = parent.Parent {
 		if componentAttr := getAttribute(parent, ComponentIdAttrKey); componentAttr != nil {
 			return componentAttr.Val, nil
@@ -507,7 +507,7 @@ func ComponentIDFromNode(e *html.Node) (string, error) {
 	return "", fmt.Errorf("node not found")
 }
 
-func ReverseSlice(s interface{}) {
+func reverseSlice(s interface{}) {
 	size := reflect.ValueOf(s).Len()
 	swap := reflect.Swapper(s)
 	for i, j := 0, size-1; i < j; i, j = i+1, j-1 {

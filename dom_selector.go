@@ -2,36 +2,36 @@ package golive
 
 import "strings"
 
-type DOMSelector struct {
-	query []*DOMElemSelector
+type domSelector struct {
+	query []*domElemSelector
 }
 
-func NewDOMSelector() *DOMSelector {
-	return &DOMSelector{
-		query: make([]*DOMElemSelector, 0),
+func newDomSelector() *domSelector {
+	return &domSelector{
+		query: make([]*domElemSelector, 0),
 	}
 }
 
-func (ds *DOMSelector) addChild() *DOMElemSelector {
-	de := NewDOMElementSelector()
+func (ds *domSelector) addChild() *domElemSelector {
+	de := newDOMElementSelector()
 	ds.addChildSelector(de)
 	return de
 }
 
-func (ds *DOMSelector) addParentSelector(d *DOMElemSelector) {
-	ds.query = append([]*DOMElemSelector{d}, ds.query...)
+func (ds *domSelector) addParentSelector(d *domElemSelector) {
+	ds.query = append([]*domElemSelector{d}, ds.query...)
 }
 
-func (ds *DOMSelector) addChildSelector(d *DOMElemSelector) {
+func (ds *domSelector) addChildSelector(d *domElemSelector) {
 	ds.query = append(ds.query, d)
 }
-func (ds *DOMSelector) addParent() *DOMElemSelector {
-	de := NewDOMElementSelector()
+func (ds *domSelector) addParent() *domElemSelector {
+	de := newDOMElementSelector()
 	ds.addParentSelector(de)
 	return de
 }
 
-func (ds *DOMSelector) toString() string {
+func (ds *domSelector) toString() string {
 	var e []string
 
 	for _, q := range ds.query {
@@ -41,23 +41,23 @@ func (ds *DOMSelector) toString() string {
 	return strings.Join(e, " ")
 }
 
-type DOMElemSelector struct {
+type domElemSelector struct {
 	query []string
 }
 
-func NewDOMElementSelector() *DOMElemSelector {
-	return &DOMElemSelector{
+func newDOMElementSelector() *domElemSelector {
+	return &domElemSelector{
 		query: []string{},
 	}
 }
 
-func (de *DOMElemSelector) setElemen(elemn string) {
+func (de *domElemSelector) setElemen(elemn string) {
 	de.query = append(de.query, elemn)
 }
 
-func (de *DOMElemSelector) addAttr(key, value string) {
+func (de *domElemSelector) addAttr(key, value string) {
 	de.query = append(de.query, "[", key, "=\"", value, "\"]")
 }
-func (de *DOMElemSelector) toString() string {
+func (de *domElemSelector) toString() string {
 	return strings.Join(de.query, "")
 }

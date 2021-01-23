@@ -73,7 +73,7 @@ func (lr *LiveRenderer) Render(data interface{}) (string, *html.Node, error) {
 	return lr.state.text, lr.state.html, err
 }
 
-func (lr *LiveRenderer) LiveRender(data interface{}) (*Diff, error) {
+func (lr *LiveRenderer) LiveRender(data interface{}) (*diff, error) {
 
 	actualRender := lr.state.html
 	actualRenderText := lr.state.text
@@ -84,7 +84,7 @@ func (lr *LiveRenderer) LiveRender(data interface{}) (*Diff, error) {
 	}
 
 	// TODO: maybe the right way to call a diff is calling based on state
-	diff := NewDiff(actualRender)
+	diff := newDiff(actualRender)
 
 	if actualRenderText == proposedRenderText {
 		return diff, nil

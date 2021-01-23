@@ -10,7 +10,7 @@ import (
 
 type diffTest struct {
 	template  string
-	diff      *Diff
+	diff      *diff
 	component *LiveComponent
 }
 
