@@ -15,6 +15,7 @@ var BasePageString = `<!DOCTYPE html>
       const EVENT_LIVE_DOM_CONTENT_KEY = "c";
       const EVENT_LIVE_DOM_ATTR_KEY = "a";
       const EVENT_LIVE_DOM_SELECTOR_KEY = "s";
+      const EVENT_LIVE_DOM_INDEX_KEY = "i";
 
       const handleChange = {
         "{{ .Enum.DiffSetAttr }}": handleDiffSetAttr,
@@ -23,6 +24,7 @@ var BasePageString = `<!DOCTYPE html>
         "{{ .Enum.DiffRemove }}": handleDiffRemove,
         "{{ .Enum.DiffSetInnerHTML }}": handleDiffSetInnerHTML,
         "{{ .Enum.DiffAppend }}": handleDiffAppend,
+        "{{ .Enum.DiffMove }}": handleDiffMove,
       };
 
       const goLive = {
@@ -76,12 +78,16 @@ var BasePageString = `<!DOCTYPE html>
 
         connectElement(viewElement) {
           if (typeof viewElement === "string") {
+            console.warn("is string")
             return;
           }
 
           if (!isElement(viewElement)) {
+            console.warn("not element")
             return;
           }
+
+          console.trace("connecting elmeent", viewElement)
 
           const connectedElements = []
 
@@ -196,6 +202,7 @@ var BasePageString = `<!DOCTYPE html>
                   const content = instruction[EVENT_LIVE_DOM_CONTENT_KEY];
                   const attr = instruction[EVENT_LIVE_DOM_ATTR_KEY];
                   const selector = instruction[EVENT_LIVE_DOM_SELECTOR_KEY];
+                  const index = instruction[EVENT_LIVE_DOM_INDEX_KEY]
 
                   const element = document.querySelector(selector);
 
@@ -208,6 +215,7 @@ var BasePageString = `<!DOCTYPE html>
                     {
                       content: content,
                       attr: attr,
+                      index: index
                     },
                     element,
                     id
@@ -330,11 +338,7 @@ var BasePageString = `<!DOCTYPE html>
       };
 
       function getElementChild(element, index) {
-        let el = element.firstChild;
-
-        if (el === Node.TEXT_NODE) {
-          throw new Error("Element is a text node, without children");
-        }
+        let el = element.firstElementChild;
 
         while (index > 0) {
           if (!el) {
@@ -342,7 +346,14 @@ var BasePageString = `<!DOCTYPE html>
             return;
           }
 
+
+
           el = el.nextSibling;
+
+          if (el.nodeType !== Node.ELEMENT_NODE) {
+            continue
+          }
+
           index--;
         }
 
@@ -380,11 +391,15 @@ var BasePageString = `<!DOCTYPE html>
         const wrapper = document.createElement("div");
         wrapper.innerHTML = content;
 
-        el.parentElement.replaceChild(wrapper.firstChild, el);
+        const parent = el.parentElement
+        parent.replaceChild(wrapper.firstChild, el);
+
+        goLive.connectElement(parent)
       }
 
       function handleDiffRemove(message, el) {
-        el.parentElement.removeChild(el);
+        const parent = el.parentElement
+        parent.removeChild(el);
       }
 
       function handleDiffSetInnerHTML(message, el) {
@@ -415,6 +430,13 @@ var BasePageString = `<!DOCTYPE html>
         goLive.connectElement(el);
       }
 
+      function handleDiffMove(message, el) {
+        const parent = el.parentNode
+        parent.removeChild(el)
+
+        const child = getElementChild(parent, message.index)
+        parent.replaceChild(el, child)
+      }
       const getComponentIdFromElement = (element) => {
         const attr = element.getAttribute("go-live-component-id");
         if (attr) {

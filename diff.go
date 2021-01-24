@@ -8,7 +8,7 @@ import (
 
 type DiffType int
 
-func (dt DiffType) String() string {
+func (dt DiffType) toString() string {
 	return strconv.Itoa(int(dt))
 }
 
@@ -40,6 +40,7 @@ type diff struct {
 	actual       *html.Node
 	instructions []changeInstruction
 	quantity     int
+	doneElements []*html.Node
 }
 
 func newDiff(actual *html.Node) *diff {
@@ -71,116 +72,149 @@ func (d *diff) hasChanged() bool {
 }
 
 func (d *diff) propose(proposed *html.Node) {
+	d.clearMarked()
 	d.diffNode(d.actual, proposed)
 }
 
 func (d *diff) diffNode(actual, proposed *html.Node) {
 
-	if actual.Data != proposed.Data {
-		content, _ := renderNodeToString(proposed)
-		d.instructions = append(d.instructions, changeInstruction{
-			changeType: Replace,
-			element:    actual,
-			content:    content,
-		})
-		return
+	d.markNodeDone(proposed)
+
+	uidActual, actualOk := getLiveUidAttributeValue(actual)
+	uidProposed, proposedOk := getLiveUidAttributeValue(proposed)
+
+	if actualOk && proposedOk {
+		if uidActual != uidProposed {
+			content, _ := renderNodeToString(proposed)
+			d.instructions = append(d.instructions, changeInstruction{
+				changeType: Replace,
+				element:    actual,
+				content:    content,
+			})
+			return
+		}
 	}
 
 	d.diffNodeAttributes(actual, proposed)
 	d.diffChildren(actual, proposed)
 }
 
-func (d *diff) diffChildren(actualParent, proposedParent *html.Node) {
-	actualNodes := nodeChildren(actualParent)
-	proposedNodes := nodeChildren(proposedParent)
+func (d *diff) clearMarked() {
+	d.doneElements = make([]*html.Node, 0)
+}
 
+func (d *diff) markNodeDone(node *html.Node) {
+	d.doneElements = append(d.doneElements, node)
+}
+
+func (d *diff) isMarked(node *html.Node) bool {
+	for _, n := range d.doneElements {
+		if n == node {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (d *diff) diffChildren(actualParent, proposedParent *html.Node) {
+
+	proposedChildIndex := -1
+	for proposedChild := proposedParent.FirstChild; proposedChild != nil; proposedChild = proposedChild.NextSibling {
+
+		proposedChildIndex++
+
+		relativeActualChild := getChildNodeIndex(actualParent, proposedChildIndex)
+
+		if relativeActualChild == nil {
+			if proposedChild.Type == html.TextNode {
+				d.forceRenderElementContent(proposedParent)
+				d.markNodeDone(proposedParent)
+				return
+			}
+
+			if proposedChild.Type == html.ElementNode {
+				// At this point, means that the proposedParent element does
+				// not exist already. Need to be created
+				nodeContent, _ := renderNodeToString(proposedChild)
+				d.instructions = append(d.instructions, changeInstruction{
+					changeType: Append,
+					element:    proposedParent,
+					content:    nodeContent,
+				})
+				d.markNodeDone(proposedParent)
+			}
+		} else {
+
+			d.diffNode(relativeActualChild, proposedChild)
+		}
+	}
+
+	actualChildIndex := -1
+	for actualChild := actualParent.FirstChild; actualChild != nil; actualChild = actualChild.NextSibling {
+
+		actualChildIndex++
+
+		relativeProposedChild := getChildNodeIndex(actualParent, actualChildIndex)
+
+		if !nodeRelevant(actualChild) {
+			continue
+		}
+
+		if relativeProposedChild == nil {
+			if actualChild.Type == html.ElementNode {
+				d.instructions = append(d.instructions, changeInstruction{
+					changeType: Remove,
+					element:    actualChild,
+				})
+				d.markNodeDone(actualChild)
+			}
+
+			if actualChild.Type == html.TextNode {
+				d.forceRenderElementContent(proposedParent)
+				d.markNodeDone(proposedParent)
+				return
+			}
+		}
+	}
+
+	actualNodes := nodeChildrenElements(actualParent)
+	proposedNodes := nodeChildrenElements(proposedParent)
+
+	// The main purpose to this loop is basically to
+	// Remove sobresalent nodes and move elmeents
 actual:
 	for actualIndex, actualNode := range actualNodes {
 		for proposedIndex, proposedNode := range proposedNodes {
-			// TODO: comment why i'm skipping this here
-			if actualIndex == proposedIndex || hasSameElementRef(actualNode, proposedNode) {
+
+			if d.isMarked(proposedNode) {
 				continue actual
 			}
 
-			if !nodeRelevant(proposedNode) {
+			hasSameRef := hasSameElementRef(actualNode, proposedNode)
+
+			if hasSameRef {
+
+				d.diffNode(actualNode, proposedNode)
+
+				if actualIndex != proposedIndex {
+					// Means that the element is changed of position
+					d.instructions = append(d.instructions, changeInstruction{
+						changeType: Move,
+						element:    proposedNode,
+						index:      proposedIndex,
+					})
+				}
+
 				continue actual
 			}
-		}
-
-		// If reach here, mean that the text node does
-		// not exists in proposedParent so, render the entire parent content
-		// removing
-		if actualNode.Type == html.TextNode {
-			d.forceRenderElementContent(proposedParent)
-			return
 		}
 
 		d.instructions = append(d.instructions, changeInstruction{
 			changeType: Remove,
 			element:    actualNode,
 		})
-	}
-
-proposed:
-	for proposedIndex, proposedNode := range proposedNodes {
-
-		// This part will be used in case of the element changed
-		// index. The actualIndex and proposedIndex should never
-		// be equal at this moment
-		for actualIndex, actualNode := range actualNodes {
-
-			if actualIndex == proposedIndex {
-				if actualNode.Type == html.TextNode || proposedNode.Type == html.TextNode {
-					// place a checkpoint
-					d.checkpoint()
-
-					if !nodeRelevant(actualNode) && !nodeRelevant(proposedNode) {
-						continue proposed
-					}
-
-					// differentiate two text nodes
-					d.diffNodeText(actualNode, proposedNode)
-
-					// has something changed?
-					if d.hasChanged() {
-						return
-					} else {
-						continue proposed
-					}
-				} else if proposedNode.Type == html.ElementNode {
-					d.diffNode(actualNode, proposedNode)
-					continue proposed
-				}
-			} else if hasSameElementRef(actualNode, proposedNode) {
-
-				// If the element is the same but with different index
-				// this element should be moved
-				if actualIndex != proposedIndex {
-					d.instructions = append(d.instructions, changeInstruction{
-						changeType: Move,
-						element:    actualNode,
-						index:      actualIndex,
-					})
-				}
-				continue proposed
-			}
-
-		}
-
-		if proposedNode.Type == html.TextNode {
-			d.forceRenderElementContent(proposedParent)
-			return
-		}
-
-		// At this point, means that the proposedParent element does
-		// not exist already. Need to be created
-		nodeContent, _ := renderNodeToString(proposedNode)
-		d.instructions = append(d.instructions, changeInstruction{
-			changeType: Append,
-			element:    proposedNode.Parent,
-			content:    nodeContent,
-			index:      proposedIndex,
-		})
+		d.markNodeDone(actualNode)
 	}
 
 }
@@ -251,6 +285,17 @@ func nodeRelevant(node *html.Node) bool {
 	}
 
 	return true
+}
+
+func getChildNodeIndex(node *html.Node, index int) *html.Node {
+
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if index == 0 {
+			return child
+		}
+		index--
+	}
+	return nil
 }
 
 func hasSameElementRef(a, b *html.Node) bool {

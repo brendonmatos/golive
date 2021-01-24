@@ -6,6 +6,7 @@ type PatchInstruction struct {
 	Attr     interface{} `json:"a,omitempty"`
 	Content  string      `json:"c,omitempty"`
 	Selector string      `json:"s"`
+	Index    int         `json:"i,omitempty"`
 }
 
 type PatchNodeChildren map[int]*PatchTreeNode
