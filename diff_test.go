@@ -32,7 +32,7 @@ type diffComponent struct {
 
 var reSelectGoliveAttr = regexp.MustCompile(`[ ]?go-live-uid="[a-zA-Z0-9_\-]+"`)
 
-func (l *diffComponent) TemplateHandler(lc *LiveComponent) string {
+func (l *diffComponent) TemplateHandler(_ *LiveComponent) string {
 	return l.testTemplate
 }
 

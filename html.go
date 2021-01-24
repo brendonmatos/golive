@@ -3,6 +3,7 @@ package golive
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -71,6 +72,15 @@ func renderNodesToString(nodes []*html.Node) (string, error) {
 
 func renderInnerHTML(parent *html.Node) (string, error) {
 	return renderNodesToString(nodeChildren(parent))
+}
+
+func selfIndexOfNode(n *html.Node) int {
+	ix := 0
+	for prev := n.PrevSibling; prev != nil; prev = prev.PrevSibling {
+		ix++
+	}
+
+	return ix
 }
 
 func selfIndexOfElement(n *html.Node) int {
@@ -182,7 +192,7 @@ func pathToComponentRoot(e *html.Node) []int {
 
 		attrs := AttrMapFromNode(parent)
 
-		path = append([]int{selfIndexOfElement(parent)}, path...)
+		path = append([]int{selfIndexOfNode(parent)}, path...)
 
 		if _, ok := attrs[ComponentIdAttrKey]; ok {
 			return path
@@ -229,4 +239,64 @@ func getAttribute(e *html.Node, key string) *html.Attribute {
 		}
 	}
 	return nil
+}
+
+func nodeIsText(node *html.Node) bool {
+	return node != nil && node.Type == html.TextNode
+}
+func nodeIsElement(node *html.Node) bool {
+	return node != nil && node.Type == html.ElementNode
+}
+
+func nextRelevantElement(node *html.Node) *html.Node {
+	if node == nil {
+		return nil
+	}
+
+	for node = node.NextSibling; !nodeRelevant(node) && node != nil; node = node.NextSibling {
+
+	}
+
+	return node
+}
+
+func nodeRelevant(node *html.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	if node.Type == html.TextNode && len(strings.TrimSpace(node.Data)) == 0 {
+		return false
+	}
+
+	return true
+}
+
+func getChildNodeIndex(node *html.Node, index int) *html.Node {
+
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if index == 0 {
+			return child
+		}
+		index--
+	}
+	return nil
+}
+
+func hasSameElementRef(a, b *html.Node) bool {
+	var err error
+
+	aSelector, err := selectorFromNode(a)
+
+	if err != nil || aSelector == nil {
+		return false
+	}
+
+	bSelector, err := selectorFromNode(b)
+
+	if err != nil || bSelector == nil {
+		return false
+	}
+
+	return aSelector.toString() == bSelector.toString()
 }
