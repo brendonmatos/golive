@@ -2,7 +2,6 @@ package golive
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -144,11 +143,12 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *diff, source *EventSource
 
 		patch.AddInstruction(PatchInstruction{
 			Name: EventLiveDom,
-			Type: strconv.Itoa(int(instruction.changeType)),
+			Type: instruction.changeType.toString(),
 			Attr: map[string]string{
 				"Name":  instruction.attr.name,
 				"Value": instruction.attr.value,
 			},
+			Index:    instruction.index,
 			Content:  instruction.content,
 			Selector: selector.toString(),
 		})

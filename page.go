@@ -28,6 +28,7 @@ type PageEnum struct {
 	DiffRemove              DiffType
 	DiffSetInnerHTML        DiffType
 	DiffAppend              DiffType
+	DiffMove                DiffType
 }
 
 type LivePageEvent struct {
@@ -117,6 +118,7 @@ func (lp *Page) Render() (string, error) {
 		DiffRemove:              Remove,
 		DiffSetInnerHTML:        SetInnerHTML,
 		DiffAppend:              Append,
+		DiffMove:                Move,
 	}
 	lp.content.EnumLiveError = LiveErrorMap()
 

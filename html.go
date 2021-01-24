@@ -73,27 +73,15 @@ func renderInnerHTML(parent *html.Node) (string, error) {
 	return renderNodesToString(nodeChildren(parent))
 }
 
-func selfIndexOfNode(n *html.Node) int {
+func selfIndexOfElement(n *html.Node) int {
 	ix := 0
 	for prev := n.PrevSibling; prev != nil; prev = prev.PrevSibling {
-		ix++
+		if prev.Type == html.ElementNode {
+			ix++
+		}
 	}
 
 	return ix
-}
-
-func isChildrenTheSame(actual, proposed *html.Node) bool {
-	proposedString, err := renderNodesToString(nodeChildren(proposed))
-	if err != nil {
-		return false
-	}
-
-	actualString, err := renderNodesToString(nodeChildren(actual))
-	if err != nil {
-		return false
-	}
-
-	return actualString == proposedString
 }
 
 func getAllChildrenRecursive(n *html.Node) []*html.Node {
@@ -120,6 +108,24 @@ func nodeChildren(n *html.Node) []*html.Node {
 	}
 
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		children = append(children, child)
+	}
+
+	return children
+}
+
+func nodeChildrenElements(n *html.Node) []*html.Node {
+	children := make([]*html.Node, 0)
+
+	if n == nil || n.FirstChild == nil {
+		return children
+	}
+
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		if child.Type != html.ElementNode {
+			continue
+		}
+
 		children = append(children, child)
 	}
 
@@ -176,7 +182,7 @@ func pathToComponentRoot(e *html.Node) []int {
 
 		attrs := AttrMapFromNode(parent)
 
-		path = append([]int{selfIndexOfNode(parent)}, path...)
+		path = append([]int{selfIndexOfElement(parent)}, path...)
 
 		if _, ok := attrs[ComponentIdAttrKey]; ok {
 			return path
@@ -206,10 +212,14 @@ func addNodeAttribute(e *html.Node, key, value string) {
 	})
 }
 
-func getAttribute2(e *html.Node, key string) (*html.Attribute, bool) {
-	attr := getAttribute(e, key)
+func getLiveUidAttributeValue(e *html.Node) (string, bool) {
+	a := getAttribute(e, "go-live-uid")
 
-	return attr, attr != nil
+	if a == nil {
+		return "", false
+	}
+
+	return a.Val, true
 }
 
 func getAttribute(e *html.Node, key string) *html.Attribute {
