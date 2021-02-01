@@ -156,7 +156,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 	session := s.Wire.GetSession(sessionKey)
 
-	if session == nil {
+	if session == nil || session.Status != SessionNew {
 		s.Log(LogWarn, "session not found", logEx{"session": sessionKey})
 
 		var msg PatchBrowser
@@ -175,6 +175,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 		return
 	}
 
+	session.Status = SessionOpen
 	exit := make(chan int)
 	exited := false
 
@@ -189,6 +190,8 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 				}
 			case <-exit:
 				exited = true
+
+				session.Status = SessionClosed
 
 				if err := c.Close(); err != nil {
 					s.Log(LogError, "close websocket connection", logEx{"error": err})
