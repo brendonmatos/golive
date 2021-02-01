@@ -38,15 +38,25 @@ type DOMEvent struct {
 	KeyCode string `json:"keyCode"`
 }
 
+type SessionStatus string
+
+const (
+	SessionNew    SessionStatus = "n"
+	SessionOpen   SessionStatus = "o"
+	SessionClosed SessionStatus = "c"
+)
+
 type Session struct {
 	LivePage   *Page
 	OutChannel chan PatchBrowser
 	log        Log
+	Status     SessionStatus
 }
 
 func NewSession() *Session {
 	return &Session{
 		OutChannel: make(chan PatchBrowser),
+		Status:     SessionNew,
 	}
 }
 
