@@ -101,24 +101,8 @@ func main() {
 
 ### GoBook
 ![](examples/gobook.gif)
+
 [Go to repo](https://github.com/brendonmatos/gobook)
 
-## TODO
- - [ ] Establish version
- - [ ] Configure CI stuff
-    - [x] Auto Tests
-    - [ ] Coverage
- - [ ] Document
-    - [ ] Component Lifetime
-    - [ ] "turn off" components
-    - [ ] Recommended project structure
- - [x] Components
-    - [x] Subcomponents
-    - [x] "turn off" unneeded components
- - [x] Decide what LiveWire will connect. It will continue to be the page, or the scope makes more sense?
- - [ ] Throttling events in & out 
- - [ ] Optimize
-    - [ ] Benchmark
-    - [ ] Merge component changes
-    - [ ] Minify comm. payload
+
 
