@@ -164,7 +164,7 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 		err = c.Kill()
 	}
 
-	lp.entryComponent.UpdateWithSource(source)
+	c.UpdateWithSource(source)
 
 	return err
 }
