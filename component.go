@@ -34,6 +34,16 @@ type ComponentLifeTime interface {
 
 type ChildLiveComponent interface{}
 
+type ComponentContext struct {
+	Pairs map[string]interface{}
+}
+
+func NewComponentContext() ComponentContext {
+	return ComponentContext{
+		Pairs: map[string]interface{}{},
+	}
+}
+
 //
 type LiveComponent struct {
 	Name string
@@ -48,6 +58,8 @@ type LiveComponent struct {
 	renderer  LiveRenderer
 
 	children []*LiveComponent
+
+	Context ComponentContext
 }
 
 // NewLiveComponent ...
@@ -55,6 +67,7 @@ func NewLiveComponent(name string, component ComponentLifeTime) *LiveComponent {
 	return &LiveComponent{
 		Name:      name,
 		component: component,
+		Context:   NewComponentContext(),
 		renderer: LiveRenderer{
 			state:      &LiveState{},
 			template:   nil,
@@ -124,7 +137,7 @@ func (l *LiveComponent) createChildren() error {
 	var err error
 	for _, child := range l.getChildrenComponents() {
 		child.log = l.log
-
+		child.Context = l.Context
 		err = child.Create(l.life)
 		if err != nil {
 			panic(err)
