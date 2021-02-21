@@ -76,13 +76,13 @@ func (lp *Page) SetContent(c PageContent) {
 	lp.content = c
 }
 
-// Call the component in sequence of life cycle
+// Call the Component in sequence of life cycle
 func (lp *Page) Mount() {
 
 	// Enable components lifecycle channel receiver
 	lp.enableComponentLifeCycleReceiver()
 
-	// pass mount live component with lifecycle channel
+	// pass mount live Component with lifecycle channel
 	err := lp.entryComponent.Create(lp.ComponentsLifeCycle)
 
 	if err != nil {
@@ -148,7 +148,7 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 	c := lp.entryComponent.findComponentByID(m.ComponentID)
 
 	if c == nil {
-		return fmt.Errorf("component not found with id: %s", m.ComponentID)
+		return fmt.Errorf("Component not found with id: %s", m.ComponentID)
 	}
 
 	var source *EventSource

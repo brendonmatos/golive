@@ -24,7 +24,7 @@ func TestCreateDOMFromString(t *testing.T) {
 }
 
 func TestSelectorFromNode(t *testing.T) {
-	html := `<div go-live-component-id><h1>Hello world<span>a</span></h1></div>`
+	html := `<div go-live-Component-id><h1>Hello world<span>a</span></h1></div>`
 
 	dom, _ := nodeFromString(html)
 
@@ -40,7 +40,7 @@ func TestSelectorFromNode(t *testing.T) {
 }
 
 func TestSelectorFromEmptyNode(t *testing.T) {
-	a := `<div go-live-component-id><h1>Hello world<span></span></h1></div>`
+	a := `<div go-live-Component-id><h1>Hello world<span></span></h1></div>`
 
 	dom, _ := nodeFromString(a)
 

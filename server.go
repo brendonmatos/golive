@@ -39,7 +39,7 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 		return nil, err
 	}
 
-	s.Log(LogInfo, "http request", logEx{"component": lc.Name, "session": sessionKey})
+	s.Log(LogInfo, "http request", logEx{"Component": lc.Name, "session": sessionKey})
 
 	session.log = s.Log
 

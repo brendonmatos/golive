@@ -95,7 +95,7 @@ func (s *Session) ActivatePage(lp *Page) {
 			// Receive all the events from page
 			evt := <-s.LivePage.Events
 
-			s.log(LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), logEx{"evt": evt})
+			s.log(LogDebug, fmt.Sprintf("Component %s triggering %d", evt.Component.Name, evt.Type), logEx{"evt": evt})
 
 			switch evt.Type {
 			case PageComponentUpdated:
@@ -178,7 +178,7 @@ func skipUpdateValueOnInput(in changeInstruction, source *EventSource) bool {
 	return attr != nil && source.Type == EventSourceInput && attr.Val == source.Value
 }
 
-// LiveRenderComponent render the updated component and compare with
+// LiveRenderComponent render the updated Component and compare with
 // last state. It may apply with *all child components*
 func (s *Session) LiveRenderComponent(c *LiveComponent, source *EventSource) error {
 	var err error

@@ -15,12 +15,12 @@ import (
 	"golang.org/x/net/html"
 )
 
-const ComponentIdAttrKey = "go-live-component-id"
+const ComponentIdAttrKey = "go-live-Component-id"
 
 var (
-	ErrComponentNotPrepared = errors.New("component need to be prepared")
-	ErrComponentWithoutLog  = errors.New("component without log defined")
-	ErrComponentNil         = errors.New("component nil")
+	ErrComponentNotPrepared = errors.New("Component need to be prepared")
+	ErrComponentWithoutLog  = errors.New("Component without log defined")
+	ErrComponentNil         = errors.New("Component nil")
 )
 
 //
@@ -86,12 +86,12 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 	}
 
 	// The first notification, will notify
-	// an component without unique name
+	// an Component without unique name
 	l.notifyStage(WillCreate)
 
 	l.Name = l.createUniqueName()
 
-	// Get the template defined on component
+	// Get the template defined on Component
 	ts := l.component.TemplateHandler(l)
 
 	// Prepare the template content adding
@@ -116,7 +116,7 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 		return t
 	})
 
-	// Calling component creation
+	// Calling Component creation
 	l.component.Create(l)
 
 	// Creating children
@@ -170,7 +170,7 @@ func (l *LiveComponent) findComponentByID(id string) *LiveComponent {
 	return nil
 }
 
-// Mount 2. the component loading html
+// Mount 2. the Component loading html
 func (l *LiveComponent) Mount() error {
 
 	if !l.IsCreated {
@@ -238,7 +238,7 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 	return template.HTML(render)
 }
 
-// LiveRender render a new version of the component, and detect
+// LiveRender render a new version of the Component, and detect
 // differences from the last render
 // and sets the "new old" version  of render
 func (l *LiveComponent) LiveRender() (*diff, error) {
@@ -290,8 +290,8 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 	for _, s := range strings.Split(path, ".") {
 
 		if reflect.ValueOf(v).IsZero() {
-			l.log(LogError, "field not found in component", logEx{
-				"component": l.Name,
+			l.log(LogError, "field not found in Component", logEx{
+				"Component": l.Name,
 				"path":      path,
 			})
 		}
@@ -393,7 +393,7 @@ func (l *LiveComponent) notifyStage(ltu LifeTimeStage) {
 
 func (l *LiveComponent) notifyStageWithSource(ltu LifeTimeStage, source *EventSource) {
 	if l.life == nil {
-		l.log(LogWarn, "component life updates channel is nil", nil)
+		l.log(LogWarn, "Component life updates channel is nil", nil)
 		return
 	}
 
@@ -442,7 +442,7 @@ func (l *LiveComponent) treatRender(dom *html.Node) error {
 			foundComponent := l.findComponentByID(cid)
 
 			if foundComponent == nil {
-				return fmt.Errorf("component not found")
+				return fmt.Errorf("Component not found")
 			}
 
 			f := foundComponent.GetFieldFromPath(valueAttr.Val)
