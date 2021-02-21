@@ -95,6 +95,8 @@ func (s *Session) ActivatePage(lp *Page) {
 			// Receive all the events from page
 			evt := <-s.LivePage.Events
 
+			s.log(LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), logEx{"evt": evt})
+
 			switch evt.Type {
 			case PageComponentUpdated:
 				if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {

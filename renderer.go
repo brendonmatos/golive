@@ -63,35 +63,27 @@ func (lr *LiveRenderer) renderToText(data interface{}) (string, error) {
 func (lr *LiveRenderer) Render(data interface{}) (string, *html.Node, error) {
 
 	textRender, err := lr.renderToText(data)
-
 	if err != nil {
 		return "", nil, err
 	}
 
 	err = lr.state.setText(textRender)
-
 	return lr.state.text, lr.state.html, err
 }
 
 func (lr *LiveRenderer) LiveRender(data interface{}) (*diff, error) {
 
 	actualRender := lr.state.html
-	actualRenderText := lr.state.text
 	proposedRenderText, err := lr.renderToText(data)
 
+	err = lr.state.setText(proposedRenderText)
+
 	if err != nil {
-		return nil, fmt.Errorf("render to text: %w", err)
+		return nil, fmt.Errorf("state set text: %w", err)
 	}
 
 	// TODO: maybe the right way to call a diff is calling based on state
 	diff := newDiff(actualRender)
-
-	if actualRenderText == proposedRenderText {
-		return diff, nil
-	}
-
-	_ = lr.state.setText(proposedRenderText)
-
 	diff.propose(lr.state.html)
 
 	return diff, nil
