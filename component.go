@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const ComponentIdAttrKey = "go-live-Component-id"
+const ComponentIdAttrKey = "go-live-component-id"
 
 var (
 	ErrComponentNotPrepared = errors.New("Component need to be prepared")
