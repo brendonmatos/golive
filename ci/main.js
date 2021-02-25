@@ -74,7 +74,7 @@ const goLive = {
         }
 
         if (!isElement(viewElement)) {
-            console.warn("not element")
+            console.warn("selected node is not an element:", viewElement)
             return;
         }
 

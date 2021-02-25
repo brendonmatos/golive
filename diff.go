@@ -1,8 +1,9 @@
 package golive
 
 import (
-	"golang.org/x/net/html"
 	"strconv"
+
+	"golang.org/x/net/html"
 )
 
 type DiffType int
@@ -76,6 +77,11 @@ func (d *diff) propose(proposed *html.Node) {
 }
 
 func (d *diff) diffNode(actual, proposed *html.Node) {
+
+	if actual == nil || proposed == nil {
+		d.diffWalk(actual, proposed)
+		return
+	}
 
 	uidActual, actualOk := getLiveUidAttributeValue(actual)
 	uidProposed, proposedOk := getLiveUidAttributeValue(proposed)
