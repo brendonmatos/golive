@@ -101,7 +101,7 @@ func (lp *Page) Render() (string, error) {
 	rendered, err := lp.entryComponent.Render()
 
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("entry component render: %w", err)
 	}
 
 	// Body content
@@ -152,7 +152,6 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 	}
 
 	var source *EventSource
-
 	var err error
 	switch m.Name {
 	case EventLiveInput:

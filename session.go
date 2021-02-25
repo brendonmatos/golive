@@ -76,13 +76,7 @@ func (s *Session) IngestMessage(message BrowserEvent) error {
 		}
 	}()
 
-	err := s.LivePage.HandleBrowserEvent(message)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.LivePage.HandleBrowserEvent(message)
 }
 
 func (s *Session) ActivatePage(lp *Page) {
@@ -95,7 +89,7 @@ func (s *Session) ActivatePage(lp *Page) {
 			// Receive all the events from page
 			evt := <-s.LivePage.Events
 
-			s.log(LogDebug, fmt.Sprintf("Component %s triggering %d", evt.Component.Name, evt.Type), logEx{"evt": evt})
+			s.log(LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), logEx{"evt": evt})
 
 			switch evt.Type {
 			case PageComponentUpdated:

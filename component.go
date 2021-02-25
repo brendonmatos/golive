@@ -136,16 +136,32 @@ func (l *LiveComponent) Create(life *ComponentLifeCycle) error {
 func (l *LiveComponent) createChildren() error {
 	var err error
 	for _, child := range l.getChildrenComponents() {
-		child.log = l.log
-		child.Context = l.Context
-		err = child.Create(l.life)
-		if err != nil {
-			panic(err)
+
+		if child == nil {
+			continue
 		}
 
-		l.children = append(l.children, child)
+		err = l.CreateChild(child)
+		if err != nil {
+			return err
+		}
 	}
-	return err
+	return nil
+}
+
+func (l *LiveComponent) CreateChild(c *LiveComponent) error {
+
+	c.log = l.log
+	c.Context = l.Context
+	err := c.Create(l.life)
+
+	if err != nil {
+		return err
+	}
+
+	l.children = append(l.children, c)
+
+	return nil
 }
 
 func (l *LiveComponent) findComponentByID(id string) *LiveComponent {
@@ -198,11 +214,13 @@ func (l *LiveComponent) Mount() error {
 
 func (l *LiveComponent) MountChildren() error {
 	l.notifyStage(WillMountChildren)
-	for _, child := range l.getChildrenComponents() {
-		err := child.Mount()
+	for _, child := range l.children {
+		if !child.IsMounted {
+			err := child.Mount()
 
-		if err != nil {
-			return fmt.Errorf("child mount: %w", err)
+			if err != nil {
+				return fmt.Errorf("child mount error: %w", err)
+			}
 		}
 	}
 	l.notifyStage(ChildrenMounted)
@@ -211,7 +229,7 @@ func (l *LiveComponent) MountChildren() error {
 
 // Render ...
 func (l *LiveComponent) Render() (string, error) {
-	l.log(LogTrace, "Render", logEx{"name": l.Name})
+	l.log(LogDebug, "Render", logEx{"name": l.Name})
 
 	if l.component == nil {
 		return "", ErrComponentNil
@@ -221,13 +239,37 @@ func (l *LiveComponent) Render() (string, error) {
 	return text, err
 }
 
-func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) template.HTML {
+func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) (template.HTML, error) {
+	var err error
+	var childMaker func() *LiveComponent
+	var child *LiveComponent
 
-	child, ok := fn.Interface().(*LiveComponent)
+	toParse := fn.Interface()
 
-	if !ok {
-		l.log(LogError, "child not a *golive.LiveComponent", nil)
-		return ""
+	child, ok := toParse.(*LiveComponent)
+	if ok {
+		goto RENDER
+	}
+
+	childMaker, ok = toParse.(func() *LiveComponent)
+	if ok {
+		child = childMaker()
+
+		l.CreateChild(child)
+
+		child.Mount()
+	}
+
+RENDER:
+
+	if err != nil {
+		l.log(LogError, "child create", logEx{"error": err})
+	}
+
+	l.log(LogDebug, "getting child result", logEx{"child": child})
+
+	if child == nil {
+		return "", nil
 	}
 
 	render, err := child.Render()
@@ -235,7 +277,7 @@ func (l *LiveComponent) RenderChild(fn reflect.Value, _ ...reflect.Value) templa
 		l.log(LogError, "render child: render", logEx{"error": err})
 	}
 
-	return template.HTML(render)
+	return template.HTML(render), nil
 }
 
 // LiveRender render a new version of the Component, and detect
@@ -268,7 +310,6 @@ func (l *LiveComponent) Kill() error {
 	l.component = nil
 
 	l.notifyStage(Unmounted)
-
 	l.life = nil
 
 	return nil
@@ -308,15 +349,6 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 		}
 	}
 	return &v
-}
-
-func jsonEscape(i string) string {
-	b, err := json.Marshal(i)
-	if err != nil {
-		panic(err)
-	}
-	s := string(b)
-	return s[1 : len(s)-1]
 }
 
 // SetValueInPath ...
@@ -509,6 +541,15 @@ func (l *LiveComponent) signTemplateString(ts string) string {
 	}
 
 	return ts
+}
+
+func jsonEscape(i string) string {
+	b, err := json.Marshal(i)
+	if err != nil {
+		panic(err)
+	}
+	s := string(b)
+	return s[1 : len(s)-1]
 }
 
 func componentIDFromNode(e *html.Node) (string, error) {

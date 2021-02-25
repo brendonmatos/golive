@@ -49,7 +49,7 @@ func (lr *LiveRenderer) renderToText(data interface{}) (string, error) {
 	err := lr.template.Execute(s, data)
 
 	if err != nil {
-		err = fmt.Errorf("template execute: %w", err)
+		return "", fmt.Errorf("template execute: %w", err)
 	}
 
 	text := s.String()
@@ -57,7 +57,7 @@ func (lr *LiveRenderer) renderToText(data interface{}) (string, error) {
 		text = f(text)
 	}
 
-	return text, err
+	return text, nil
 }
 
 func (lr *LiveRenderer) Render(data interface{}) (string, *html.Node, error) {

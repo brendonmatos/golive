@@ -64,7 +64,7 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 		return &LiveResponse{
 			Rendered: "<h1> Page with error </h1>",
 			Session:  "",
-		}, err
+		}, fmt.Errorf("page render: %w", err)
 	}
 
 	return &LiveResponse{Rendered: rendered, Session: sessionKey}, nil

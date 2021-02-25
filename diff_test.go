@@ -1,13 +1,13 @@
 package golive
 
 import (
-	"fmt"
-	"golang.org/x/net/html"
 	"reflect"
 	"regexp"
 	"runtime/debug"
 	"testing"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 type diffTest struct {
@@ -430,7 +430,5 @@ func TestDiff_DiffMultiKey(t *testing.T) {
 			</div>
 		`,
 	})
-
-	fmt.Println(dt.diff.instructions)
 
 }
