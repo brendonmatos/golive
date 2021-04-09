@@ -112,7 +112,7 @@ func (b *Books) TemplateHandler(_ *golive.LiveComponent) string {
 			<div>
 				{{ range $index, $Book := .GetFilteredList }}
 					<div style="border: 1px solid black; padding: 10px;" key="{{$index}}">
-						<span><b>name:</b> {{ $Book.name }}</span><br>
+						<span><b>name:</b> {{ $Book.Name }}</span><br>
 						<span><b>Writer:</b> {{ $Book.Writer }}</span>
 					</div>
 				{{ end }}
