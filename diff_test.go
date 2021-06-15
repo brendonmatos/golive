@@ -418,7 +418,7 @@ func TestDiff_DiffMultiElementAndAttrs(t *testing.T) {
 func TestDiff_DiffMultiKey(t *testing.T) {
 	t.Parallel()
 
-	dt := newDiffTest(diffTest{
+	_ = newDiffTest(diffTest{
 		template: `
 			<div key="1"></div>
 			<div key="2"></div>

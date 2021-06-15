@@ -246,7 +246,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 		s.Log(LogDebug, "message in", logEx{"msg": inMsg, "session": sessionKey})
 
 		if err := session.IngestMessage(inMsg); err != nil {
-			s.Log(LogError, "handle ws request: ingest message", logEx{"error": err})
+			s.Log(LogError, "handle ws request: ingest message ", logEx{"error": err})
 		}
 	}
 }

@@ -354,10 +354,16 @@ func (l *LiveComponent) GetFieldFromPath(path string) *reflect.Value {
 // SetValueInPath ...
 func (l *LiveComponent) SetValueInPath(value string, path string) error {
 
-	v := l.GetFieldFromPath(path)
-	n := reflect.New(v.Type())
+	componentField := l.GetFieldFromPath(path)
 
-	if v.Kind() == reflect.String {
+	if componentField.Kind() == reflect.Ptr {
+		f := componentField.Elem()
+		componentField = &f
+	}
+
+	n := reflect.New(componentField.Type())
+
+	if componentField.Kind() == reflect.String {
 		value = `"` + jsonEscape(value) + `"`
 	}
 
@@ -366,7 +372,8 @@ func (l *LiveComponent) SetValueInPath(value string, path string) error {
 		return err
 	}
 
-	v.Set(n.Elem())
+	componentField.Set(n.Elem())
+
 	return nil
 }
 

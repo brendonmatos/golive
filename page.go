@@ -138,7 +138,7 @@ func (lp *Page) EmitWithSource(lts int, c *LiveComponent, source *EventSource) {
 
 	lp.Events <- LivePageEvent{
 		Type:      lts,
-		Component: c,
+		Component: lp.entryComponent,
 		Source:    source,
 	}
 }
