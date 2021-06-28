@@ -22,7 +22,7 @@ const (
 
 type Log func(level int, message string, extra map[string]interface{})
 
-type logEx map[string]interface{}
+type LogEx map[string]interface{}
 
 type LoggerBasic struct {
 	Level      int

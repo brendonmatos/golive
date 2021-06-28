@@ -1,6 +1,8 @@
-package golive
+package live
 
 import (
+	"github.com/brendonmatos/golive"
+	"github.com/brendonmatos/golive/differ"
 	"reflect"
 	"regexp"
 	"runtime/debug"
@@ -12,27 +14,27 @@ import (
 
 type diffTest struct {
 	template  string
-	diff      *diff
-	component *LiveComponent
+	diff      *differ.Diff
+	component *Component
 }
 
 type instructionExpect struct {
-	changeType DiffType
+	changeType differ.Type
 	element    *html.Node
 	content    *string
-	attr       attrChange
+	attr       differ.AttrChange
 	index      *int
 }
 
 type diffComponent struct {
-	LiveComponentWrapper
+	Wrapper
 	testTemplate string
 	Check        bool
 }
 
-var reSelectGoliveAttr = regexp.MustCompile(`[ ]?go-live-uid="[a-zA-Z0-9_\-]+"`)
+var reSelectGoliveAttr = regexp.MustCompile(`[ ]?gl-uid="[a-zA-Z0-9_\-]+"`)
 
-func (l *diffComponent) TemplateHandler(_ *LiveComponent) string {
+func (l *diffComponent) TemplateHandler(_ *Component) string {
 	return l.testTemplate
 }
 
@@ -42,7 +44,7 @@ func newDiffTest(d diffTest) diffTest {
 	c := NewLiveComponent("testcomp", &dc)
 
 	d.component = c
-	c.log = NewLoggerBasic().Log
+	c.Log = golive.NewLoggerBasic().Log
 
 	dc.testTemplate = d.template
 
@@ -62,15 +64,15 @@ func newDiffTest(d diffTest) diffTest {
 
 func (d *diffTest) assert(expectations []instructionExpect, t *testing.T) {
 
-	if len(d.diff.instructions) != len(expectations) {
-		t.Error("The number of instruction are len", len(d.diff.instructions), "expected to be len", len(expectations))
+	if len(d.diff.Instructions) != len(expectations) {
+		t.Error("The number of instruction are len", len(d.diff.Instructions), "expected to be len", len(expectations))
 	}
 
 	for indexExpected, expected := range expectations {
 
 		foundGiven := false
 
-		for indexGiven, given := range d.diff.instructions {
+		for indexGiven, given := range d.diff.Instructions {
 
 			if indexExpected == indexGiven {
 				foundGiven = true
@@ -78,21 +80,21 @@ func (d *diffTest) assert(expectations []instructionExpect, t *testing.T) {
 				continue
 			}
 
-			if given.changeType != expected.changeType {
-				t.Error("type is different given:", given.changeType, "expeted:", expected.changeType)
+			if given.ChangeType != expected.changeType {
+				t.Error("type is different given:", given.ChangeType, "expeted:", expected.changeType)
 			}
-			a := reSelectGoliveAttr.ReplaceAllString(given.content, "")
+			a := reSelectGoliveAttr.ReplaceAllString(given.Content, "")
 
 			if expected.content != nil && a != *expected.content {
 				t.Error("contents are different given:", a, "expeted:", *expected.content)
 			}
 
-			if expected.attr != (attrChange{}) && !reflect.DeepEqual(given.attr, expected.attr) {
-				t.Error("attributes are different given:", given.attr, "expeted:", expected.attr)
+			if expected.attr != (differ.AttrChange{}) && !reflect.DeepEqual(given.Attr, expected.attr) {
+				t.Error("attributes are different given:", given.Attr, "expeted:", expected.attr)
 			}
 
-			if !reflect.DeepEqual(pathToComponentRoot(given.element), pathToComponentRoot(expected.element)) {
-				t.Error("elements with different elements given:", pathToComponentRoot(given.element), "expeted:", pathToComponentRoot(expected.element))
+			if !reflect.DeepEqual(differ.PathToComponentRoot(given.Element), differ.PathToComponentRoot(expected.element)) {
+				t.Error("elements with different elements given:", differ.PathToComponentRoot(given.Element), "expeted:", differ.PathToComponentRoot(expected.element))
 			}
 
 		}
@@ -117,9 +119,9 @@ func TestDiff_RemovedNestedText(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: SetInnerHTML,
-			element:    dt.diff.actual.FirstChild.LastChild,
-			attr:       attrChange{},
+			changeType: differ.SetInnerHTML,
+			element:    dt.diff.Actual.FirstChild.LastChild,
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -133,10 +135,10 @@ func TestDiff_ChangeNestedText(t *testing.T) {
 	c := "hello"
 	dt.assert([]instructionExpect{
 		{
-			changeType: SetInnerHTML,
-			element:    dt.diff.actual.FirstChild.LastChild,
+			changeType: differ.SetInnerHTML,
+			element:    dt.diff.Actual.FirstChild.LastChild,
 			content:    &c,
-			attr:       attrChange{},
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -150,9 +152,9 @@ func TestDiff_RemoveElement(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: Remove,
-			element:    dt.diff.actual.FirstChild.FirstChild,
-			attr:       attrChange{},
+			changeType: differ.Remove,
+			element:    dt.diff.Actual.FirstChild.FirstChild,
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -167,10 +169,10 @@ func TestDiff_AppendElement(t *testing.T) {
 	c := "<div></div>"
 	dt.assert([]instructionExpect{
 		{
-			changeType: Append,
-			element:    dt.diff.actual.FirstChild,
+			changeType: differ.Append,
+			element:    dt.diff.Actual.FirstChild,
 			content:    &c,
-			attr:       attrChange{},
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -185,10 +187,10 @@ func TestDiff_AppendNestedElements(t *testing.T) {
 	c := "<div><div></div></div>"
 	dt.assert([]instructionExpect{
 		{
-			changeType: Append,
-			element:    dt.diff.actual.FirstChild,
+			changeType: differ.Append,
+			element:    dt.diff.Actual.FirstChild,
 			content:    &c,
-			attr:       attrChange{},
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -203,10 +205,10 @@ func TestDiff_ReplaceNestedElementsWithText(t *testing.T) {
 	c := "<div>a<div>a</div></div>"
 	dt.assert([]instructionExpect{
 		{
-			changeType: Replace,
-			element:    dt.diff.actual.FirstChild.FirstChild,
+			changeType: differ.Replace,
+			element:    dt.diff.Actual.FirstChild.FirstChild,
 			content:    &c,
-			attr:       attrChange{},
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -221,10 +223,10 @@ func TestDiff_ReplaceTagWithContent(t *testing.T) {
 	c := "<div>a</div>"
 	dt.assert([]instructionExpect{
 		{
-			changeType: Replace,
-			element:    dt.diff.actual.FirstChild.FirstChild,
+			changeType: differ.Replace,
+			element:    dt.diff.Actual.FirstChild.FirstChild,
 			content:    &c,
-			attr:       attrChange{},
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -238,11 +240,11 @@ func TestDiff_AddAttribute(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild,
-			attr: attrChange{
-				name:  "disabled",
-				value: "",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild,
+			attr: differ.AttrChange{
+				Name:  "disabled",
+				Value: "",
 			},
 		},
 	}, t)
@@ -257,11 +259,11 @@ func TestDiff_RemoveAttribute(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: RemoveAttr,
-			element:    dt.diff.actual.FirstChild,
-			attr: attrChange{
-				name:  "disabled",
-				value: "",
+			changeType: differ.RemoveAttr,
+			element:    dt.diff.Actual.FirstChild,
+			attr: differ.AttrChange{
+				Name:  "disabled",
+				Value: "",
 			},
 		},
 	}, t)
@@ -277,10 +279,10 @@ func TestDiff_AddTextContent(t *testing.T) {
 	c := "aaaa"
 	dt.assert([]instructionExpect{
 		{
-			changeType: SetInnerHTML,
-			element:    dt.diff.actual.FirstChild,
+			changeType: differ.SetInnerHTML,
+			element:    dt.diff.Actual.FirstChild,
 			content:    &c,
-			attr:       attrChange{},
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -298,9 +300,9 @@ func TestDiff_DiffWithTabs(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: Replace,
-			element:    dt.diff.actual.FirstChild.NextSibling,
-			attr:       attrChange{},
+			changeType: differ.Replace,
+			element:    dt.diff.Actual.FirstChild.NextSibling,
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -319,9 +321,9 @@ func TestDiff_DiffWithTabsAndBreakLine(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: Replace,
-			element:    dt.diff.actual.FirstChild.NextSibling,
-			attr:       attrChange{},
+			changeType: differ.Replace,
+			element:    dt.diff.Actual.FirstChild.NextSibling,
+			attr:       differ.AttrChange{},
 		},
 	}, t)
 }
@@ -335,11 +337,11 @@ func TestDiff_DiffAttr(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild,
-			attr: attrChange{
-				name:  "disabled",
-				value: "disabled",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild,
+			attr: differ.AttrChange{
+				Name:  "disabled",
+				Value: "disabled",
 			},
 		},
 	}, t)
@@ -354,19 +356,19 @@ func TestDiff_DiffAttrs(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild,
-			attr: attrChange{
-				name:  "disabled",
-				value: "disabled",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild,
+			attr: differ.AttrChange{
+				Name:  "disabled",
+				Value: "disabled",
 			},
 		},
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild,
-			attr: attrChange{
-				name:  "class",
-				value: "hello world",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild,
+			attr: differ.AttrChange{
+				Name:  "class",
+				Value: "hello world",
 			},
 		},
 	}, t)
@@ -381,35 +383,35 @@ func TestDiff_DiffMultiElementAndAttrs(t *testing.T) {
 
 	dt.assert([]instructionExpect{
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild,
-			attr: attrChange{
-				name:  "disabled",
-				value: "disabled",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild,
+			attr: differ.AttrChange{
+				Name:  "disabled",
+				Value: "disabled",
 			},
 		},
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild,
-			attr: attrChange{
-				name:  "class",
-				value: "hello world",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild,
+			attr: differ.AttrChange{
+				Name:  "class",
+				Value: "hello world",
 			},
 		},
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild.NextSibling,
-			attr: attrChange{
-				name:  "disabled",
-				value: "disabled",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild.NextSibling,
+			attr: differ.AttrChange{
+				Name:  "disabled",
+				Value: "disabled",
 			},
 		},
 		{
-			changeType: SetAttr,
-			element:    dt.diff.actual.FirstChild.NextSibling,
-			attr: attrChange{
-				name:  "class",
-				value: "hello world",
+			changeType: differ.SetAttr,
+			element:    dt.diff.Actual.FirstChild.NextSibling,
+			attr: differ.AttrChange{
+				Name:  "class",
+				Value: "hello world",
 			},
 		},
 	}, t)

@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/examples/components"
+	"github.com/brendonmatos/golive/live"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
@@ -10,13 +11,13 @@ import (
 func main() {
 
 	app := fiber.New()
-	liveServer := golive.NewServer()
+	liveServer := live.NewServer()
 
 	loggerbsc := golive.NewLoggerBasic()
 	loggerbsc.Level = golive.LogDebug
 	liveServer.Log = loggerbsc.Log
 
-	app.Get("/", liveServer.CreateHTMLHandler(components.NewTodo, golive.PageContent{
+	app.Get("/", liveServer.CreateHTMLHandler(components.NewTodo, live.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))

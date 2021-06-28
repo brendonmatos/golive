@@ -1,4 +1,17 @@
-const GO_LIVE_CONNECTED = "gl-connected";
+<!DOCTYPE html>
+<html lang="{{ .Lang }}">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{ .Title }}</title>
+    {{ .Head }}
+  </head>
+
+  <body>
+    {{ .Body }}
+  </body>
+
+  <script type="application/javascript">
+    const GO_LIVE_CONNECTED = "gl-connected";
 const GO_LIVE_COMPONENT_ID = "gl-cid";
 const EVENT_LIVE_DOM_COMPONENT_ID_KEY = "cid";
 const EVENT_LIVE_DOM_INSTRUCTIONS_KEY = "i";
@@ -436,3 +449,6 @@ const getComponentIdFromElement = (element) => {
 
     return undefined;
 };
+
+  </script>
+</html>

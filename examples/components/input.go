@@ -1,6 +1,8 @@
 package components
 
-import "github.com/brendonmatos/golive"
+import (
+	"github.com/brendonmatos/golive/live"
+)
 
 type DynamicInputProps struct {
 	Value *string
@@ -8,23 +10,23 @@ type DynamicInputProps struct {
 }
 
 type DynamicInput struct {
-	golive.LiveComponentWrapper
+	live.Wrapper
 	Value *string
 	Label string
 }
 
-func NewDynamicInput(props DynamicInputProps) *golive.LiveComponent {
-	return golive.NewLiveComponent("DynamicInput", &DynamicInput{
+func NewDynamicInput(props DynamicInputProps) *live.Component {
+	return live.NewLiveComponent("DynamicInput", &DynamicInput{
 		Value: props.Value,
 		Label: props.Label,
 	})
 }
 
-func (d *DynamicInput) TemplateHandler(_ *golive.LiveComponent) string {
+func (d *DynamicInput) TemplateHandler(_ *live.Component) string {
 	return `
 		<div>
 			<span>{{.Label}}</span>	
-			<input type="string" go-live-input="Value" />
+			<input type="string" gl-input="Value" />
 		</div>
 	`
 }

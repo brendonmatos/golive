@@ -1,14 +1,22 @@
-package golive
+package live
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
+	"github.com/brendonmatos/golive/differ"
 	"html/template"
+	"reflect"
 )
 
 var BasePage *template.Template
 
+//go:embed page.html
+var BasePageString string
+
 func init() {
+	fmt.Println(BasePageString)
+
 	var err error
 	BasePage, err = template.New("BasePage").Parse(BasePageString)
 	if err != nil {
@@ -22,18 +30,18 @@ type PageEnum struct {
 	EventLiveDom            string
 	EventLiveConnectElement string
 	EventLiveError          string
-	DiffSetAttr             DiffType
-	DiffRemoveAttr          DiffType
-	DiffReplace             DiffType
-	DiffRemove              DiffType
-	DiffSetInnerHTML        DiffType
-	DiffAppend              DiffType
-	DiffMove                DiffType
+	DiffSetAttr             differ.Type
+	DiffRemoveAttr          differ.Type
+	DiffReplace             differ.Type
+	DiffRemove              differ.Type
+	DiffSetInnerHTML        differ.Type
+	DiffAppend              differ.Type
+	DiffMove                differ.Type
 }
 
 type LivePageEvent struct {
 	Type      int
-	Component *LiveComponent
+	Component *Component
 	Source    *EventSource
 }
 
@@ -42,12 +50,12 @@ type LiveEventsChannel chan LivePageEvent
 type Page struct {
 	content             PageContent
 	Events              LiveEventsChannel
-	ComponentsLifeCycle *ComponentLifeCycle
+	ComponentsLifeCycle *LifeCycle
 
-	entryComponent *LiveComponent
+	EntryComponent *Component
 
 	// Components is a list that handle all the components from the page
-	Components map[string]*LiveComponent
+	Components map[string]*Component
 }
 
 type PageContent struct {
@@ -60,15 +68,15 @@ type PageContent struct {
 	EnumLiveError map[string]string
 }
 
-func NewLivePage(c *LiveComponent) *Page {
-	componentsUpdatesChannel := make(ComponentLifeCycle)
+func NewLivePage(c *Component) *Page {
+	componentsUpdatesChannel := make(LifeCycle)
 	pageEventsChannel := make(LiveEventsChannel)
 
 	return &Page{
-		entryComponent:      c,
+		EntryComponent:      c,
 		Events:              pageEventsChannel,
 		ComponentsLifeCycle: &componentsUpdatesChannel,
-		Components:          make(map[string]*LiveComponent),
+		Components:          make(map[string]*Component),
 	}
 }
 
@@ -76,20 +84,20 @@ func (lp *Page) SetContent(c PageContent) {
 	lp.content = c
 }
 
-// Call the Component in sequence of life cycle
+// Mount main component from page in sequence of life cycle
 func (lp *Page) Mount() {
 
 	// Enable components lifecycle channel receiver
 	lp.enableComponentLifeCycleReceiver()
 
 	// pass mount live Component with lifecycle channel
-	err := lp.entryComponent.Create(lp.ComponentsLifeCycle)
+	err := lp.EntryComponent.Create(lp.ComponentsLifeCycle)
 
 	if err != nil {
 		panic(fmt.Errorf("mount: create entryComponent: %w", err))
 	}
 
-	err = lp.entryComponent.Mount()
+	err = lp.EntryComponent.Mount()
 
 	if err != nil {
 		panic(err)
@@ -98,7 +106,7 @@ func (lp *Page) Mount() {
 }
 
 func (lp *Page) Render() (string, error) {
-	rendered, err := lp.entryComponent.Render()
+	rendered, err := lp.EntryComponent.Render()
 
 	if err != nil {
 		return "", fmt.Errorf("entry component render: %w", err)
@@ -112,40 +120,40 @@ func (lp *Page) Render() (string, error) {
 		EventLiveDom:            EventLiveDom,
 		EventLiveError:          EventLiveError,
 		EventLiveConnectElement: EventLiveConnectElement,
-		DiffSetAttr:             SetAttr,
-		DiffRemoveAttr:          RemoveAttr,
-		DiffReplace:             Replace,
-		DiffRemove:              Remove,
-		DiffSetInnerHTML:        SetInnerHTML,
-		DiffAppend:              Append,
-		DiffMove:                Move,
+		DiffSetAttr:             differ.SetAttr,
+		DiffRemoveAttr:          differ.RemoveAttr,
+		DiffReplace:             differ.Replace,
+		DiffRemove:              differ.Remove,
+		DiffSetInnerHTML:        differ.SetInnerHTML,
+		DiffAppend:              differ.Append,
+		DiffMove:                differ.Move,
 	}
-	lp.content.EnumLiveError = LiveErrorMap()
+	lp.content.EnumLiveError = ErrorMap()
 
 	writer := bytes.NewBuffer([]byte{})
 	err = BasePage.Execute(writer, lp.content)
 	return writer.String(), err
 }
 
-func (lp *Page) Emit(lts int, c *LiveComponent) {
+func (lp *Page) Emit(lts int, c *Component) {
 	lp.EmitWithSource(lts, c, nil)
 }
 
-func (lp *Page) EmitWithSource(lts int, c *LiveComponent, source *EventSource) {
+func (lp *Page) EmitWithSource(lts int, c *Component, source *EventSource) {
 	if c == nil {
-		c = lp.entryComponent
+		c = lp.EntryComponent
 	}
 
 	lp.Events <- LivePageEvent{
 		Type:      lts,
-		Component: lp.entryComponent,
+		Component: lp.EntryComponent,
 		Source:    source,
 	}
 }
 
 func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
-	c := lp.entryComponent.findComponentByID(m.ComponentID)
+	c := lp.EntryComponent.FindComponentByID(m.ComponentID)
 
 	if c == nil {
 		return fmt.Errorf("Component not found with id: %s", m.ComponentID)
@@ -155,10 +163,10 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 	var err error
 	switch m.Name {
 	case EventLiveInput:
-		err = c.SetValueInPath(m.StateValue, m.StateKey)
+		err = c.State.SetValueInPath(m.StateValue, m.StateKey)
 		source = &EventSource{Type: EventSourceInput, Value: m.StateKey}
 	case EventLiveMethod:
-		err = c.InvokeMethodInPath(m.MethodName, m.MethodData, m.DOMEvent)
+		err = c.State.InvokeMethodInPath(m.MethodName, []reflect.Value{reflect.ValueOf(m.MethodData), reflect.ValueOf(m.DOMEvent)})
 	case EventLiveDisconnect:
 		err = c.Kill()
 	}

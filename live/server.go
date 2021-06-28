@@ -1,45 +1,47 @@
-package golive
+package live
 
 import (
 	"context"
 	"fmt"
+	"github.com/brendonmatos/golive"
+	"github.com/brendonmatos/golive/differ"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
 
-type LiveServer struct {
+type Server struct {
 	// Wire ...
-	Wire *LiveWire
+	Wire *Wire
 
 	// CookieName ...
 	CookieName string
-	Log        Log
+	Log        golive.Log
 }
 
-type LiveResponse struct {
+type Response struct {
 	Rendered string
 	Session  string
 }
 
-func NewServer() *LiveServer {
-	logger := NewLoggerBasic()
-	return &LiveServer{
+func NewServer() *Server {
+	logger := golive.NewLoggerBasic()
+	return &Server{
 		Wire:       NewWire(),
 		CookieName: "_csrf_token",
 		Log:        logger.Log,
 	}
 }
 
-func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*LiveResponse, error) {
+func (s *Server) HandleFirstRequest(lc *Component, c PageContent) (*Response, error) {
 	/* Create session to the new user */
 	sessionKey, session, err := s.Wire.CreateSession()
 	if err != nil {
 		return nil, err
 	}
 
-	s.Log(LogInfo, "http request", logEx{"Component": lc.Name, "session": sessionKey})
+	s.Log(golive.LogInfo, "http request", golive.LogEx{"Component": lc.Name, "session": sessionKey})
 
 	session.log = s.Log
 
@@ -61,26 +63,26 @@ func (s *LiveServer) HandleFirstRequest(lc *LiveComponent, c PageContent) (*Live
 	rendered, err := p.Render()
 
 	if err != nil {
-		return &LiveResponse{
+		return &Response{
 			Rendered: "<h1> Page with error </h1>",
 			Session:  "",
 		}, fmt.Errorf("page render: %w", err)
 	}
 
-	return &LiveResponse{Rendered: rendered, Session: sessionKey}, nil
+	return &Response{Rendered: rendered, Session: sessionKey}, nil
 }
 
-func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c PageContent) {
+func (s *Server) HandleHTMLRequest(ctx *fiber.Ctx, lc *Component, c PageContent) {
 
 	lr, err := s.HandleFirstRequest(lc, c)
 
 	if lr == nil {
-		s.Log(LogPanic, "no live page", logEx{"error": err})
+		s.Log(golive.LogPanic, "no live page", golive.LogEx{"error": err})
 		return
 	}
 
 	if err != nil {
-		s.Log(LogError, "handle html request", logEx{"error": err})
+		s.Log(golive.LogError, "handle html request", golive.LogEx{"error": err})
 		ctx.Response().SetStatusCode(500)
 		return
 	}
@@ -95,10 +97,10 @@ func (s *LiveServer) HandleHTMLRequest(ctx *fiber.Ctx, lc *LiveComponent, c Page
 	ctx.Response().AppendBodyString(lr.Rendered)
 }
 
-func (s *LiveServer) CreateHTMLHandler(f func() *LiveComponent, c PageContent) func(ctx *fiber.Ctx) error {
+func (s *Server) CreateHTMLHandler(f func() *Component, c PageContent) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		lc := f()
-		lc.log = s.Log
+		lc.Log = s.Log
 
 		s.HandleHTMLRequest(ctx, lc, c)
 		return nil
@@ -111,7 +113,7 @@ type HTTPMiddleware func(next HTTPHandlerCtx) HTTPHandlerCtx
 // HTTPHandlerCtx HTTP Handler with a page level context.
 type HTTPHandlerCtx func(ctx *fiber.Ctx, pageCtx context.Context)
 
-func (s *LiveServer) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context) *LiveComponent, content PageContent,
+func (s *Server) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context) *Component, content PageContent,
 	middlewares ...HTTPMiddleware) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		ctx := context.Background()
@@ -132,7 +134,7 @@ func (s *LiveServer) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context)
 		}
 
 		lc := f(ctx)
-		lc.log = s.Log
+		lc.Log = s.Log
 
 		s.HandleHTMLRequest(c, lc, content)
 
@@ -140,11 +142,11 @@ func (s *LiveServer) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context)
 	}
 }
 
-func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
+func (s *Server) HandleWSRequest(c *websocket.Conn) {
 	defer func() {
 		payload := recover()
 		if payload != nil {
-			s.Log(LogWarn, fmt.Sprintf("ws request panic recovered: %v", payload), nil)
+			s.Log(golive.LogWarn, fmt.Sprintf("ws request panic recovered: %v", payload), nil)
 		}
 	}()
 
@@ -152,25 +154,25 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 	sessionKey := c.Cookies(s.CookieName)
 
-	s.Log(LogInfo, "websocket open", logEx{"session": sessionKey})
+	s.Log(golive.LogInfo, "websocket open", golive.LogEx{"session": sessionKey})
 
 	session := s.Wire.GetSession(sessionKey)
 
 	if session == nil || session.Status != SessionNew {
-		s.Log(LogWarn, "session not found", logEx{"session": sessionKey})
+		s.Log(golive.LogWarn, "session not found", golive.LogEx{"session": sessionKey})
 
-		var msg PatchBrowser
+		var msg differ.PatchBrowser
 		msg.Type = EventLiveError
-		msg.Message = LiveErrorSessionNotFound
+		msg.Message = ErrorSessionNotFound
 		if err := c.WriteJSON(msg); err != nil {
-			s.Log(LogError, "handle ws request: write json", logEx{"error": err})
+			s.Log(golive.LogError, "handle ws request: write json", golive.LogEx{"error": err})
 		}
 
 		if err := c.Close(); err != nil {
-			s.Log(LogError, "close websocket connection", logEx{"error": err})
+			s.Log(golive.LogError, "close websocket connection", golive.LogEx{"error": err})
 		}
 
-		s.Log(LogInfo, "websocket close", logEx{"session": sessionKey})
+		s.Log(golive.LogInfo, "websocket close", golive.LogEx{"session": sessionKey})
 
 		return
 	}
@@ -183,10 +185,10 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 		for {
 			select {
 			case msg := <-session.OutChannel:
-				s.Log(LogDebug, "message out", logEx{"msg": msg, "session": sessionKey})
+				s.Log(golive.LogDebug, "message out", golive.LogEx{"msg": msg, "session": sessionKey})
 
 				if err := c.WriteJSON(msg); err != nil {
-					s.Log(LogError, "handle ws request: write json", logEx{"error": err})
+					s.Log(golive.LogError, "handle ws request: write json", golive.LogEx{"error": err})
 				}
 			case <-exit:
 				exited = true
@@ -194,16 +196,16 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 				session.Status = SessionClosed
 
 				if err := c.Close(); err != nil {
-					s.Log(LogError, "close websocket connection", logEx{"error": err})
+					s.Log(golive.LogError, "close websocket connection", golive.LogEx{"error": err})
 				}
 
-				if err := session.LivePage.entryComponent.Kill(); err != nil {
-					s.Log(LogError, "handle ws request: kill page", logEx{"error": err})
+				if err := session.LivePage.EntryComponent.Kill(); err != nil {
+					s.Log(golive.LogError, "handle ws request: kill page", golive.LogEx{"error": err})
 				}
 
 				s.Wire.DeleteSession(sessionKey)
 
-				s.Log(LogInfo, "websocket close", logEx{"session": sessionKey})
+				s.Log(golive.LogInfo, "websocket close", golive.LogEx{"session": sessionKey})
 
 				return
 			}
@@ -212,7 +214,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 
 	c.SetCloseHandler(func(code int, text string) error {
 		// Close codes defined in RFC 6455, section 11.7.
-		s.Log(LogTrace, "ws close handler", logEx{"code": code, "text": text})
+		s.Log(golive.LogTrace, "ws close handler", golive.LogEx{"code": code, "text": text})
 
 		exit <- 1
 		return nil
@@ -230,7 +232,7 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 			if websocket.IsUnexpectedCloseError(err) {
 				// This seems to happen when running in Docker
 				if !exited {
-					s.Log(LogWarn, "handle ws request: unexpected connection close", nil)
+					s.Log(golive.LogWarn, "handle ws request: unexpected connection close", nil)
 
 					exit <- 1
 				}
@@ -238,15 +240,15 @@ func (s *LiveServer) HandleWSRequest(c *websocket.Conn) {
 				return
 			}
 
-			s.Log(LogError, "handle ws request: read json", logEx{"error": err})
+			s.Log(golive.LogError, "handle ws request: read json", golive.LogEx{"error": err})
 
 			continue
 		}
 
-		s.Log(LogDebug, "message in", logEx{"msg": inMsg, "session": sessionKey})
+		s.Log(golive.LogDebug, "message in", golive.LogEx{"msg": inMsg, "session": sessionKey})
 
 		if err := session.IngestMessage(inMsg); err != nil {
-			s.Log(LogError, "handle ws request: ingest message ", logEx{"error": err})
+			s.Log(golive.LogError, "handle ws request: ingest message ", golive.LogEx{"error": err})
 		}
 	}
 }

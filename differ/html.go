@@ -1,4 +1,4 @@
-package golive
+package differ
 
 import (
 	"bytes"
@@ -11,8 +11,11 @@ import (
 
 var (
 	ErrCouldNotProvideValidSelector = fmt.Errorf("could not provide a valid selector")
-	ErrElementNotSigned             = fmt.Errorf("element is not signed with go-live-uid")
+	ErrElementNotSigned             = fmt.Errorf("element is not signed with gl-uid")
+	ErrElementNotFound              = fmt.Errorf("element not found")
 )
+
+const ComponentIdAttrKey = "gl-cid"
 
 // AttrMapFromNode todo
 func AttrMapFromNode(node *html.Node) map[string]string {
@@ -24,7 +27,7 @@ func AttrMapFromNode(node *html.Node) map[string]string {
 }
 
 // nodeFromString todo
-func nodeFromString(data string) (*html.Node, error) {
+func NodeFromString(data string) (*html.Node, error) {
 	reader := bytes.NewReader([]byte(data))
 
 	parent := &html.Node{
@@ -47,18 +50,18 @@ func nodeFromString(data string) (*html.Node, error) {
 }
 
 // renderNodeToString todo
-func renderNodeToString(e *html.Node) (string, error) {
+func RenderNodeToString(e *html.Node) (string, error) {
 	var b bytes.Buffer
 	err := html.Render(&b, e)
 	return b.String(), err
 }
 
 // renderNodesToString todo
-func renderNodesToString(nodes []*html.Node) (string, error) {
+func RenderNodesToString(nodes []*html.Node) (string, error) {
 	text := ""
 
 	for _, node := range nodes {
-		rendered, err := renderNodeToString(node)
+		rendered, err := RenderNodeToString(node)
 
 		if err != nil {
 			return "", err
@@ -70,8 +73,36 @@ func renderNodesToString(nodes []*html.Node) (string, error) {
 	return text, nil
 }
 
-func renderInnerHTML(parent *html.Node) (string, error) {
-	return renderNodesToString(nodeChildren(parent))
+func RenderInnerHTML(parent *html.Node) (string, error) {
+	return RenderNodesToString(nodeChildren(parent))
+}
+
+func SelectorFromNode(e *html.Node) (*DomSelector, error) {
+
+	if e == nil {
+		return nil, ErrElementNotFound
+	}
+
+	selector := newDomSelector()
+
+	for parent := e; parent != nil; parent = parent.Parent {
+
+		es := newDOMElementSelector()
+		es.setElement("*")
+
+		if signLiveUIToSelector(parent, es) {
+			selector.addParentSelector(es)
+		} else {
+			return nil, ErrElementNotSigned
+		}
+
+		if goLiveComponentIDAttr := GetAttribute(parent, ComponentIdAttrKey); goLiveComponentIDAttr != nil {
+			es.addAttr(ComponentIdAttrKey, goLiveComponentIDAttr.Val)
+			return selector, nil
+		}
+	}
+
+	return nil, ErrCouldNotProvideValidSelector
 }
 
 func selfIndexOfNode(n *html.Node) int {
@@ -94,7 +125,7 @@ func selfIndexOfElement(n *html.Node) int {
 	return ix
 }
 
-func getAllChildrenRecursive(n *html.Node) []*html.Node {
+func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 	result := make([]*html.Node, 0)
 
 	if n == nil {
@@ -103,7 +134,7 @@ func getAllChildrenRecursive(n *html.Node) []*html.Node {
 
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		result = append(result, c)
-		result = append(result, getAllChildrenRecursive(c)...)
+		result = append(result, GetAllChildrenRecursive(c)...)
 	}
 
 	return result
@@ -143,10 +174,10 @@ func nodeChildrenElements(n *html.Node) []*html.Node {
 }
 
 func signLiveUIToSelector(e *html.Node, selector *domElemSelector) bool {
-	if goLiveUidAttr := getAttribute(e, "go-live-uid"); goLiveUidAttr != nil {
-		selector.addAttr("go-live-uid", goLiveUidAttr.Val)
+	if goLiveUidAttr := GetAttribute(e, "gl-uid"); goLiveUidAttr != nil {
+		selector.addAttr("gl-uid", goLiveUidAttr.Val)
 
-		if keyAttr := getAttribute(e, "key"); keyAttr != nil {
+		if keyAttr := GetAttribute(e, "key"); keyAttr != nil {
 			selector.addAttr("key", keyAttr.Val)
 		}
 		return true
@@ -154,37 +185,8 @@ func signLiveUIToSelector(e *html.Node, selector *domElemSelector) bool {
 	return false
 }
 
-// selectorFromNode
-func selectorFromNode(e *html.Node) (*domSelector, error) {
-
-	if e == nil {
-		return nil, ErrComponentNil
-	}
-
-	selector := newDomSelector()
-
-	for parent := e; parent != nil; parent = parent.Parent {
-
-		es := newDOMElementSelector()
-		es.setElemen("*")
-
-		if signLiveUIToSelector(parent, es) {
-			selector.addParentSelector(es)
-		} else {
-			return nil, ErrElementNotSigned
-		}
-
-		if goLiveComponentIDAttr := getAttribute(parent, ComponentIdAttrKey); goLiveComponentIDAttr != nil {
-			es.addAttr(ComponentIdAttrKey, goLiveComponentIDAttr.Val)
-			return selector, nil
-		}
-	}
-
-	return nil, ErrCouldNotProvideValidSelector
-}
-
 // pathToComponentRoot todo
-func pathToComponentRoot(e *html.Node) []int {
+func PathToComponentRoot(e *html.Node) []int {
 
 	path := make([]int, 0)
 
@@ -202,7 +204,7 @@ func pathToComponentRoot(e *html.Node) []int {
 	return path
 }
 
-func removeNodeAttribute(e *html.Node, key string) {
+func RemoveNodeAttribute(e *html.Node, key string) {
 	n := make([]html.Attribute, 0)
 
 	for _, attr := range e.Attr {
@@ -215,7 +217,7 @@ func removeNodeAttribute(e *html.Node, key string) {
 	e.Attr = n
 }
 
-func addNodeAttribute(e *html.Node, key, value string) {
+func AddNodeAttribute(e *html.Node, key, value string) {
 	e.Attr = append(e.Attr, html.Attribute{
 		Key: key,
 		Val: value,
@@ -223,7 +225,7 @@ func addNodeAttribute(e *html.Node, key, value string) {
 }
 
 func getLiveUidAttributeValue(e *html.Node) (string, bool) {
-	a := getAttribute(e, "go-live-uid")
+	a := GetAttribute(e, "gl-uid")
 
 	if a == nil {
 		return "", false
@@ -232,7 +234,7 @@ func getLiveUidAttributeValue(e *html.Node) (string, bool) {
 	return a.Val, true
 }
 
-func getAttribute(e *html.Node, key string) *html.Attribute {
+func GetAttribute(e *html.Node, key string) *html.Attribute {
 	for _, attr := range e.Attr {
 		if attr.Key == key {
 			return &attr
@@ -244,6 +246,7 @@ func getAttribute(e *html.Node, key string) *html.Attribute {
 func nodeIsText(node *html.Node) bool {
 	return node != nil && node.Type == html.TextNode
 }
+
 func nodeIsElement(node *html.Node) bool {
 	return node != nil && node.Type == html.ElementNode
 }
@@ -286,17 +289,17 @@ func getChildNodeIndex(node *html.Node, index int) *html.Node {
 func hasSameElementRef(a, b *html.Node) bool {
 	var err error
 
-	aSelector, err := selectorFromNode(a)
+	aSelector, err := SelectorFromNode(a)
 
 	if err != nil || aSelector == nil {
 		return false
 	}
 
-	bSelector, err := selectorFromNode(b)
+	bSelector, err := SelectorFromNode(b)
 
 	if err != nil || bSelector == nil {
 		return false
 	}
 
-	return aSelector.toString() == bSelector.toString()
+	return aSelector.ToString() == bSelector.ToString()
 }

@@ -1,17 +1,17 @@
 package main
 
 import (
-	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/examples/components"
+	"github.com/brendonmatos/golive/live"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
 
 func main() {
 	app := fiber.New()
-	liveServer := golive.NewServer()
+	liveServer := live.NewServer()
 
-	app.Get("/", liveServer.CreateHTMLHandler(components.NewForm, golive.PageContent{
+	app.Get("/", liveServer.CreateHTMLHandler(components.NewForm, live.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))

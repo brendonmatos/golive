@@ -1,41 +1,41 @@
-package golive
+package differ
 
 import "strings"
 
-type domSelector struct {
+type DomSelector struct {
 	query []*domElemSelector
 }
 
-func newDomSelector() *domSelector {
-	return &domSelector{
+func newDomSelector() *DomSelector {
+	return &DomSelector{
 		query: make([]*domElemSelector, 0),
 	}
 }
 
-func (ds *domSelector) addChild() *domElemSelector {
+func (ds *DomSelector) addChild() *domElemSelector {
 	de := newDOMElementSelector()
 	ds.addChildSelector(de)
 	return de
 }
 
-func (ds *domSelector) addParentSelector(d *domElemSelector) {
+func (ds *DomSelector) addParentSelector(d *domElemSelector) {
 	ds.query = append([]*domElemSelector{d}, ds.query...)
 }
 
-func (ds *domSelector) addChildSelector(d *domElemSelector) {
+func (ds *DomSelector) addChildSelector(d *domElemSelector) {
 	ds.query = append(ds.query, d)
 }
-func (ds *domSelector) addParent() *domElemSelector {
+func (ds *DomSelector) addParent() *domElemSelector {
 	de := newDOMElementSelector()
 	ds.addParentSelector(de)
 	return de
 }
 
-func (ds *domSelector) toString() string {
+func (ds *DomSelector) ToString() string {
 	var e []string
 
 	for _, q := range ds.query {
-		e = append(e, q.toString())
+		e = append(e, q.ToString())
 	}
 
 	return strings.Join(e, " ")
@@ -51,13 +51,13 @@ func newDOMElementSelector() *domElemSelector {
 	}
 }
 
-func (de *domElemSelector) setElemen(elemn string) {
-	de.query = append(de.query, elemn)
+func (de *domElemSelector) setElement(element string) {
+	de.query = append(de.query, element)
 }
 
 func (de *domElemSelector) addAttr(key, value string) {
 	de.query = append(de.query, "[", key, "=\"", value, "\"]")
 }
-func (de *domElemSelector) toString() string {
+func (de *domElemSelector) ToString() string {
 	return strings.Join(de.query, "")
 }

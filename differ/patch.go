@@ -1,4 +1,4 @@
-package golive
+package differ
 
 type PatchInstruction struct {
 	Name     string      `json:"n"`

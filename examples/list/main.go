@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/brendonmatos/golive"
+	"github.com/brendonmatos/golive/live"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
@@ -22,7 +22,7 @@ type BooksFilter struct {
 }
 
 type Books struct {
-	golive.LiveComponentWrapper
+	live.Wrapper
 	Filter BooksFilter
 	List   []Book
 }
@@ -54,8 +54,8 @@ func NewBooks() *Books {
 	}
 }
 
-func NewBooksComponent() *golive.LiveComponent {
-	return golive.NewLiveComponent("Books", NewBooks())
+func NewBooksComponent() *live.Component {
+	return live.NewLiveComponent("Books", NewBooks())
 }
 func (b *Books) GetFilteredList() []Book {
 	filtered := make([]Book, 0)
@@ -99,10 +99,10 @@ book:
 	return writers
 }
 
-func (b *Books) TemplateHandler(_ *golive.LiveComponent) string {
+func (b *Books) TemplateHandler(_ *live.Component) string {
 	return `
 		<div>
-			<select go-live-input="Filter.Writer">
+			<select gl-input="Filter.Writer">
 				<option value="">No Filter</option>
 				{{ range $index, $writer := .GetWriters }}
 					<option value="{{$writer}}">{{$writer}}</option>
@@ -124,9 +124,9 @@ func (b *Books) TemplateHandler(_ *golive.LiveComponent) string {
 func main() {
 
 	app := fiber.New()
-	liveServer := golive.NewServer()
+	liveServer := live.NewServer()
 
-	app.Get("/", liveServer.CreateHTMLHandler(NewBooksComponent, golive.PageContent{
+	app.Get("/", liveServer.CreateHTMLHandler(NewBooksComponent, live.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))

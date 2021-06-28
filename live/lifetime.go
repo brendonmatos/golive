@@ -1,4 +1,4 @@
-package golive
+package live
 
 type LifeTimeStage int
 
@@ -20,13 +20,13 @@ const (
 	Unmounted
 )
 
-type ComponentLifeTimeMessage struct {
+type LifeTimeMessage struct {
 	Stage     LifeTimeStage
-	Component *LiveComponent
+	Component *Component
 	Source    *EventSource
 }
 
-type ComponentLifeCycle chan ComponentLifeTimeMessage
+type LifeCycle chan LifeTimeMessage
 
 type EventSource struct {
 	Type  EventSourceType

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/brendonmatos/golive/examples/components"
 	"github.com/brendonmatos/golive/live"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -11,7 +10,11 @@ func main() {
 	app := fiber.New()
 	liveServer := live.NewServer()
 
-	app.Get("/", liveServer.CreateHTMLHandler(components.NewClock, live.PageContent{
+	counter := NewCounter(1)
+
+	app.Get("/", liveServer.CreateHTMLHandler(func() *live.Component {
+		return counter
+	}, live.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))

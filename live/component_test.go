@@ -1,13 +1,14 @@
-package golive
+package live
 
 import (
+	"github.com/brendonmatos/golive"
 	"sync"
 	"testing"
 	"time"
 )
 
 type Pet struct {
-	LiveComponentWrapper
+	Wrapper
 	Name  string
 	Age   int
 	Awake bool
@@ -19,7 +20,7 @@ var petComponent = NewLiveComponent("pet", &Pet{
 })
 
 func TestLiveComponent_GetFieldFromPath(t *testing.T) {
-	field := petComponent.GetFieldFromPath("Name")
+	field, _ := petComponent.State.GetFieldFromPath("Name")
 
 	if field.String() != "Catdog" {
 		t.Error("The get field should return Catdog")
@@ -27,14 +28,14 @@ func TestLiveComponent_GetFieldFromPath(t *testing.T) {
 }
 
 func TestLiveComponent_SetValueInPathWithString(t *testing.T) {
-	err := petComponent.SetValueInPath("Dog", "Name")
+	err := petComponent.State.SetValueInPath("Dog", "Name")
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	field := petComponent.GetFieldFromPath("Name")
+	field, _ := petComponent.State.GetFieldFromPath("Name")
 
 	if field.String() == "Catdog" {
 		t.Error("The field has not been set")
@@ -46,14 +47,14 @@ func TestLiveComponent_SetValueInPathWithString(t *testing.T) {
 }
 
 func TestLiveComponent_SetValueInPathWithNumber(t *testing.T) {
-	err := petComponent.SetValueInPath("10", "Age")
+	err := petComponent.State.SetValueInPath("10", "Age")
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	field := petComponent.GetFieldFromPath("Age")
+	field, _ := petComponent.State.GetFieldFromPath("Age")
 
 	if field.Int() == 12 {
 		t.Error("The field has not been set")
@@ -65,14 +66,14 @@ func TestLiveComponent_SetValueInPathWithNumber(t *testing.T) {
 }
 
 func TestLiveComponent_SetValueInPathWithBoolean(t *testing.T) {
-	err := petComponent.SetValueInPath("true", "Awake")
+	err := petComponent.State.SetValueInPath("true", "Awake")
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	field := petComponent.GetFieldFromPath("Awake")
+	field, _ := petComponent.State.GetFieldFromPath("Awake")
 
 	if !field.Bool() {
 		t.Error("The field has not been set")
@@ -80,14 +81,14 @@ func TestLiveComponent_SetValueInPathWithBoolean(t *testing.T) {
 }
 
 func TestLiveComponent_SetValueInPathWithBoolean2(t *testing.T) {
-	err := petComponent.SetValueInPath("false", "Awake")
+	err := petComponent.State.SetValueInPath("false", "Awake")
 
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	field := petComponent.GetFieldFromPath("Awake")
+	field, _ := petComponent.State.GetFieldFromPath("Awake")
 
 	if field.Bool() {
 		t.Error("The field has not been set")
@@ -95,10 +96,10 @@ func TestLiveComponent_SetValueInPathWithBoolean2(t *testing.T) {
 }
 
 type Clock struct {
-	LiveComponentWrapper
+	Wrapper
 }
 
-func NewClock() *LiveComponent {
+func NewClock() *Component {
 	return NewLiveComponent("Clock", &Clock{})
 }
 
@@ -106,7 +107,7 @@ func (c *Clock) ActualTime() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-func (c *Clock) Mounted(l *LiveComponent) {
+func (c *Clock) Mounted(l *Component) {
 	go func() {
 		for {
 			if l.Exited {
@@ -118,7 +119,7 @@ func (c *Clock) Mounted(l *LiveComponent) {
 	}()
 }
 
-func (c *Clock) TemplateHandler(_ *LiveComponent) string {
+func (c *Clock) TemplateHandler(_ *Component) string {
 	return `
 		<div>
 			<span>Time: {{ .ActualTime }}</span>
@@ -130,9 +131,9 @@ func TestComponent_LifeCycleSequence(t *testing.T) {
 
 	c := NewClock()
 
-	c.log = NewLoggerBasic().Log
+	c.Log = golive.NewLoggerBasic().Log
 
-	lc := make(ComponentLifeCycle)
+	lc := make(LifeCycle)
 
 	desired := []LifeTimeStage{
 		WillCreate,
@@ -186,10 +187,10 @@ func TestComponent_LifeCycleSequence(t *testing.T) {
 }
 
 type TestComp struct {
-	LiveComponentWrapper
+	Wrapper
 }
 
-func (tc *TestComp) TemplateHandler(_ *LiveComponent) string {
+func (tc *TestComp) TemplateHandler(_ *Component) string {
 	return `
 		<div>
 			<div></div>
@@ -205,7 +206,7 @@ func (tc *TestComp) TemplateHandler(_ *LiveComponent) string {
 func TestComponent_ComponentSignTemplate(t *testing.T) {
 	var err error
 	c := NewLiveComponent("Test", &TestComp{})
-	c.log = NewLoggerBasic().Log
+	c.Log = golive.NewLoggerBasic().Log
 	err = c.Create(nil)
 
 	if err != nil {
