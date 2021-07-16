@@ -33,10 +33,5 @@ func (l *Wrapper) BeforeUnmount(_ *Component) {
 func (l *Wrapper) Commit() {
 	l.Component.Log(golive.LogTrace, "Updated", golive.LogEx{"name": l.Component.Name})
 
-	if l.Component.life == nil {
-		l.Component.Log(golive.LogError, "call to commit on unmounted Component", golive.LogEx{"name": l.Component.Name})
-		return
-	}
-
 	l.Component.Update()
 }

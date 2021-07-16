@@ -57,7 +57,7 @@ func (s *Server) HandleFirstRequest(lc *Component, c PageContent) (*Response, er
 	// that will be needed in mount
 	session.ActivatePage(p)
 
-	p.Mount()
+	p.Create()
 
 	rendered, err := p.Render()
 
@@ -198,7 +198,7 @@ func (s *Server) HandleWSRequest(c *websocket.Conn) {
 					s.Log(golive.LogError, "close websocket connection", golive.LogEx{"error": err})
 				}
 
-				if err := session.LivePage.EntryComponent.Kill(); err != nil {
+				if err := session.LivePage.EntryComponent.Unmount(); err != nil {
 					s.Log(golive.LogError, "handle ws request: kill page", golive.LogEx{"error": err})
 				}
 

@@ -82,29 +82,30 @@ func (lp *Page) SetContent(c PageContent) {
 	lp.content = c
 }
 
-// Mount main component from page in sequence of life cycle
-func (lp *Page) Mount() {
+// Create main component from page in sequence of life cycle
+func (lp *Page) Create() {
 
-	// Enable components lifecycle channel receiver
-	lp.enableComponentLifeCycleReceiver()
+	ctx := lp.EntryComponent.Context
+
+	ctx.InjectHook("Created", func() {
+		lp.Emit(PageComponentMounted, lp.EntryComponent)
+	})
+
+	ctx.InjectHook("Update", func() {
+		lp.Emit(PageComponentUpdated, lp.EntryComponent)
+	})
 
 	// pass mount live Component with lifecycle channel
-	err := lp.EntryComponent.Create(lp.ComponentsLifeCycle)
+	err := lp.EntryComponent.Create()
 
 	if err != nil {
 		panic(fmt.Errorf("mount: create entryComponent: %w", err))
 	}
 
-	err = lp.EntryComponent.Mount()
-
-	if err != nil {
-		panic(err)
-	}
-
 }
 
 func (lp *Page) Render() (string, error) {
-	rendered, err := lp.EntryComponent.Render()
+	rendered, err := lp.EntryComponent.RenderStatic()
 
 	if err != nil {
 		return "", fmt.Errorf("entry component render: %w", err)
@@ -151,56 +152,26 @@ func (lp *Page) EmitWithSource(lts int, c *Component, source *EventSource) {
 
 func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
-	c := lp.EntryComponent.FindComponentByID(m.ComponentID)
+	c := lp.EntryComponent
 
 	if c == nil {
 		return fmt.Errorf("Component not found with id: %s", m.ComponentID)
 	}
 
-	var source *EventSource
 	var err error
 	switch m.Name {
 	case EventLiveInput:
 		err = c.State.SetValueInPath(m.StateValue, m.StateKey)
-		source = &EventSource{Type: EventSourceInput, Value: m.StateKey}
 	case EventLiveMethod:
 		err = c.State.InvokeMethodInPath(m.MethodName, []reflect.Value{reflect.ValueOf(m.MethodData), reflect.ValueOf(m.DOMEvent)})
 	case EventLiveDisconnect:
-		err = c.Kill()
+		err = c.Unmount()
 	}
 
-	c.UpdateWithSource(source)
+	c.Update()
 
 	return err
 }
 
 const PageComponentUpdated = 1
 const PageComponentMounted = 2
-
-func (lp *Page) enableComponentLifeCycleReceiver() {
-
-	go func() {
-		for {
-			ls := <-*lp.ComponentsLifeCycle
-
-			switch ls.Stage {
-			case Created:
-				lp.Emit(PageComponentMounted, ls.Component)
-				break
-			case WillMount:
-				break
-			case Mounted:
-				break
-			case Updated:
-				lp.EmitWithSource(PageComponentUpdated, ls.Component, ls.Source)
-				break
-			case WillUnmount:
-				break
-			case Unmounted:
-				break
-			case Rendered:
-				break
-			}
-		}
-	}()
-}

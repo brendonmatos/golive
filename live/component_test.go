@@ -173,12 +173,7 @@ func TestComponent_LifeCycleSequence(t *testing.T) {
 		}
 	}()
 
-	err := c.Create(&lc)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = c.Mount()
+	err := c.Create()
 	if err != nil {
 		t.Error(err)
 	}
