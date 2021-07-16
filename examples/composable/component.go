@@ -32,13 +32,13 @@ func NewCounter(actual int) *live.Component {
 		}
 	}()
 
-	err := c.UseRender(renderer.NewRenderer(renderer.NewTemplateRenderer(`
+	err := c.UseRender(renderer.NewTemplateRenderer(`
 		<div>
 			<button gl-click="Increase">Increase</button>
 			<div>{{ .Actual }}</div>
 			<input type="text" gl-input="Actual" />
 		</div>
-	`)))
+	`))
 
 	if err != nil {
 		panic(err)

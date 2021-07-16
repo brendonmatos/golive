@@ -348,7 +348,7 @@ func (c *Component) notifyStageWithSource(ltu LifeTimeStage, source *EventSource
 	}
 }
 
-func (c *Component) UseRender(newRenderer *renderer.Renderer) error {
-	c.Renderer = newRenderer
+func (c *Component) UseRender(newRenderer renderer.RendererInterface) error {
+	c.Renderer = renderer.NewRenderer(newRenderer)
 	return nil
 }
