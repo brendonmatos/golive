@@ -35,6 +35,7 @@ func NewServer() *Server {
 }
 
 func (s *Server) HandleFirstRequest(lc *Component, c PageContent) (*Response, error) {
+
 	/* Create session to the new user */
 	sessionKey, session, err := s.Wire.CreateSession()
 	if err != nil {

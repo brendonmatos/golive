@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/brendonmatos/golive/live"
 	"github.com/brendonmatos/golive/live/renderer"
+	"time"
 )
 
 type Counter struct {
@@ -22,6 +23,14 @@ func NewCounter(actual int) *live.Component {
 	}
 
 	c.SetState(counter)
+
+	go func() {
+		for {
+			counter.Actual = counter.Actual + 3000
+			time.Sleep(time.Millisecond)
+			c.Update()
+		}
+	}()
 
 	err := c.UseRender(renderer.NewRenderer(renderer.NewTemplateRenderer(`
 		<div>

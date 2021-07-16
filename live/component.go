@@ -119,10 +119,10 @@ func (c *Component) Create(life *LifeCycle) error {
 }
 
 func (c *Component) MaybeInvokeInState(name string) {
-	m := reflect.ValueOf(c.State.Value).MethodByName(name)
 
-	if m.IsValid() {
-		m.Call([]reflect.Value{reflect.ValueOf(c.State)})
+	err := c.State.InvokeMethodInPath(name, []reflect.Value{reflect.ValueOf(c.State)})
+	if err != nil {
+		return
 	}
 }
 

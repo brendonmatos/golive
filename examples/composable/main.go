@@ -11,9 +11,8 @@ func main() {
 	app := fiber.New()
 	liveServer := live.NewServer()
 
-	counter := NewCounter(1)
-
 	app.Get("/", liveServer.CreateHTMLHandler(func() *live.Component {
+		counter := NewCounter(1)
 		return counter
 	}, live.PageContent{
 		Lang:  "us",
