@@ -53,7 +53,6 @@ func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {
 
 	if renderString != nil {
 		*renderString = signRender(*renderString)
-		fmt.Println(*renderString)
 		err = r.State.SetText(*renderString)
 		if err != nil {
 			return "", nil, fmt.Errorf("set text: %w", err)
