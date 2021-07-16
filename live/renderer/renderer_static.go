@@ -7,23 +7,25 @@ import (
 )
 
 type StaticRenderer struct {
-	Template string
-	Handler  func(state *state.State) []interface{}
-}
-
-func (s *StaticRenderer) Prepare(state *State) {
-	s.Template = signHtmlString(s.Template, state.Identifier)
+	template string
+	handler  func(state *state.State) []interface{}
 }
 
 func NewStaticRenderer(t string, h func(state *state.State) []interface{}) *StaticRenderer {
 	return &StaticRenderer{
-		Template: t,
-		Handler:  h,
+		template: t,
+		handler:  h,
 	}
 }
 
-func (s *StaticRenderer) Render(state *state.State) (string, *html.Node, error) {
-	result := fmt.Sprintf(s.Template, s.Handler(state)...)
+func (s *StaticRenderer) Prepare(state *State) error {
+	s.template = signHtmlTemplate(s.template, state.Identifier)
 
-	return result, nil, nil
+	return nil
+}
+
+func (s *StaticRenderer) Render(state *state.State) (*string, *html.Node, error) {
+	result := fmt.Sprintf(s.template, s.handler(state)...)
+
+	return &result, nil, nil
 }

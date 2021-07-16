@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/live/renderer"
 	"strings"
 )
 
@@ -128,7 +129,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *Even
 			return nil, fmt.Errorf("selector from node: %w instruction: %v", err, instruction)
 		}
 
-		componentID, err := componentIDFromNode(instruction.Element)
+		componentID, err := renderer.ComponentIDFromNode(instruction.Element)
 
 		if err != nil {
 			return nil, err

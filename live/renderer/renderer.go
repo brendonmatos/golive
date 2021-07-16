@@ -1,32 +1,39 @@
 package renderer
 
 import (
+	"errors"
 	"fmt"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/live/state"
 	"golang.org/x/net/html"
 )
 
-type Type interface {
-	Prepare(state *State)
-	Render(state *state.State) (string, *html.Node, error)
+var (
+	ErrComponentNotFound       = errors.New("component not found")
+	ErrComponentNotFoundToNode = errors.New("component not found to specified node")
+)
+
+type RendererInterface interface {
+	Prepare(state *State) error
+	Render(state *state.State) (*string, *html.Node, error)
 }
 
 type Renderer struct {
 	State      *State
-	Renderer   Type
+	Renderer   RendererInterface
 	Formatters []func(t *html.Node)
 }
 
-func NewRenderer(id string, r Type) *Renderer {
+func NewRenderer(r RendererInterface) *Renderer {
 	return &Renderer{
-		State:    NewRenderState(id),
+		State:    nil,
 		Renderer: r,
 	}
 }
 
-func (r *Renderer) Prepare() {
-	r.Renderer.Prepare(r.State)
+func (r *Renderer) Prepare(id string) error {
+	r.State = NewRenderState(id)
+	return r.Renderer.Prepare(r.State)
 }
 
 func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {
@@ -39,16 +46,18 @@ func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {
 
 	if renderHtml != nil {
 		err := r.State.SetHTML(renderHtml)
-
 		if err != nil {
 			return "", nil, err
 		}
 	}
 
-	err = r.State.SetText(renderString)
-
-	if err != nil {
-		return "", nil, fmt.Errorf("set text: %w", err)
+	if renderString != nil {
+		*renderString = signRender(*renderString)
+		fmt.Println(*renderString)
+		err = r.State.SetText(*renderString)
+		if err != nil {
+			return "", nil, fmt.Errorf("set text: %w", err)
+		}
 	}
 
 	// Do state html job
@@ -77,4 +86,13 @@ func (r *Renderer) RenderStateDiff(state *state.State) (*differ.Diff, error) {
 
 func (r *Renderer) UseFormatter(f func(t *html.Node)) {
 	r.Formatters = append(r.Formatters, f)
+}
+
+func ComponentIDFromNode(e *html.Node) (string, error) {
+	for parent := e; parent != nil; parent = parent.Parent {
+		if componentAttr := differ.GetAttribute(parent, differ.ComponentIdAttrKey); componentAttr != nil {
+			return componentAttr.Val, nil
+		}
+	}
+	return "", ErrComponentNotFoundToNode
 }

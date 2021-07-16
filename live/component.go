@@ -9,17 +9,14 @@ import (
 	"github.com/brendonmatos/golive/live/state"
 	"github.com/brendonmatos/golive/live/util"
 	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 	"html/template"
 	"reflect"
 )
 
 var (
-	ErrComponentNotPrepared    = errors.New("component need to be prepared")
-	ErrComponentWithoutLog     = errors.New("component without log defined")
-	ErrComponentNil            = errors.New("component nil")
-	ErrComponentNotFound       = errors.New("component not found")
-	ErrComponentNotFoundToNode = errors.New("component not found to specified node")
+	ErrComponentNotPrepared = errors.New("component need to be prepared")
+	ErrComponentWithoutLog  = errors.New("component without log defined")
+	ErrComponentNil         = errors.New("component nil")
 )
 
 type LifeTime interface {
@@ -52,9 +49,9 @@ func DefineComponent(name string) *Component {
 	s := state.NewState()
 
 	uid := util.CreateUniqueName(name)
-	r := renderer.NewRenderer(uid, renderer.NewStaticRenderer("", func(state *state.State) []interface{} {
-		return []interface{}{}
-	}))
+
+	r := renderer.NewRenderer(renderer.NewTemplateRenderer(""))
+
 	return &Component{
 		Name:     uid,
 		State:    s,
@@ -67,7 +64,11 @@ func NewLiveComponent(name string, component interface{}) *Component {
 
 	uid := util.CreateUniqueName(name)
 
-	r := renderer.NewRenderer(uid, &renderer.TemplateRenderer{})
+	r := renderer.NewRenderer(renderer.NewTemplateRenderer(""))
+
+	r.UseFormatter(func(t *html.Node) {
+
+	})
 
 	s := state.NewState()
 
@@ -95,11 +96,11 @@ func (c *Component) Create(life *LifeCycle) error {
 
 	c.notifyStage(WillCreate)
 
-	c.Renderer.UseFormatter(func(t *html.Node) {
-		_ = c.treatRender(t)
-	})
+	err = c.Renderer.Prepare(c.Name)
 
-	c.Renderer.Prepare()
+	if err != nil {
+		return fmt.Errorf("renderer prepare: %w", err)
+	}
 
 	// Calling Component creation
 	c.MaybeInvokeInState("Create")
@@ -107,7 +108,7 @@ func (c *Component) Create(life *LifeCycle) error {
 	err = c.createChildren()
 
 	if err != nil {
-		return err
+		return fmt.Errorf("create children: %w", err)
 	}
 
 	c.IsCreated = true
@@ -290,7 +291,7 @@ func (c *Component) createChild(child *Component) error {
 	child.Log = c.Log
 	err := child.Create(c.life)
 	if err != nil {
-		return err
+		return fmt.Errorf("create child: create: %w", err)
 	}
 	c.children = append(c.children, child)
 	return nil
@@ -347,84 +348,7 @@ func (c *Component) notifyStageWithSource(ltu LifeTimeStage, source *EventSource
 	}
 }
 
-func (c *Component) treatRender(dom *html.Node) error {
-
-	// Post treatment
-	for _, node := range differ.GetAllChildrenRecursive(dom) {
-
-		if goLiveInputAttr := differ.GetAttribute(node, "gl-input"); goLiveInputAttr != nil {
-			differ.AddNodeAttribute(node, ":value", goLiveInputAttr.Val)
-		}
-
-		if valueAttr := differ.GetAttribute(node, ":value"); valueAttr != nil {
-			differ.RemoveNodeAttribute(node, ":value")
-
-			cid, err := componentIDFromNode(node)
-
-			if err != nil {
-				return err
-			}
-
-			foundComponent := c.FindComponentByID(cid)
-
-			if foundComponent == nil {
-				return ErrComponentNotFound
-			}
-
-			f, err := foundComponent.State.GetFieldFromPath(valueAttr.Val)
-
-			if err != nil {
-				return nil
-			}
-
-			if inputTypeAttr := differ.GetAttribute(node, "type"); inputTypeAttr != nil {
-				switch inputTypeAttr.Val {
-				case "checkbox":
-					if f.Bool() {
-						differ.AddNodeAttribute(node, "checked", "checked")
-					} else {
-						differ.RemoveNodeAttribute(node, "checked")
-					}
-					break
-				}
-			} else if node.DataAtom == atom.Textarea {
-				n, err := differ.NodeFromString(fmt.Sprintf("%v", f))
-
-				if n == nil || n.FirstChild == nil {
-					continue
-				}
-
-				if err != nil {
-					continue
-				}
-
-				child := n.FirstChild
-
-				n.RemoveChild(child)
-
-				node.AppendChild(child)
-			} else {
-				differ.AddNodeAttribute(node, "value", fmt.Sprintf("%v", f))
-			}
-		}
-
-		if disabledAttr := differ.GetAttribute(node, ":disabled"); disabledAttr != nil {
-			differ.RemoveNodeAttribute(node, ":disabled")
-			if disabledAttr.Val == "true" {
-				differ.AddNodeAttribute(node, "disabled", "")
-			} else {
-				differ.RemoveNodeAttribute(node, "disabled")
-			}
-		}
-	}
+func (c *Component) UseRender(newRenderer *renderer.Renderer) error {
+	c.Renderer = newRenderer
 	return nil
-}
-
-func componentIDFromNode(e *html.Node) (string, error) {
-	for parent := e; parent != nil; parent = parent.Parent {
-		if componentAttr := differ.GetAttribute(parent, differ.ComponentIdAttrKey); componentAttr != nil {
-			return componentAttr.Val, nil
-		}
-	}
-	return "", ErrComponentNotFoundToNode
 }

@@ -57,7 +57,17 @@ func (s *State) InvokeMethodInPath(path string, args []reflect.Value) error {
 		return fmt.Errorf("not a valid function: %v", path)
 	}
 
-	m.Call(args)
+	// TODO: check for errors when calling
+	switch m.Type().NumIn() {
+	case 0:
+		m.Call(nil)
+	case 1:
+		m.Call(
+			[]reflect.Value{args[0]},
+		)
+	case 2:
+		m.Call(args)
+	}
 
 	return nil
 }

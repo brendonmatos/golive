@@ -56,10 +56,8 @@ func (s *Server) HandleFirstRequest(lc *Component, c PageContent) (*Response, er
 	// that will be needed in mount
 	session.ActivatePage(p)
 
-	// Mount page
 	p.Mount()
 
-	// Render page
 	rendered, err := p.Render()
 
 	if err != nil {

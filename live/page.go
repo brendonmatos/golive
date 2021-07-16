@@ -15,8 +15,6 @@ var BasePage *template.Template
 var BasePageString string
 
 func init() {
-	fmt.Println(BasePageString)
-
 	var err error
 	BasePage, err = template.New("BasePage").Parse(BasePageString)
 	if err != nil {
