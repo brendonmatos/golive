@@ -332,7 +332,7 @@ const dataFromElementAttributes = (el) => {
     let data = {};
     for (let i = 0; i < attrs.length; i++) {
         if (attrs[i].name.startsWith("gl-data-")) {
-            data[attrs[i].name.substring(13)] = attrs[i].value;
+            data[attrs[i].name.substring(8)] = attrs[i].value;
         }
     }
 
