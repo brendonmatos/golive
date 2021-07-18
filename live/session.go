@@ -132,7 +132,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *Even
 		componentID, err := renderer.ComponentIDFromNode(instruction.Element)
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get component id from node: %w", err)
 		}
 
 		var patch *differ.PatchBrowser

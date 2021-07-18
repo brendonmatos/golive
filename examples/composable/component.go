@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/brendonmatos/golive/live"
 	"github.com/brendonmatos/golive/live/renderer"
 	"time"
@@ -25,8 +24,7 @@ func NewCounter(actual int) *live.Component {
 
 	component.SetState(counter)
 
-	live.OnUpdate(component, func() {
-		fmt.Println("on created")
+	live.OnCreated(component, func() {
 		go func() {
 			for {
 				counter.Actual = counter.Actual + 3000

@@ -2,22 +2,26 @@ package live
 
 import (
 	"github.com/brendonmatos/golive"
+	"github.com/brendonmatos/golive/live/renderer"
 	"sync"
 	"testing"
 	"time"
 )
 
 type Pet struct {
-	Wrapper
 	Name  string
 	Age   int
 	Awake bool
 }
 
-var petComponent = NewLiveComponent("pet", &Pet{
-	Name: "Catdog",
-	Age:  12,
-})
+var petComponent = DefineComponent("pet")
+
+func init() {
+	petComponent.SetState(&Pet{
+		Name: "Catdog",
+		Age:  12,
+	})
+}
 
 func TestLiveComponent_GetFieldFromPath(t *testing.T) {
 	field, _ := petComponent.State.GetFieldFromPath("Name")
@@ -96,35 +100,39 @@ func TestLiveComponent_SetValueInPathWithBoolean2(t *testing.T) {
 }
 
 type Clock struct {
-	Wrapper
-}
-
-func NewClock() *Component {
-	return NewLiveComponent("Clock", &Clock{})
 }
 
 func (c *Clock) ActualTime() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-func (c *Clock) Mounted(l *Component) {
-	go func() {
-		for {
-			if l.Exited {
-				return
-			}
-			time.Sleep(time.Second)
-			c.Commit()
-		}
-	}()
-}
+func NewClock() *Component {
+	c := DefineComponent("Clock")
 
-func (c *Clock) TemplateHandler(_ *Component) string {
-	return `
-		<div>
-			<span>Time: {{ .ActualTime }}</span>
-		</div>
-	`
+	c.SetState(&Clock{})
+
+	OnCreated(c, func() {
+		go func() {
+			for {
+				if c.Context.Done {
+					return
+				}
+				time.Sleep(time.Second)
+				c.Update()
+			}
+		}()
+	})
+
+	err := c.UseRender(renderer.NewTemplateRenderer(`
+			<div>
+				<span>Time: {{ .ActualTime }}</span>
+			</div>
+		`))
+	if err != nil {
+		return nil
+	}
+
+	return c
 }
 
 func TestComponent_LifeCycleSequence(t *testing.T) {
@@ -196,22 +204,4 @@ func (tc *TestComp) TemplateHandler(_ *Component) string {
 			<div></div>
 		</div>
 	`
-}
-
-func TestComponent_ComponentSignTemplate(t *testing.T) {
-	var err error
-	c := NewLiveComponent("Test", &TestComp{})
-	c.Log = golive.NewLoggerBasic().Log
-	err = c.Create(nil)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = c.Mount()
-
-	if err != nil {
-		t.Error(err)
-	}
-
 }

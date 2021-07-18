@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"fmt"
 	"github.com/brendonmatos/golive/differ"
 	"golang.org/x/net/html"
 )
@@ -23,12 +24,20 @@ func (ls *State) SetText(text string) error {
 	var err error
 	ls.html, err = differ.NodeFromString(text)
 	ls.text = text
-	return err
+	if err != nil {
+		return fmt.Errorf("node from string: %w", err)
+	}
+
+	return nil
 }
 
 func (ls *State) SetHTML(node *html.Node) error {
 	var err error
 	ls.text, err = differ.RenderInnerHTML(node)
 	ls.html = node
-	return err
+	if err != nil {
+		return fmt.Errorf("render inner html: %w", err)
+	}
+
+	return nil
 }

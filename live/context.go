@@ -1,12 +1,11 @@
 package live
 
-import "fmt"
-
 type Context struct {
 	Parent *Context
 	Hooks
 	Children []*Context
-	Global   *Context
+	Root     *Context
+	Done     bool
 }
 
 type Hooks map[string][]Hook
@@ -14,13 +13,16 @@ type Hooks map[string][]Hook
 type Hook func()
 
 func NewContext() *Context {
-	return &Context{Children: []*Context{}, Hooks: Hooks{}}
+	c := &Context{Children: []*Context{}, Hooks: Hooks{}}
+	c.Root = c
+	return c
 }
 
 func (c *Context) Child() *Context {
-	ctx := NewContext()
-	ctx.Parent = c
-	c.Children = append(c.Children, ctx)
+	child := NewContext()
+	child.Root = c.Root
+	child.Parent = c
+	c.Children = append(c.Children, child)
 	return c
 }
 
@@ -41,35 +43,13 @@ func (c *Context) Inherit(i *Context) {
 }
 
 func (c *Context) InjectGlobalHook(targetType string, hook Hook) {
-
-	r := c.GetRoot()
-
-	if r.Global == nil {
-		r.Global = NewContext()
-	}
-
-	g := r.Global
-
-	g.InjectHook(targetType, hook)
-}
-
-func (c *Context) GetRoot() *Context {
-	w := c
-	for {
-		if c.Parent == nil {
-			break
-		}
-
-		w = c.Parent
-	}
-
-	return w
+	r := c.Root
+	r.InjectHook(targetType, hook)
 }
 
 func (c *Context) CallHook(target string) error {
-	fmt.Println("calling", target, len(c.Hooks))
+
 	if c.Hooks[target] == nil {
-		fmt.Println("hooks undefined", target)
 		return nil
 	}
 
@@ -77,11 +57,11 @@ func (c *Context) CallHook(target string) error {
 		hook()
 	}
 
-	g := c.GetRoot().Global
+	r := c.Root
 
-	if g != nil {
-		g.CallHook(target)
+	if r == c {
+		return nil
 	}
 
-	return nil
+	return r.CallHook(target)
 }

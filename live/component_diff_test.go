@@ -41,17 +41,18 @@ func (l *diffComponent) TemplateHandler(_ *Component) string {
 func newDiffTest(d diffTest) diffTest {
 	dc := diffComponent{}
 
-	c := NewLiveComponent("testcomp", &dc)
+	c := DefineComponent("testcomp")
 
-	d.component = c
+	c.SetState(dc)
+
 	c.Log = golive.NewLoggerBasic().Log
 
 	dc.testTemplate = d.template
 
-	_ = c.Create(nil)
-	_ = c.Mount()
-
-	_, _ = c.Render()
+	err := c.Create()
+	if err != nil {
+		panic(err)
+	}
 
 	dc.Check = true
 

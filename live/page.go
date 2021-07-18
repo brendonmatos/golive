@@ -87,11 +87,11 @@ func (lp *Page) Create() {
 
 	ctx := lp.EntryComponent.Context
 
-	ctx.InjectHook("Created", func() {
+	ctx.InjectGlobalHook("Created", func() {
 		lp.Emit(PageComponentMounted, lp.EntryComponent)
 	})
 
-	ctx.InjectHook("Update", func() {
+	ctx.InjectGlobalHook("Update", func() {
 		lp.Emit(PageComponentUpdated, lp.EntryComponent)
 	})
 
