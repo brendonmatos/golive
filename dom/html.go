@@ -79,7 +79,7 @@ func RenderInnerHTML(parent *html.Node) (string, error) {
 	return RenderNodesToString(nodeChildren(parent))
 }
 
-func SelectorFromNode(e *html.Node) (*DomSelector, error) {
+func SelectorFromNode(e *html.Node) (*Selector, error) {
 
 	if e == nil {
 		return nil, ErrElementNotFound

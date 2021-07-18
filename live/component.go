@@ -74,12 +74,6 @@ func DefineComponent(name string) *Component {
 
 func (c *Component) SignRender(node *html.Node) error {
 
-	innerHTML, err := dom.RenderInnerHTML(node)
-	if err != nil {
-		return err
-	}
-	fmt.Println("signing render", innerHTML)
-
 	// Post treatment
 	for _, node := range dom.GetAllChildrenRecursive(node, c.Name) {
 
@@ -138,8 +132,8 @@ func (c *Component) SignRender(node *html.Node) error {
 	return nil
 }
 
-func (c *Component) CallHook(name string) {
-	c.Context.CallHook(name)
+func (c *Component) CallHook(name string) error {
+	return c.Context.CallHook(name)
 }
 
 func (c *Component) SetState(i interface{}) {
@@ -153,13 +147,19 @@ func (c *Component) Mount() error {
 		return ErrComponentWithoutLog
 	}
 
-	c.CallHook(BeforeMount)
+	err = c.CallHook(BeforeMount)
+	if err != nil {
+		return fmt.Errorf("before mount hook: %w", err)
+	}
 
 	if err = c.Renderer.Prepare(c.Name); err != nil {
 		return fmt.Errorf("renderer prepare: %w", err)
 	}
 
-	c.CallHook(Mounted)
+	err = c.CallHook(Mounted)
+	if err != nil {
+		return fmt.Errorf("mounted: %w", err)
+	}
 
 	return err
 }

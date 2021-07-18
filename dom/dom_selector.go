@@ -2,36 +2,36 @@ package dom
 
 import "strings"
 
-type DomSelector struct {
+type Selector struct {
 	query []*domElemSelector
 }
 
-func newDomSelector() *DomSelector {
-	return &DomSelector{
+func newDomSelector() *Selector {
+	return &Selector{
 		query: make([]*domElemSelector, 0),
 	}
 }
 
-func (ds *DomSelector) addChild() *domElemSelector {
+func (ds *Selector) addChild() *domElemSelector {
 	de := newDOMElementSelector()
 	ds.addChildSelector(de)
 	return de
 }
 
-func (ds *DomSelector) addParentSelector(d *domElemSelector) {
+func (ds *Selector) addParentSelector(d *domElemSelector) {
 	ds.query = append([]*domElemSelector{d}, ds.query...)
 }
 
-func (ds *DomSelector) addChildSelector(d *domElemSelector) {
+func (ds *Selector) addChildSelector(d *domElemSelector) {
 	ds.query = append(ds.query, d)
 }
-func (ds *DomSelector) addParent() *domElemSelector {
+func (ds *Selector) addParent() *domElemSelector {
 	de := newDOMElementSelector()
 	ds.addParentSelector(de)
 	return de
 }
 
-func (ds *DomSelector) ToString() string {
+func (ds *Selector) ToString() string {
 	var e []string
 
 	for _, q := range ds.query {
@@ -41,7 +41,7 @@ func (ds *DomSelector) ToString() string {
 	return strings.Join(e, " ")
 }
 
-func (ds *DomSelector) HasAttr(key string) bool {
+func (ds *Selector) HasAttr(key string) bool {
 	for _, q := range ds.query {
 		if q.HasAttr(key) {
 			return true
