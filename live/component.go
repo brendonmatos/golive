@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
+	dom "github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/context"
 	"github.com/brendonmatos/golive/live/renderer"
 	"github.com/brendonmatos/golive/live/state"
@@ -71,23 +72,23 @@ func DefineComponent(name string) *Component {
 	return c
 }
 
-func (c *Component) SignRender(dom *html.Node) error {
+func (c *Component) SignRender(node *html.Node) error {
 
-	innerHTML, err := differ.RenderInnerHTML(dom)
+	innerHTML, err := dom.RenderInnerHTML(node)
 	if err != nil {
 		return err
 	}
 	fmt.Println("signing render", innerHTML)
 
 	// Post treatment
-	for _, node := range differ.GetAllChildrenRecursive(dom, c.Name) {
+	for _, node := range dom.GetAllChildrenRecursive(node, c.Name) {
 
-		if goLiveInputAttr := differ.GetAttribute(node, GoLiveInput); goLiveInputAttr != nil {
-			differ.AddNodeAttribute(node, ":value", goLiveInputAttr.Val)
+		if goLiveInputAttr := dom.GetAttribute(node, GoLiveInput); goLiveInputAttr != nil {
+			dom.AddNodeAttribute(node, ":value", goLiveInputAttr.Val)
 		}
 
-		if valueAttr := differ.GetAttribute(node, ":value"); valueAttr != nil {
-			differ.RemoveNodeAttribute(node, ":value")
+		if valueAttr := dom.GetAttribute(node, ":value"); valueAttr != nil {
+			dom.RemoveNodeAttribute(node, ":value")
 
 			f, err := c.State.GetFieldFromPath(valueAttr.Val)
 
@@ -95,18 +96,18 @@ func (c *Component) SignRender(dom *html.Node) error {
 				return err
 			}
 
-			if inputTypeAttr := differ.GetAttribute(node, "type"); inputTypeAttr != nil {
+			if inputTypeAttr := dom.GetAttribute(node, "type"); inputTypeAttr != nil {
 				switch inputTypeAttr.Val {
 				case "checkbox":
 					if f.Bool() {
-						differ.AddNodeAttribute(node, "checked", "true")
+						dom.AddNodeAttribute(node, "checked", "true")
 					} else {
-						differ.RemoveNodeAttribute(node, "checked")
+						dom.RemoveNodeAttribute(node, "checked")
 					}
 					break
 				}
 			} else if node.DataAtom == atom.Textarea {
-				n, err := differ.NodeFromString(fmt.Sprintf("%v", f))
+				n, err := dom.NodeFromString(fmt.Sprintf("%v", f))
 
 				if n == nil || n.FirstChild == nil {
 					continue
@@ -121,16 +122,16 @@ func (c *Component) SignRender(dom *html.Node) error {
 				n.RemoveChild(child)
 				node.AppendChild(child)
 			} else {
-				differ.AddNodeAttribute(node, "value", fmt.Sprintf("%v", f))
+				dom.AddNodeAttribute(node, "value", fmt.Sprintf("%v", f))
 			}
 		}
 
-		if disabledAttr := differ.GetAttribute(node, ":disabled"); disabledAttr != nil {
-			differ.RemoveNodeAttribute(node, ":disabled")
+		if disabledAttr := dom.GetAttribute(node, ":disabled"); disabledAttr != nil {
+			dom.RemoveNodeAttribute(node, ":disabled")
 			if disabledAttr.Val == "true" {
-				differ.AddNodeAttribute(node, "disabled", "")
+				dom.AddNodeAttribute(node, "disabled", "")
 			} else {
-				differ.RemoveNodeAttribute(node, "disabled")
+				dom.RemoveNodeAttribute(node, "disabled")
 			}
 		}
 	}

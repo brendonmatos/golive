@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/renderer"
 	"strings"
 )
@@ -120,7 +121,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *Even
 
 	for _, instruction := range diff.Instructions {
 
-		selector, err := differ.SelectorFromNode(instruction.Element)
+		selector, err := dom.SelectorFromNode(instruction.Element)
 		if skipUpdateValueOnInput(instruction, source) {
 			continue
 		}
@@ -172,7 +173,7 @@ func skipUpdateValueOnInput(in differ.ChangeInstruction, source *EventSource) bo
 		return false
 	}
 
-	attr := differ.GetAttribute(in.Element, GoLiveInput)
+	attr := dom.GetAttribute(in.Element, GoLiveInput)
 
 	return attr != nil && source.Type == EventSourceInput && attr.Val == source.Value
 }

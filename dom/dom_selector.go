@@ -1,4 +1,4 @@
-package differ
+package dom
 
 import "strings"
 
@@ -41,6 +41,16 @@ func (ds *DomSelector) ToString() string {
 	return strings.Join(e, " ")
 }
 
+func (ds *DomSelector) HasAttr(key string) bool {
+	for _, q := range ds.query {
+		if q.HasAttr(key) {
+			return true
+		}
+	}
+
+	return false
+}
+
 type domElemSelector struct {
 	query []string
 }
@@ -58,6 +68,11 @@ func (de *domElemSelector) setElement(element string) {
 func (de *domElemSelector) addAttr(key, value string) {
 	de.query = append(de.query, "[", key, "=\"", value, "\"]")
 }
+
 func (de *domElemSelector) ToString() string {
 	return strings.Join(de.query, "")
+}
+
+func (de *domElemSelector) HasAttr(attr string) bool {
+	return strings.Contains(de.ToString(), attr)
 }

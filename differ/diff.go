@@ -1,6 +1,7 @@
 package differ
 
 import (
+	"github.com/brendonmatos/golive/dom"
 	"golang.org/x/net/html"
 	"strconv"
 )
@@ -82,11 +83,11 @@ func (d *Diff) diffNode(actual, proposed *html.Node) {
 		return
 	}
 
-	uidActual, actualOk := getLiveUidAttributeValue(actual)
-	uidProposed, proposedOk := getLiveUidAttributeValue(proposed)
+	uidActual, actualOk := dom.GetLiveUidAttributeValue(actual)
+	uidProposed, proposedOk := dom.GetLiveUidAttributeValue(proposed)
 
 	if actualOk && proposedOk && uidActual != uidProposed {
-		content, _ := RenderNodeToString(proposed)
+		content, _ := dom.RenderNodeToString(proposed)
 		d.Instructions = append(d.Instructions, ChangeInstruction{
 			ChangeType: Replace,
 			Element:    actual,
@@ -124,7 +125,7 @@ func (d *Diff) diffWalk(actual, proposed *html.Node) {
 		return
 	}
 
-	if nodeIsText(actual) || nodeIsText(proposed) {
+	if dom.NodeIsText(actual) || dom.NodeIsText(proposed) {
 		d.checkpoint()
 		d.diffTextNode(actual, proposed)
 		if d.changed() {
@@ -137,8 +138,8 @@ func (d *Diff) diffWalk(actual, proposed *html.Node) {
 		goto next
 	}
 
-	if actual == nil && proposed != nil && nodeIsElement(proposed) {
-		nodeContent, _ := RenderNodeToString(proposed)
+	if actual == nil && proposed != nil && dom.NodeIsElement(proposed) {
+		nodeContent, _ := dom.RenderNodeToString(proposed)
 
 		d.Instructions = append(d.Instructions, ChangeInstruction{
 			ChangeType: Append,
@@ -150,7 +151,7 @@ func (d *Diff) diffWalk(actual, proposed *html.Node) {
 		goto next
 	}
 
-	if proposed == nil && actual != nil && nodeIsElement(actual) {
+	if proposed == nil && actual != nil && dom.NodeIsElement(actual) {
 		d.Instructions = append(d.Instructions, ChangeInstruction{
 			ChangeType: Remove,
 			Element:    actual,
@@ -161,8 +162,8 @@ func (d *Diff) diffWalk(actual, proposed *html.Node) {
 	}
 
 next:
-	nextActual := nextRelevantElement(actual)
-	nextProposed := nextRelevantElement(proposed)
+	nextActual := dom.NextRelevantElement(actual)
+	nextProposed := dom.NextRelevantElement(proposed)
 
 	/**
 	esse check serve para verificar
@@ -178,7 +179,7 @@ next:
 }
 
 func (d *Diff) forceRenderElementContent(proposed *html.Node) {
-	childrenHTML, _ := RenderInnerHTML(proposed)
+	childrenHTML, _ := dom.RenderInnerHTML(proposed)
 
 	d.Instructions = append(d.Instructions, ChangeInstruction{
 		ChangeType: SetInnerHTML,
@@ -192,8 +193,8 @@ func (d *Diff) forceRenderElementContent(proposed *html.Node) {
 // otherEl
 func (d *Diff) diffNodeAttributes(actual, proposed *html.Node) {
 
-	actualAttrs := AttrMapFromNode(actual)
-	proposedAttrs := AttrMapFromNode(proposed)
+	actualAttrs := dom.AttrMapFromNode(actual)
+	proposedAttrs := dom.AttrMapFromNode(proposed)
 
 	// Now iterate through the attributes in otherEl
 	for name, otherValue := range proposedAttrs {
@@ -227,12 +228,12 @@ func (d *Diff) diffNodeAttributes(actual, proposed *html.Node) {
 func (d *Diff) diffTextNode(actual, proposed *html.Node) {
 
 	// Any node is text
-	if !nodeIsText(proposed) && !nodeIsText(actual) {
+	if !dom.NodeIsText(proposed) && !dom.NodeIsText(actual) {
 		return
 	}
 
-	proposedIsRelevant := nodeRelevant(proposed)
-	actualIsRelevant := nodeRelevant(actual)
+	proposedIsRelevant := dom.NodeRelevant(proposed)
+	actualIsRelevant := dom.NodeRelevant(actual)
 
 	if !proposedIsRelevant && !actualIsRelevant {
 		return

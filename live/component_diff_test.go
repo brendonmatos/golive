@@ -3,6 +3,7 @@ package live
 import (
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/dom"
 	"reflect"
 	"regexp"
 	"runtime/debug"
@@ -94,8 +95,8 @@ func (d *diffTest) assert(expectations []instructionExpect, t *testing.T) {
 				t.Error("attributes are different given:", given.Attr, "expeted:", expected.attr)
 			}
 
-			if !reflect.DeepEqual(differ.PathToComponentRoot(given.Element), differ.PathToComponentRoot(expected.element)) {
-				t.Error("elements with different elements given:", differ.PathToComponentRoot(given.Element), "expeted:", differ.PathToComponentRoot(expected.element))
+			if !reflect.DeepEqual(dom.PathToComponentRoot(given.Element), dom.PathToComponentRoot(expected.element)) {
+				t.Error("elements with different elements given:", dom.PathToComponentRoot(given.Element), "expeted:", dom.PathToComponentRoot(expected.element))
 			}
 
 		}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/state"
 	"golang.org/x/net/html"
 )
@@ -94,7 +95,7 @@ func (r *Renderer) UseFormatter(f func(t *html.Node)) {
 
 func ComponentIDFromNode(e *html.Node) (string, error) {
 	for parent := e; parent != nil; parent = parent.Parent {
-		if componentAttr := differ.GetAttribute(parent, differ.ComponentIdAttrKey); componentAttr != nil {
+		if componentAttr := dom.GetAttribute(parent, dom.ComponentIdAttrKey); componentAttr != nil {
 			return componentAttr.Val, nil
 		}
 	}

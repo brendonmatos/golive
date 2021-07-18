@@ -1,7 +1,7 @@
 package renderer
 
 import (
-	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/util"
 	"regexp"
 	"strings"
@@ -32,7 +32,7 @@ func signHtmlTemplate(template string, uid string) string {
 
 	found := rxTagName.FindString(template)
 	if found != "" {
-		replaceWith := found + ` ` + differ.ComponentIdAttrKey + `="` + uid + `" `
+		replaceWith := found + ` ` + dom.ComponentIdAttrKey + `="` + uid + `" `
 		template = strings.Replace(template, found, replaceWith, 1)
 	}
 

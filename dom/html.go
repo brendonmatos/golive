@@ -1,4 +1,4 @@
-package differ
+package dom
 
 import (
 	"bytes"
@@ -16,6 +16,8 @@ var (
 )
 
 const ComponentIdAttrKey = "gl-cid"
+const ElementUidAttrKey = "gl-uid"
+const ElementKeyAttrKey = "key"
 
 // AttrMapFromNode todo
 func AttrMapFromNode(node *html.Node) map[string]string {
@@ -49,14 +51,14 @@ func NodeFromString(data string) (*html.Node, error) {
 	return parent, nil
 }
 
-// renderNodeToString todo
+// RenderNodeToString todo
 func RenderNodeToString(e *html.Node) (string, error) {
 	var b bytes.Buffer
 	err := html.Render(&b, e)
 	return b.String(), err
 }
 
-// renderNodesToString todo
+// RenderNodesToString todo
 func RenderNodesToString(nodes []*html.Node) (string, error) {
 	text := ""
 
@@ -85,24 +87,37 @@ func SelectorFromNode(e *html.Node) (*DomSelector, error) {
 
 	selector := newDomSelector()
 
-	for parent := e; parent != nil; parent = parent.Parent {
+	for ; e != nil; e = e.Parent {
 
 		es := newDOMElementSelector()
-		es.setElement("*")
+		es.setElement(e.DataAtom.String())
 
-		if signLiveUIToSelector(parent, es) {
-			selector.addParentSelector(es)
-		} else {
-			return nil, ErrElementNotSigned
+		if !selector.HasAttr(ElementUidAttrKey) {
+			goLiveUidAttr, found := GetLiveUidAttributeValue(e)
+
+			if found {
+				es.addAttr(ElementUidAttrKey, goLiveUidAttr)
+			}
 		}
 
-		if goLiveComponentIDAttr := GetAttribute(parent, ComponentIdAttrKey); goLiveComponentIDAttr != nil {
-			es.addAttr(ComponentIdAttrKey, goLiveComponentIDAttr.Val)
-			return selector, nil
+		if !selector.HasAttr(ElementKeyAttrKey) {
+			if keyAttr := GetAttribute(e, ElementKeyAttrKey); keyAttr != nil {
+				es.addAttr("key", keyAttr.Val)
+			}
+		}
+
+		//if !selector.HasAttr(ComponentIdAttrKey) {
+		//	if goLiveComponentIDAttr := GetAttribute(e, ComponentIdAttrKey); goLiveComponentIDAttr != nil {
+		//		es.addAttr(ComponentIdAttrKey, goLiveComponentIDAttr.Val)
+		//	}
+		//}
+
+		if len(es.query) > 1 {
+			selector.addParentSelector(es)
 		}
 	}
 
-	return nil, ErrCouldNotProvideValidSelector
+	return selector, nil
 }
 
 func selfIndexOfNode(n *html.Node) int {
@@ -180,18 +195,6 @@ func nodeChildrenElements(n *html.Node) []*html.Node {
 	return children
 }
 
-func signLiveUIToSelector(e *html.Node, selector *domElemSelector) bool {
-	if goLiveUidAttr := GetAttribute(e, "gl-uid"); goLiveUidAttr != nil {
-		selector.addAttr("gl-uid", goLiveUidAttr.Val)
-
-		if keyAttr := GetAttribute(e, "key"); keyAttr != nil {
-			selector.addAttr("key", keyAttr.Val)
-		}
-		return true
-	}
-	return false
-}
-
 // pathToComponentRoot todo
 func PathToComponentRoot(e *html.Node) []int {
 
@@ -231,8 +234,8 @@ func AddNodeAttribute(e *html.Node, key, value string) {
 	})
 }
 
-func getLiveUidAttributeValue(e *html.Node) (string, bool) {
-	a := GetAttribute(e, "gl-uid")
+func GetLiveUidAttributeValue(e *html.Node) (string, bool) {
+	a := GetAttribute(e, ElementUidAttrKey)
 
 	if a == nil {
 		return "", false
@@ -250,27 +253,27 @@ func GetAttribute(e *html.Node, key string) *html.Attribute {
 	return nil
 }
 
-func nodeIsText(node *html.Node) bool {
+func NodeIsText(node *html.Node) bool {
 	return node != nil && node.Type == html.TextNode
 }
 
-func nodeIsElement(node *html.Node) bool {
+func NodeIsElement(node *html.Node) bool {
 	return node != nil && node.Type == html.ElementNode
 }
 
-func nextRelevantElement(node *html.Node) *html.Node {
+func NextRelevantElement(node *html.Node) *html.Node {
 	if node == nil {
 		return nil
 	}
 
-	for node = node.NextSibling; !nodeRelevant(node) && node != nil; node = node.NextSibling {
+	for node = node.NextSibling; !NodeRelevant(node) && node != nil; node = node.NextSibling {
 
 	}
 
 	return node
 }
 
-func nodeRelevant(node *html.Node) bool {
+func NodeRelevant(node *html.Node) bool {
 	if node == nil {
 		return false
 	}

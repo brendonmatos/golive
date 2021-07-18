@@ -1,4 +1,4 @@
-package differ
+package dom
 
 import (
 	"reflect"
