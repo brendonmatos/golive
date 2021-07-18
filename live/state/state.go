@@ -50,26 +50,26 @@ func (s *State) GetFieldFromPath(path string) (*reflect.Value, error) {
 	return &v, nil
 }
 
-func (s *State) InvokeMethodInPath(path string, args []reflect.Value) error {
+func (s *State) InvokeMethodInPath(path string, args []reflect.Value) ([]reflect.Value, error) {
 	m := reflect.ValueOf(s.Value).MethodByName(path)
 
 	if !m.IsValid() {
-		return fmt.Errorf("not a valid function: %v", path)
+		return nil, fmt.Errorf("not a valid function: %v", path)
 	}
 
 	// TODO: check for errors when calling
 	switch m.Type().NumIn() {
 	case 0:
-		m.Call(nil)
+		return m.Call(nil), nil
 	case 1:
-		m.Call(
+		return m.Call(
 			[]reflect.Value{args[0]},
-		)
+		), nil
 	case 2:
-		m.Call(args)
+		return m.Call(args), nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (s *State) SetValueInPath(value string, path string) error {

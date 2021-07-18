@@ -81,17 +81,16 @@ func (lp *Page) SetContent(c PageContent) {
 // Create main component from page in sequence of life cycle
 func (lp *Page) Create() {
 
-	ctx := lp.EntryComponent.Context
+	c := lp.EntryComponent
 
-	ctx.InjectGlobalHook(Mounted, func() {
+	OnMounted(c, func() {
 		lp.Emit(PageComponentMounted, lp.EntryComponent)
 	})
 
-	ctx.InjectGlobalHook(Update, func() {
+	OnUpdate(c, func() {
 		lp.Emit(PageComponentUpdated, lp.EntryComponent)
 	})
 
-	// pass mount live Component with lifecycle channel
 	err := lp.EntryComponent.Mount()
 
 	if err != nil {
@@ -159,7 +158,7 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 	case EventLiveInput:
 		err = c.State.SetValueInPath(m.StateValue, m.StateKey)
 	case EventLiveMethod:
-		err = c.State.InvokeMethodInPath(m.MethodName, []reflect.Value{reflect.ValueOf(m.MethodData), reflect.ValueOf(m.DOMEvent)})
+		_, err = c.State.InvokeMethodInPath(m.MethodName, []reflect.Value{reflect.ValueOf(m.MethodData), reflect.ValueOf(m.DOMEvent)})
 	case EventLiveDisconnect:
 		err = c.Unmount()
 	}

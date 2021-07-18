@@ -1,6 +1,7 @@
-package live
+package main
 
 import (
+	"github.com/brendonmatos/golive/live"
 	"github.com/brendonmatos/golive/live/renderer"
 	"time"
 )
@@ -12,12 +13,12 @@ func (c *Clock) ActualTime() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-func NewClock() *Component {
-	c := DefineComponent("Clock")
+func NewClock() *live.Component {
+	c := live.DefineComponent("Clock")
 
 	c.SetState(&Clock{})
 
-	OnMounted(c, func() {
+	live.OnMounted(c, func() {
 		go func() {
 			for {
 				if c.Context.Closed {
@@ -39,21 +40,4 @@ func NewClock() *Component {
 	}
 
 	return c
-}
-
-type TestComp struct {
-	Wrapper
-}
-
-func (tc *TestComp) TemplateHandler(_ *Component) string {
-	return `
-		<div>
-			<div></div>
-			<div>
-				<div></div>
-			</div>
-			<div></div>
-			<div></div>
-		</div>
-	`
 }

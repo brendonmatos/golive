@@ -32,6 +32,5 @@ func (l *Wrapper) BeforeUnmount(_ *Component) {
 // Commit puts an boolean to the commit channel and notifies who is listening
 func (l *Wrapper) Commit() {
 	l.Component.Log(golive.LogTrace, "Updated", golive.LogEx{"name": l.Component.Name})
-
 	l.Component.Update()
 }

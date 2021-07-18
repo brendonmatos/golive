@@ -125,7 +125,7 @@ func selfIndexOfElement(n *html.Node) int {
 	return ix
 }
 
-func GetAllChildrenRecursive(n *html.Node) []*html.Node {
+func GetAllChildrenRecursive(n *html.Node, name string) []*html.Node {
 	result := make([]*html.Node, 0)
 
 	if n == nil {
@@ -134,7 +134,14 @@ func GetAllChildrenRecursive(n *html.Node) []*html.Node {
 
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		result = append(result, c)
-		result = append(result, GetAllChildrenRecursive(c)...)
+
+		cid := GetAttribute(c, "gl-cid")
+
+		if cid != nil && cid.Val != name {
+			continue
+		}
+
+		result = append(result, GetAllChildrenRecursive(c, name)...)
 	}
 
 	return result

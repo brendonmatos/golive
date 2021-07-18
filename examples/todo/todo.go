@@ -1,7 +1,8 @@
-package components
+package main
 
 import (
 	"github.com/brendonmatos/golive/live"
+	"github.com/brendonmatos/golive/live/renderer"
 	"strings"
 )
 
@@ -30,28 +31,6 @@ type Todo struct {
 	Name    string
 }
 
-func NewTodo() *live.Component {
-	return live.NewLiveComponent("Todo", &Todo{
-		Counter: 0,
-		Name:    "Todo",
-		Text:    "",
-		Tasks: []Task{
-			{
-				Done: true,
-				Text: "Wake up",
-			},
-			{
-				Done: true,
-				Text: "Breath",
-			},
-			{
-				Done: false,
-				Text: "Turn on the coffee maker",
-			},
-		},
-	})
-}
-
 func (t *Todo) IncreaseCounter() {
 	t.Counter++
 }
@@ -74,8 +53,31 @@ func (t *Todo) CanAdd() bool {
 	return len(t.Text) > 0
 }
 
-func (t *Todo) TemplateHandler(_ *live.Component) string {
-	return `
+func NewTodo() *live.Component {
+	c := live.DefineComponent("Todo")
+	t := &Todo{
+		Counter: 0,
+		Name:    "Todo",
+		Text:    "",
+		Tasks: []Task{
+			{
+				Done: true,
+				Text: "Wake up",
+			},
+			{
+				Done: true,
+				Text: "Breath",
+			},
+			{
+				Done: false,
+				Text: "Turn on the coffee maker",
+			},
+		},
+	}
+
+	c.SetState(t)
+
+	c.UseRender(renderer.NewTemplateRenderer(`
 		<div id="todo">
 			<input gl-input="Text" />
 			<button :disabled="{{not .CanAdd}}" gl-click="HandleAdd">Create</button>
@@ -99,5 +101,7 @@ func (t *Todo) TemplateHandler(_ *live.Component) string {
 				}
 			</style>
 		</div>
-	`
+	`))
+
+	return c
 }

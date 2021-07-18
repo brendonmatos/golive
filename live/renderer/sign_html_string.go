@@ -41,19 +41,5 @@ func signHtmlTemplate(template string, uid string) string {
 		return s + ` ` + GoLiveUidAttrKey + `="` + lUid + `" `
 	})
 
-	template = replaceWithFunction(template, rxGoLiveInput, func(s string) string {
-		match := rxGoLiveInputField.FindStringSubmatch(s)
-		variableName := match[1]
-		return s + ` value="{{.` + variableName + `}}" `
-	})
-
 	return template
-}
-
-var rxGoLiveInput = regexp.MustCompile(`gl-input=(["'][a-zA-Z0-9]+["'])`)
-var rxGoLiveInputField = regexp.MustCompile(`["']([a-zA-Z0-9]+)["']`)
-
-func signRender(content string) string {
-
-	return content
 }

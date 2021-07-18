@@ -6,9 +6,6 @@ type LifeTimeMessage struct {
 	Source    *EventSource
 }
 
-//
-//type LifeCycle chan LifeTimeMessage
-//
 type EventSource struct {
 	Type  EventSourceType
 	Value string

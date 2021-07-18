@@ -44,24 +44,29 @@ func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {
 		return "", nil, fmt.Errorf("renderer render: %w", err)
 	}
 
-	if renderHtml != nil {
-		err := r.State.SetHTML(renderHtml)
+	if renderString != nil {
+		err = r.State.SetText(*renderString)
+		if err != nil {
+			return "", nil, fmt.Errorf("set text: %w", err)
+		}
+
+		// Do state html job
+		for _, f := range r.Formatters {
+			f(r.State.html)
+		}
+
+		// TODO: optimize it. string to html to string
+		err := r.State.SetHTML(r.State.html)
 		if err != nil {
 			return "", nil, err
 		}
 	}
 
-	if renderString != nil {
-		*renderString = signRender(*renderString)
-		err = r.State.SetText(*renderString)
+	if renderHtml != nil {
+		err := r.State.SetHTML(renderHtml)
 		if err != nil {
-			return "", nil, fmt.Errorf("set text: %w", err)
+			return "", nil, err
 		}
-	}
-
-	// Do state html job
-	for _, f := range r.Formatters {
-		f(r.State.html)
 	}
 
 	return r.State.text, r.State.html, err

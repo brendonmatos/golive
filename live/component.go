@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/live/context"
 	"github.com/brendonmatos/golive/live/renderer"
 	"github.com/brendonmatos/golive/live/state"
 	"github.com/brendonmatos/golive/live/util"
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
+	"reflect"
 )
 
 var (
@@ -28,9 +32,19 @@ const (
 type Component struct {
 	Name     string
 	Log      golive.Log
-	Context  *Context
+	Context  *context.Context
 	State    *state.State
 	Renderer *renderer.Renderer
+}
+
+func NewLiveComponent(name string, state interface{}) *Component {
+	c := DefineComponent(name)
+	c.SetState(state)
+
+	template, _ := c.State.InvokeMethodInPath("TemplateHandler", []reflect.Value{reflect.ValueOf(c)})
+	c.UseRender(renderer.NewTemplateRenderer(template[0].String()))
+
+	return c
 }
 
 func DefineComponent(name string) *Component {
@@ -40,12 +54,87 @@ func DefineComponent(name string) *Component {
 
 	r := renderer.NewRenderer(renderer.NewTemplateRenderer(""))
 
-	return &Component{
+	c := &Component{
 		Name:     uid,
 		State:    s,
 		Renderer: r,
-		Context:  NewContext(),
+		Context:  context.NewContext(),
 	}
+
+	r.UseFormatter(func(t *html.Node) {
+		err := c.SignRender(t)
+		if err != nil {
+			panic(err)
+		}
+	})
+
+	return c
+}
+
+func (c *Component) SignRender(dom *html.Node) error {
+
+	innerHTML, err := differ.RenderInnerHTML(dom)
+	if err != nil {
+		return err
+	}
+	fmt.Println("signing render", innerHTML)
+
+	// Post treatment
+	for _, node := range differ.GetAllChildrenRecursive(dom, c.Name) {
+
+		if goLiveInputAttr := differ.GetAttribute(node, GoLiveInput); goLiveInputAttr != nil {
+			differ.AddNodeAttribute(node, ":value", goLiveInputAttr.Val)
+		}
+
+		if valueAttr := differ.GetAttribute(node, ":value"); valueAttr != nil {
+			differ.RemoveNodeAttribute(node, ":value")
+
+			f, err := c.State.GetFieldFromPath(valueAttr.Val)
+
+			if err != nil {
+				return err
+			}
+
+			if inputTypeAttr := differ.GetAttribute(node, "type"); inputTypeAttr != nil {
+				switch inputTypeAttr.Val {
+				case "checkbox":
+					if f.Bool() {
+						differ.AddNodeAttribute(node, "checked", "true")
+					} else {
+						differ.RemoveNodeAttribute(node, "checked")
+					}
+					break
+				}
+			} else if node.DataAtom == atom.Textarea {
+				n, err := differ.NodeFromString(fmt.Sprintf("%v", f))
+
+				if n == nil || n.FirstChild == nil {
+					continue
+				}
+
+				if err != nil {
+					return err
+				}
+
+				child := n.FirstChild
+
+				n.RemoveChild(child)
+				node.AppendChild(child)
+			} else {
+				differ.AddNodeAttribute(node, "value", fmt.Sprintf("%v", f))
+			}
+		}
+
+		if disabledAttr := differ.GetAttribute(node, ":disabled"); disabledAttr != nil {
+			differ.RemoveNodeAttribute(node, ":disabled")
+			if disabledAttr.Val == "true" {
+				differ.AddNodeAttribute(node, "disabled", "")
+			} else {
+				differ.RemoveNodeAttribute(node, "disabled")
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Component) CallHook(name string) {
@@ -74,16 +163,16 @@ func (c *Component) Mount() error {
 	return err
 }
 
-func OnMounted(c *Component, h Hook) {
+func OnMounted(c *Component, h context.Hook) {
 	c.Context.InjectHook(Mounted, h)
 }
 
-func OnUpdate(c *Component, h Hook) {
+func OnUpdate(c *Component, h context.Hook) {
 	c.Context.InjectHook(Update, h)
 }
 
 func (c *Component) UseRender(newRenderer renderer.RendererInterface) error {
-	c.Renderer = renderer.NewRenderer(newRenderer)
+	c.Renderer.Renderer = newRenderer
 	return nil
 }
 

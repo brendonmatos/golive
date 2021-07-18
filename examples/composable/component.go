@@ -16,25 +16,28 @@ func (c *Counter) Increase() {
 
 func NewCounter(actual int) *live.Component {
 
-	component := live.DefineComponent("composed")
+	c := live.DefineComponent("composed")
 
 	counter := &Counter{
 		Actual: actual,
 	}
 
-	component.SetState(counter)
+	c.SetState(counter)
 
-	live.OnMounted(component, func() {
+	live.OnMounted(c, func() {
 		go func() {
 			for {
+				if c.Context.Closed {
+					return
+				}
 				counter.Actual = counter.Actual + 3000
-				time.Sleep(time.Millisecond)
-				component.Update()
+				time.Sleep(time.Second / 60)
+				c.Update()
 			}
 		}()
 	})
 
-	err := component.UseRender(renderer.NewTemplateRenderer(`
+	err := c.UseRender(renderer.NewTemplateRenderer(`
 		<div>
 			<button gl-click="Increase">Increase</button>
 			<div>{{ .Actual }}</div>
@@ -46,5 +49,5 @@ func NewCounter(actual int) *live.Component {
 		panic(err)
 	}
 
-	return component
+	return c
 }
