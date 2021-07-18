@@ -49,7 +49,7 @@ func newDiffTest(d diffTest) diffTest {
 
 	dc.testTemplate = d.template
 
-	err := c.Create()
+	err := c.Mount()
 	if err != nil {
 		panic(err)
 	}

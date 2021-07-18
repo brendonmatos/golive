@@ -111,10 +111,10 @@ func NewClock() *Component {
 
 	c.SetState(&Clock{})
 
-	OnCreated(c, func() {
+	OnMounted(c, func() {
 		go func() {
 			for {
-				if c.Context.Done {
+				if c.Context.Closed {
 					return
 				}
 				time.Sleep(time.Second)
@@ -181,7 +181,7 @@ func TestComponent_LifeCycleSequence(t *testing.T) {
 		}
 	}()
 
-	err := c.Create()
+	err := c.Mount()
 	if err != nil {
 		t.Error(err)
 	}

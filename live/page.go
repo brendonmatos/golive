@@ -37,19 +37,17 @@ type PageEnum struct {
 	DiffMove                differ.Type
 }
 
-type LivePageEvent struct {
+type PageEvent struct {
 	Type      int
 	Component *Component
 	Source    *EventSource
 }
 
-type LiveEventsChannel chan LivePageEvent
+type EventsChannel chan PageEvent
 
 type Page struct {
-	content             PageContent
-	Events              LiveEventsChannel
-	ComponentsLifeCycle *LifeCycle
-
+	content        PageContent
+	Events         EventsChannel
 	EntryComponent *Component
 
 	// Components is a list that handle all the components from the page
@@ -67,14 +65,12 @@ type PageContent struct {
 }
 
 func NewLivePage(c *Component) *Page {
-	componentsUpdatesChannel := make(LifeCycle)
-	pageEventsChannel := make(LiveEventsChannel)
+	pageEventsChannel := make(EventsChannel)
 
 	return &Page{
-		EntryComponent:      c,
-		Events:              pageEventsChannel,
-		ComponentsLifeCycle: &componentsUpdatesChannel,
-		Components:          make(map[string]*Component),
+		EntryComponent: c,
+		Events:         pageEventsChannel,
+		Components:     make(map[string]*Component),
 	}
 }
 
@@ -87,16 +83,16 @@ func (lp *Page) Create() {
 
 	ctx := lp.EntryComponent.Context
 
-	ctx.InjectGlobalHook("Created", func() {
+	ctx.InjectGlobalHook(Mounted, func() {
 		lp.Emit(PageComponentMounted, lp.EntryComponent)
 	})
 
-	ctx.InjectGlobalHook("Update", func() {
+	ctx.InjectGlobalHook(Update, func() {
 		lp.Emit(PageComponentUpdated, lp.EntryComponent)
 	})
 
 	// pass mount live Component with lifecycle channel
-	err := lp.EntryComponent.Create()
+	err := lp.EntryComponent.Mount()
 
 	if err != nil {
 		panic(fmt.Errorf("mount: create entryComponent: %w", err))
@@ -143,7 +139,7 @@ func (lp *Page) EmitWithSource(lts int, c *Component, source *EventSource) {
 		c = lp.EntryComponent
 	}
 
-	lp.Events <- LivePageEvent{
+	lp.Events <- PageEvent{
 		Type:      lts,
 		Component: lp.EntryComponent,
 		Source:    source,
@@ -155,7 +151,7 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 	c := lp.EntryComponent
 
 	if c == nil {
-		return fmt.Errorf("Component not found with id: %s", m.ComponentID)
+		return fmt.Errorf("component not found with id: %s", m.ComponentID)
 	}
 
 	var err error

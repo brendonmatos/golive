@@ -24,7 +24,7 @@ func NewCounter(actual int) *live.Component {
 
 	component.SetState(counter)
 
-	live.OnCreated(component, func() {
+	live.OnMounted(component, func() {
 		go func() {
 			for {
 				counter.Actual = counter.Actual + 3000

@@ -46,6 +46,24 @@ func TestContextGlobalEvents(t *testing.T) {
 	}
 }
 
+func TestContextGlobalEventsWithNested(t *testing.T) {
+	c := NewContext()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	c.InjectGlobalHook("click", func() {
+		wg.Done()
+	})
+
+	c2 := c.Child()
+
+	c2.CallHook("click")
+
+	if waitTimeout(&wg, time.Second) {
+		t.Error("event was not emitted")
+	}
+}
+
 func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	c := make(chan struct{})
 	go func() {

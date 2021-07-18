@@ -16,6 +16,15 @@ var (
 	ErrComponentNil         = errors.New("component nil")
 )
 
+const (
+	BeforeMount   = "before_mount"
+	Mounted       = "mounted"
+	Update        = "update"
+	Updated       = "updated"
+	BeforeUnmount = "before_unmount"
+	Unmounted     = "unmounted"
+)
+
 type Component struct {
 	Name     string
 	Log      golive.Log
@@ -47,33 +56,30 @@ func (c *Component) SetState(i interface{}) {
 	c.State.Set(i)
 }
 
-func (c *Component) Create() error {
+func (c *Component) Mount() error {
 	var err error
 
 	if c.Log == nil {
 		return ErrComponentWithoutLog
 	}
 
-	c.CallHook("BeforeCreate")
+	c.CallHook(BeforeMount)
 
-	err = c.Renderer.Prepare(c.Name)
-
-	if err != nil {
+	if err = c.Renderer.Prepare(c.Name); err != nil {
 		return fmt.Errorf("renderer prepare: %w", err)
 	}
 
-	c.CallHook("Created")
+	c.CallHook(Mounted)
 
 	return err
 }
 
-func OnCreated(c *Component, h Hook) {
-	fmt.Println("registering creation")
-	c.Context.InjectHook("Created", h)
+func OnMounted(c *Component, h Hook) {
+	c.Context.InjectHook(Mounted, h)
 }
 
 func OnUpdate(c *Component, h Hook) {
-	c.Context.InjectHook("Update", h)
+	c.Context.InjectHook(Update, h)
 }
 
 func (c *Component) UseRender(newRenderer renderer.RendererInterface) error {
@@ -97,14 +103,18 @@ func (c *Component) LiveRender() (*differ.Diff, error) {
 }
 
 func (c *Component) Update() {
-	c.CallHook("Update")
+	c.CallHook(Update)
 }
 
 // Unmount ...
 func (c *Component) Unmount() error {
 	c.Log(golive.LogTrace, "WillUnmount", golive.LogEx{"name": c.Name})
-	c.CallHook("BeforeUnmount")
+	c.CallHook(BeforeUnmount)
 	c.State.Kill()
-	c.CallHook("Unmounted")
+	err := c.Context.Close()
+	if err != nil {
+		return fmt.Errorf("close context: %w", err)
+	}
+	c.CallHook(Unmounted)
 	return nil
 }

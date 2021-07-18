@@ -1,11 +1,13 @@
 package live
 
+import "fmt"
+
 type Context struct {
 	Parent *Context
 	Hooks
 	Children []*Context
 	Root     *Context
-	Done     bool
+	Closed   bool
 }
 
 type Hooks map[string][]Hook
@@ -16,6 +18,20 @@ func NewContext() *Context {
 	c := &Context{Children: []*Context{}, Hooks: Hooks{}}
 	c.Root = c
 	return c
+}
+
+func (c *Context) Close() error {
+	c.Closed = true
+
+	for _, child := range c.Children {
+		err := child.Close()
+
+		if err != nil {
+			return fmt.Errorf("children ctx close: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (c *Context) Child() *Context {
