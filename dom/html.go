@@ -106,12 +106,6 @@ func SelectorFromNode(e *html.Node) (*Selector, error) {
 			}
 		}
 
-		//if !selector.HasAttr(ComponentIdAttrKey) {
-		//	if goLiveComponentIDAttr := GetAttribute(e, ComponentIdAttrKey); goLiveComponentIDAttr != nil {
-		//		es.addAttr(ComponentIdAttrKey, goLiveComponentIDAttr.Val)
-		//	}
-		//}
-
 		if len(es.query) > 1 {
 			selector.addParentSelector(es)
 		}
@@ -124,17 +118,6 @@ func selfIndexOfNode(n *html.Node) int {
 	ix := 0
 	for prev := n.PrevSibling; prev != nil; prev = prev.PrevSibling {
 		ix++
-	}
-
-	return ix
-}
-
-func selfIndexOfElement(n *html.Node) int {
-	ix := 0
-	for prev := n.PrevSibling; prev != nil; prev = prev.PrevSibling {
-		if prev.Type == html.ElementNode {
-			ix++
-		}
 	}
 
 	return ix
@@ -171,24 +154,6 @@ func nodeChildren(n *html.Node) []*html.Node {
 	}
 
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		children = append(children, child)
-	}
-
-	return children
-}
-
-func nodeChildrenElements(n *html.Node) []*html.Node {
-	children := make([]*html.Node, 0)
-
-	if n == nil || n.FirstChild == nil {
-		return children
-	}
-
-	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		if child.Type != html.ElementNode {
-			continue
-		}
-
 		children = append(children, child)
 	}
 
@@ -283,33 +248,4 @@ func NodeRelevant(node *html.Node) bool {
 	}
 
 	return true
-}
-
-func getChildNodeIndex(node *html.Node, index int) *html.Node {
-
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		if index == 0 {
-			return child
-		}
-		index--
-	}
-	return nil
-}
-
-func hasSameElementRef(a, b *html.Node) bool {
-	var err error
-
-	aSelector, err := SelectorFromNode(a)
-
-	if err != nil || aSelector == nil {
-		return false
-	}
-
-	bSelector, err := SelectorFromNode(b)
-
-	if err != nil || bSelector == nil {
-		return false
-	}
-
-	return aSelector.ToString() == bSelector.ToString()
 }
