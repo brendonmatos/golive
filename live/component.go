@@ -3,14 +3,15 @@ package live
 import (
 	"errors"
 	"fmt"
+	"html/template"
+	"reflect"
+
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/live/renderer"
 	"github.com/brendonmatos/golive/live/state"
 	"github.com/brendonmatos/golive/live/util"
 	"golang.org/x/net/html"
-	"html/template"
-	"reflect"
 )
 
 var (
@@ -315,7 +316,7 @@ func (c *Component) createChildren() error {
 
 func (c *Component) getChildrenComponents() []*Component {
 	components := make([]*Component, 0)
-	v := reflect.ValueOf(c.State).Elem()
+	v := reflect.ValueOf(c.State.Value).Elem()
 	for i := 0; i < v.NumField(); i++ {
 		if !v.Field(i).CanInterface() {
 			continue
