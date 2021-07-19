@@ -4,9 +4,10 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
-	"github.com/brendonmatos/golive/differ"
 	"html/template"
 	"reflect"
+
+	"github.com/brendonmatos/golive/differ"
 )
 
 var BasePage *template.Template
@@ -144,7 +145,7 @@ func (lp *Page) EmitWithSource(lts int, c *Component, source *EventSource) {
 
 	lp.Events <- LivePageEvent{
 		Type:      lts,
-		Component: lp.EntryComponent,
+		Component: c,
 		Source:    source,
 	}
 }
