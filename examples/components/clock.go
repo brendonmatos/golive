@@ -1,4 +1,4 @@
-package main
+package components
 
 import (
 	"github.com/brendonmatos/golive/live"

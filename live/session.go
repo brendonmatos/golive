@@ -88,7 +88,7 @@ func (s *Session) IngestMessage(message BrowserEvent) error {
 func (s *Session) ActivatePage(lp *Page) {
 	s.LivePage = lp
 
-	// Here is the location that get all the components updates *notified* by
+	// Here is the location that get all the componentsRegister updates *notified* by
 	// the page!
 	go func() {
 		for {
@@ -179,7 +179,7 @@ func skipUpdateValueOnInput(in differ.ChangeInstruction, source *EventSource) bo
 }
 
 // LiveRenderComponent render the updated Component and compare with
-// last state. It may apply with *all child components*
+// last state. It may apply with *all child componentsRegister*
 func (s *Session) LiveRenderComponent(c *Component, source *EventSource) error {
 	var err error
 

@@ -14,7 +14,10 @@ var (
 	ErrComponentNotFoundToNode = errors.New("component not found to specified node")
 )
 
+type RenderChild func(string) (string, error)
+
 type RendererInterface interface {
+	SetRenderChild(child RenderChild) (error, bool)
 	Prepare(state *State) error
 	Render(state *state.State) (*string, *html.Node, error)
 }
@@ -35,6 +38,13 @@ func NewRenderer(r RendererInterface) *Renderer {
 func (r *Renderer) Prepare(id string) error {
 	r.State = NewRenderState(id)
 	return r.Renderer.Prepare(r.State)
+}
+
+func (r *Renderer) SetRenderChild(rc RenderChild) error {
+
+	r.Renderer.SetRenderChild(rc)
+
+	return nil
 }
 
 func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {

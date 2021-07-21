@@ -50,7 +50,7 @@ type Page struct {
 	Events         EventsChannel
 	EntryComponent *Component
 
-	// Components is a list that handle all the components from the page
+	// Components is a list that handle all the componentsRegister from the page
 	Components map[string]*Component
 }
 

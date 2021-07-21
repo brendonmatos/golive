@@ -1,4 +1,4 @@
-package main
+package components
 
 import (
 	"github.com/brendonmatos/golive/live"
@@ -24,7 +24,6 @@ func (t *Task) GetClasses() string {
 }
 
 type Todo struct {
-	live.Wrapper
 	Counter int
 	Text    string
 	Tasks   []Task

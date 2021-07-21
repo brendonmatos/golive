@@ -13,6 +13,7 @@ const GoLiveUidAttrKey = "gl-uid"
 type TemplateRenderer struct {
 	template       *template.Template
 	templateString string
+	renderChild    RenderChild
 }
 
 func NewTemplateRenderer(templateStr string) *TemplateRenderer {
@@ -22,9 +23,29 @@ func NewTemplateRenderer(templateStr string) *TemplateRenderer {
 	}
 }
 
+func (tr *TemplateRenderer) SetRenderChild(fn RenderChild) (error, bool) {
+	tr.renderChild = fn
+	return nil, true
+}
+
 func (tr *TemplateRenderer) Prepare(state *State) error {
 	tr.templateString = signHtmlTemplate(tr.templateString, state.Identifier)
-	parsed, err := template.New(state.Identifier).Parse(tr.templateString)
+	tpl := template.New(state.Identifier)
+
+	tpl.Funcs(template.FuncMap{
+		"render": func(st string) (*template.HTML, error) {
+			renderer, err := tr.renderChild(st)
+
+			if err != nil {
+				return nil, err
+			}
+
+			t := template.HTML(renderer)
+			return &t, nil
+		},
+	})
+
+	parsed, err := tpl.Parse(tr.templateString)
 
 	tr.template = parsed
 

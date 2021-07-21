@@ -36,6 +36,9 @@ type Component struct {
 	Context  *context.Context
 	State    *state.State
 	Renderer *renderer.Renderer
+
+	componentsRegister map[string]interface{}
+	children           []*Component
 }
 
 func NewLiveComponent(name string, state interface{}) *Component {
@@ -60,6 +63,9 @@ func DefineComponent(name string) *Component {
 		State:    s,
 		Renderer: r,
 		Context:  context.NewContext(),
+
+		componentsRegister: map[string]interface{}{},
+		children:           []*Component{},
 	}
 
 	r.UseFormatter(func(t *html.Node) {
@@ -152,6 +158,13 @@ func (c *Component) Mount() error {
 		return fmt.Errorf("before mount hook: %w", err)
 	}
 
+	err = c.Renderer.SetRenderChild(func(cn string) (string, error) {
+		return c.RenderChild(cn, []reflect.Value{})
+	})
+	if err != nil {
+		return fmt.Errorf("set render child: %w", err)
+	}
+
 	if err = c.Renderer.Prepare(c.Name); err != nil {
 		return fmt.Errorf("renderer prepare: %w", err)
 	}
@@ -207,4 +220,47 @@ func (c *Component) Unmount() error {
 	}
 	c.CallHook(Unmounted)
 	return nil
+}
+
+func (c *Component) UseComponent(s string, cd interface{}) {
+	c.componentsRegister[s] = cd
+}
+
+// SetupChild needs to be called just once per prop change
+func (c *Component) SetupChild(s string, props []reflect.Value) (*Component, error) {
+	cd, found := c.componentsRegister[s]
+
+	if !found {
+		return nil, errors.New("component not found")
+	}
+
+	v := reflect.ValueOf(cd)
+	r := v.Call(props)
+	cp := r[0].Interface().(*Component)
+
+	cp.Context = c.Context.Child()
+	cp.Log = c.Log
+
+	c.children = append(c.children, cp)
+
+	return cp, nil
+}
+
+func (c *Component) RenderChild(s string, props []reflect.Value) (string, error) {
+
+	cp, err := c.SetupChild(s, props)
+	if err != nil {
+		return "", fmt.Errorf("setup child: %w", err)
+	}
+
+	c.Log(golive.LogDebug, "SetupChild", golive.LogEx{"name": cp.Name})
+
+	err = cp.Mount()
+	if err != nil {
+		return "", fmt.Errorf("mount child: %w", err)
+	}
+
+	c.Log(golive.LogDebug, "ChildMounted", golive.LogEx{"name": cp.Name})
+
+	return cp.RenderStatic()
 }
