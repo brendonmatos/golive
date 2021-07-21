@@ -1,6 +1,8 @@
-package live
+package component
 
-import "github.com/brendonmatos/golive"
+import (
+	"github.com/brendonmatos/golive"
+)
 
 // Wrapper is a struct
 type Wrapper struct {

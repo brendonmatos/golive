@@ -1,8 +1,10 @@
 package live
 
+import "github.com/brendonmatos/golive/live/component"
+
 type LifeTimeMessage struct {
 	Stage     string
-	Component *Component
+	Component *component.Component
 	Source    *EventSource
 }
 

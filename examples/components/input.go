@@ -1,7 +1,7 @@
 package components
 
 import (
-	"github.com/brendonmatos/golive/live"
+	"github.com/brendonmatos/golive/live/component"
 )
 
 type DynamicInputProps struct {
@@ -10,19 +10,19 @@ type DynamicInputProps struct {
 }
 
 type DynamicInput struct {
-	live.Wrapper
+	component.Wrapper
 	Value *string
 	Label string
 }
 
-func NewDynamicInput(props DynamicInputProps) *live.Component {
-	return live.NewLiveComponent("DynamicInput", &DynamicInput{
+func NewDynamicInput(props DynamicInputProps) *component.Component {
+	return component.NewLiveComponent("DynamicInput", &DynamicInput{
 		Value: props.Value,
 		Label: props.Label,
 	})
 }
 
-func (d *DynamicInput) TemplateHandler(_ *live.Component) string {
+func (d *DynamicInput) TemplateHandler(_ *component.Component) string {
 	return `
 		<div>
 			<span>{{.Label}}</span>	

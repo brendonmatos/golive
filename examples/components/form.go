@@ -1,26 +1,26 @@
 package components
 
 import (
-	"github.com/brendonmatos/golive/live"
+	"github.com/brendonmatos/golive/live/component"
 )
 
 type Form struct {
-	live.Wrapper
-	DynamicInput  *live.Component
+	component.Wrapper
+	DynamicInput  *component.Component
 	InputtedValue *string
 }
 
-func NewForm() *live.Component {
+func NewForm() *component.Component {
 
 	var value = ""
 
-	return live.NewLiveComponent("Form", &Form{
+	return component.NewLiveComponent("Form", &Form{
 		InputtedValue: &value,
 		DynamicInput:  NewDynamicInput(DynamicInputProps{Value: &value}),
 	})
 }
 
-func (d *Form) TemplateHandler(_ *live.Component) string {
+func (d *Form) TemplateHandler(_ *component.Component) string {
 	return `<div>
 		{{ render .DynamicInput }}
 

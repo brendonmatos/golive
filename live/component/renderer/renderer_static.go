@@ -2,16 +2,16 @@ package renderer
 
 import (
 	"fmt"
-	"github.com/brendonmatos/golive/live/state"
+	state2 "github.com/brendonmatos/golive/live/component/state"
 	"golang.org/x/net/html"
 )
 
 type StaticRenderer struct {
 	template string
-	handler  func(state *state.State) []interface{}
+	handler  func(state *state2.State) []interface{}
 }
 
-func NewStaticRenderer(t string, h func(state *state.State) []interface{}) *StaticRenderer {
+func NewStaticRenderer(t string, h func(state *state2.State) []interface{}) *StaticRenderer {
 	return &StaticRenderer{
 		template: t,
 		handler:  h,
@@ -24,7 +24,7 @@ func (s *StaticRenderer) Prepare(state *State) error {
 	return nil
 }
 
-func (s *StaticRenderer) Render(state *state.State) (*string, *html.Node, error) {
+func (s *StaticRenderer) Render(state *state2.State) (*string, *html.Node, error) {
 	result := fmt.Sprintf(s.template, s.handler(state)...)
 
 	return &result, nil, nil

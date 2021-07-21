@@ -5,7 +5,8 @@ import (
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
-	"github.com/brendonmatos/golive/live/renderer"
+	"github.com/brendonmatos/golive/live/component"
+	renderer "github.com/brendonmatos/golive/live/component/renderer"
 	"strings"
 )
 
@@ -17,8 +18,6 @@ const (
 	EventLiveError          = "le"
 	EventLiveConnectElement = "lce"
 )
-
-const GoLiveInput = "gl-input"
 
 var (
 	ErrorSessionNotFound = "session_not_found"
@@ -173,14 +172,14 @@ func skipUpdateValueOnInput(in differ.ChangeInstruction, source *EventSource) bo
 		return false
 	}
 
-	attr := dom.GetAttribute(in.Element, GoLiveInput)
+	attr := dom.GetAttribute(in.Element, component.GoLiveInput)
 
 	return attr != nil && source.Type == EventSourceInput && attr.Val == source.Value
 }
 
 // LiveRenderComponent render the updated Component and compare with
 // last state. It may apply with *all child componentsRegister*
-func (s *Session) LiveRenderComponent(c *Component, source *EventSource) error {
+func (s *Session) LiveRenderComponent(c *component.Component, source *EventSource) error {
 	var err error
 
 	diff, err := c.LiveRender()

@@ -1,18 +1,20 @@
-package context
+package component
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Context struct {
-	Parent *Context
+	Children  []*Context
+	Root      *Context
+	Closed    bool
+	Component *Component
 	Hooks
-	Children []*Context
-	Root     *Context
-	Closed   bool
 }
 
 type Hooks map[string][]Hook
 
-type Hook func()
+type Hook func(ctx *Context)
 
 func NewContext() *Context {
 	c := &Context{Children: []*Context{}, Hooks: Hooks{}}
@@ -37,9 +39,8 @@ func (c *Context) Close() error {
 func (c *Context) Child() *Context {
 	child := NewContext()
 	child.Root = c.Root
-	child.Parent = c
 	c.Children = append(c.Children, child)
-	return c
+	return child
 }
 
 func (c *Context) InjectHook(targetType string, hook Hook) {
@@ -66,11 +67,9 @@ func (c *Context) InjectGlobalHook(targetType string, hook Hook) {
 func (c *Context) CallHook(target string) error {
 
 	if c.Hooks[target] == nil {
-		return nil
-	}
-
-	for _, hook := range c.Hooks[target] {
-		hook()
+		for _, hook := range c.Hooks[target] {
+			hook(c)
+		}
 	}
 
 	r := c.Root
@@ -79,5 +78,9 @@ func (c *Context) CallHook(target string) error {
 		return nil
 	}
 
-	return r.CallHook(target)
+	for _, hook := range r.Hooks[target] {
+		hook(c)
+	}
+
+	return nil
 }

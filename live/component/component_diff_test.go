@@ -1,4 +1,4 @@
-package live
+package component
 
 import (
 	"github.com/brendonmatos/golive"
@@ -16,7 +16,7 @@ import (
 type diffTest struct {
 	template  string
 	diff      *differ.Diff
-	component *Component
+	component *component2.Component
 }
 
 type instructionExpect struct {
@@ -35,14 +35,14 @@ type diffComponent struct {
 
 var reSelectGoliveAttr = regexp.MustCompile(`[ ]?gl-uid="[a-zA-Z0-9_\-]+"`)
 
-func (l *diffComponent) TemplateHandler(_ *Component) string {
+func (l *diffComponent) TemplateHandler(_ *component2.Component) string {
 	return l.testTemplate
 }
 
 func newDiffTest(d diffTest) diffTest {
 	dc := diffComponent{}
 
-	c := DefineComponent("testcomp")
+	c := component2.DefineComponent("testcomp")
 
 	c.SetState(dc)
 

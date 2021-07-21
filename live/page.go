@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/live/component"
 	"html/template"
 	"reflect"
 )
@@ -39,7 +40,7 @@ type PageEnum struct {
 
 type PageEvent struct {
 	Type      int
-	Component *Component
+	Component *component.Component
 	Source    *EventSource
 }
 
@@ -48,10 +49,10 @@ type EventsChannel chan PageEvent
 type Page struct {
 	content        PageContent
 	Events         EventsChannel
-	EntryComponent *Component
+	EntryComponent *component.Component
 
 	// Components is a list that handle all the componentsRegister from the page
-	Components map[string]*Component
+	Components map[string]*component.Component
 }
 
 type PageContent struct {
@@ -64,13 +65,13 @@ type PageContent struct {
 	EnumLiveError map[string]string
 }
 
-func NewLivePage(c *Component) *Page {
+func NewLivePage(c *component.Component) *Page {
 	pageEventsChannel := make(EventsChannel)
 
 	return &Page{
 		EntryComponent: c,
 		Events:         pageEventsChannel,
-		Components:     make(map[string]*Component),
+		Components:     make(map[string]*component.Component),
 	}
 }
 
@@ -83,12 +84,12 @@ func (lp *Page) Create() {
 
 	c := lp.EntryComponent
 
-	OnMounted(c, func() {
-		lp.Emit(PageComponentMounted, lp.EntryComponent)
+	component.OnMounted(c, func(ctx *component.Context) {
+		lp.Emit(PageComponentMounted, ctx.Component)
 	})
 
-	OnUpdate(c, func() {
-		lp.Emit(PageComponentUpdated, lp.EntryComponent)
+	component.OnUpdate(c, func(ctx *component.Context) {
+		lp.Emit(PageComponentUpdated, ctx.Component)
 	})
 
 	err := lp.EntryComponent.Mount()
@@ -129,25 +130,25 @@ func (lp *Page) Render() (string, error) {
 	return writer.String(), err
 }
 
-func (lp *Page) Emit(lts int, c *Component) {
+func (lp *Page) Emit(lts int, c *component.Component) {
 	lp.EmitWithSource(lts, c, nil)
 }
 
-func (lp *Page) EmitWithSource(lts int, c *Component, source *EventSource) {
-	if c == nil {
-		c = lp.EntryComponent
-	}
+func (lp *Page) EmitWithSource(lts int, c *component.Component, source *EventSource) {
+	//if c == nil {
+	//	c = lp.EntryComponent
+	//}
 
 	lp.Events <- PageEvent{
 		Type:      lts,
-		Component: lp.EntryComponent,
+		Component: c,
 		Source:    source,
 	}
 }
 
 func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
-	c := lp.EntryComponent
+	c := lp.EntryComponent.FindComponent(m.ComponentID)
 
 	if c == nil {
 		return fmt.Errorf("component not found with id: %s", m.ComponentID)

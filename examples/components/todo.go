@@ -1,8 +1,8 @@
 package components
 
 import (
-	"github.com/brendonmatos/golive/live"
-	"github.com/brendonmatos/golive/live/renderer"
+	"github.com/brendonmatos/golive/live/component"
+	renderer2 "github.com/brendonmatos/golive/live/component/renderer"
 	"strings"
 )
 
@@ -52,8 +52,8 @@ func (t *Todo) CanAdd() bool {
 	return len(t.Text) > 0
 }
 
-func NewTodo() *live.Component {
-	c := live.DefineComponent("Todo")
+func NewTodo() *component.Component {
+	c := component.DefineComponent("Todo")
 	t := &Todo{
 		Counter: 0,
 		Name:    "Todo",
@@ -76,7 +76,7 @@ func NewTodo() *live.Component {
 
 	c.SetState(t)
 
-	c.UseRender(renderer.NewTemplateRenderer(`
+	c.UseRender(renderer2.NewTemplateRenderer(`
 		<div id="todo">
 			<input gl-input="Text" />
 			<button :disabled="{{not .CanAdd}}" gl-click="HandleAdd">Create</button>

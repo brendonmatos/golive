@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/brendonmatos/golive/live"
+	"github.com/brendonmatos/golive/live/component"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
@@ -22,7 +23,7 @@ type BooksFilter struct {
 }
 
 type Books struct {
-	live.Wrapper
+	component.Wrapper
 	Filter BooksFilter
 	List   []Book
 }
@@ -54,8 +55,8 @@ func NewBooks() *Books {
 	}
 }
 
-func NewBooksComponent() *live.Component {
-	return live.NewLiveComponent("Books", NewBooks())
+func NewBooksComponent() *component.Component {
+	return component.NewLiveComponent("Books", NewBooks())
 }
 func (b *Books) GetFilteredList() []Book {
 	filtered := make([]Book, 0)
@@ -99,7 +100,7 @@ book:
 	return writers
 }
 
-func (b *Books) TemplateHandler(_ *live.Component) string {
+func (b *Books) TemplateHandler(_ *component.Component) string {
 	return `
 		<div>
 			<select gl-input="Filter.Writer">

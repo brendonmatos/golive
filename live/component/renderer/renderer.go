@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
-	"github.com/brendonmatos/golive/live/state"
+	state2 "github.com/brendonmatos/golive/live/component/state"
 	"golang.org/x/net/html"
 )
 
@@ -19,7 +19,7 @@ type RenderChild func(string) (string, error)
 type RendererInterface interface {
 	SetRenderChild(child RenderChild) (error, bool)
 	Prepare(state *State) error
-	Render(state *state.State) (*string, *html.Node, error)
+	Render(state *state2.State) (*string, *html.Node, error)
 }
 
 type Renderer struct {
@@ -47,7 +47,7 @@ func (r *Renderer) SetRenderChild(rc RenderChild) error {
 	return nil
 }
 
-func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {
+func (r *Renderer) RenderState(state *state2.State) (string, *html.Node, error) {
 
 	renderString, renderHtml, err := r.Renderer.Render(state)
 
@@ -71,6 +71,7 @@ func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {
 		if err != nil {
 			return "", nil, err
 		}
+
 	}
 
 	if renderHtml != nil {
@@ -83,7 +84,7 @@ func (r *Renderer) RenderState(state *state.State) (string, *html.Node, error) {
 	return r.State.text, r.State.html, err
 }
 
-func (r *Renderer) RenderStateDiff(state *state.State) (*differ.Diff, error) {
+func (r *Renderer) RenderStateDiff(state *state2.State) (*differ.Diff, error) {
 
 	actualRender := r.State.html
 

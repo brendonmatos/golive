@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/brendonmatos/golive/live"
-	"github.com/brendonmatos/golive/live/renderer"
+	"github.com/brendonmatos/golive/live/component"
+	renderer2 "github.com/brendonmatos/golive/live/component/renderer"
 	"time"
 )
 
@@ -14,9 +14,9 @@ func (c *Counter) Increase() {
 	c.Actual++
 }
 
-func NewCounter(actual int) *live.Component {
+func NewCounter(actual int) *component.Component {
 
-	c := live.DefineComponent("composed")
+	c := component.DefineComponent("composed")
 
 	counter := &Counter{
 		Actual: actual,
@@ -24,7 +24,7 @@ func NewCounter(actual int) *live.Component {
 
 	c.SetState(counter)
 
-	live.OnMounted(c, func() {
+	component.OnMounted(c, func() {
 		go func() {
 			for {
 				if c.Context.Closed {
@@ -37,7 +37,7 @@ func NewCounter(actual int) *live.Component {
 		}()
 	})
 
-	err := c.UseRender(renderer.NewTemplateRenderer(`
+	err := c.UseRender(renderer2.NewTemplateRenderer(`
 		<div>
 			<button gl-click="Increase">Increase</button>
 			<div>{{ .Actual }}</div>

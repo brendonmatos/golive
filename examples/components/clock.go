@@ -1,8 +1,8 @@
 package components
 
 import (
-	"github.com/brendonmatos/golive/live"
-	"github.com/brendonmatos/golive/live/renderer"
+	"github.com/brendonmatos/golive/live/component"
+	renderer2 "github.com/brendonmatos/golive/live/component/renderer"
 	"time"
 )
 
@@ -13,12 +13,12 @@ func (c *Clock) ActualTime() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-func NewClock() *live.Component {
-	c := live.DefineComponent("Clock")
+func NewClock() *component.Component {
+	c := component.DefineComponent("Clock")
 
 	c.SetState(&Clock{})
 
-	live.OnMounted(c, func() {
+	component.OnMounted(c, func(_ *component.Context) {
 		go func() {
 			for {
 				if c.Context.Closed {
@@ -30,7 +30,7 @@ func NewClock() *live.Component {
 		}()
 	})
 
-	err := c.UseRender(renderer.NewTemplateRenderer(`
+	err := c.UseRender(renderer2.NewTemplateRenderer(`
 			<div>
 				<span>Time: {{ .ActualTime }}</span>
 			</div>

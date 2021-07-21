@@ -1,19 +1,20 @@
-package live
+package component
 
 import (
 	"errors"
 	"fmt"
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
-	dom "github.com/brendonmatos/golive/dom"
-	"github.com/brendonmatos/golive/live/context"
-	"github.com/brendonmatos/golive/live/renderer"
-	"github.com/brendonmatos/golive/live/state"
+	"github.com/brendonmatos/golive/dom"
+	"github.com/brendonmatos/golive/live/component/renderer"
+	"github.com/brendonmatos/golive/live/component/state"
 	"github.com/brendonmatos/golive/live/util"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"reflect"
 )
+
+const GoLiveInput = "gl-input"
 
 var (
 	ErrComponentNotPrepared = errors.New("component need to be prepared")
@@ -33,7 +34,7 @@ const (
 type Component struct {
 	Name     string
 	Log      golive.Log
-	Context  *context.Context
+	Context  *Context
 	State    *state.State
 	Renderer *renderer.Renderer
 
@@ -53,20 +54,20 @@ func NewLiveComponent(name string, state interface{}) *Component {
 
 func DefineComponent(name string) *Component {
 	s := state.NewState()
-
 	uid := util.CreateUniqueName(name)
-
 	r := renderer.NewRenderer(renderer.NewTemplateRenderer(""))
 
 	c := &Component{
 		Name:     uid,
 		State:    s,
 		Renderer: r,
-		Context:  context.NewContext(),
+		Context:  nil,
 
 		componentsRegister: map[string]interface{}{},
 		children:           []*Component{},
 	}
+
+	c.SetContext(NewContext())
 
 	r.UseFormatter(func(t *html.Node) {
 		err := c.SignRender(t)
@@ -146,6 +147,11 @@ func (c *Component) SetState(i interface{}) {
 	c.State.Set(i)
 }
 
+func (c *Component) SetContext(ctx *Context) {
+	ctx.Component = c
+	c.Context = ctx
+}
+
 func (c *Component) Mount() error {
 	var err error
 
@@ -177,11 +183,11 @@ func (c *Component) Mount() error {
 	return err
 }
 
-func OnMounted(c *Component, h context.Hook) {
+func OnMounted(c *Component, h Hook) {
 	c.Context.InjectHook(Mounted, h)
 }
 
-func OnUpdate(c *Component, h context.Hook) {
+func OnUpdate(c *Component, h Hook) {
 	c.Context.InjectHook(Update, h)
 }
 
@@ -233,17 +239,35 @@ func (c *Component) SetupChild(s string, props []reflect.Value) (*Component, err
 	if !found {
 		return nil, errors.New("component not found")
 	}
-
 	v := reflect.ValueOf(cd)
 	r := v.Call(props)
 	cp := r[0].Interface().(*Component)
 
-	cp.Context = c.Context.Child()
+	ctx := c.Context.Child()
+	cp.SetContext(ctx)
 	cp.Log = c.Log
-
 	c.children = append(c.children, cp)
 
 	return cp, nil
+}
+
+func (c *Component) FindComponent(cid string) *Component {
+	for _, child := range c.children {
+		if child.Name == cid {
+			return child
+		}
+	}
+
+	for _, child := range c.children {
+
+		found := child.FindComponent(cid)
+
+		if found != nil {
+			return found
+		}
+	}
+
+	return nil
 }
 
 func (c *Component) RenderChild(s string, props []reflect.Value) (string, error) {

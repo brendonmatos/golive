@@ -1,16 +1,16 @@
 package components
 
 import (
-	"github.com/brendonmatos/golive/live"
+	"github.com/brendonmatos/golive/live/component"
 )
 
 type Slider struct {
-	live.Wrapper
+	component.Wrapper
 	Size float32
 }
 
-func NewSlider() *live.Component {
-	return live.NewLiveComponent("Slider", &Slider{
+func NewSlider() *component.Component {
+	return component.NewLiveComponent("Slider", &Slider{
 		Size: 40,
 	})
 }
@@ -23,7 +23,7 @@ func (t *Slider) Size3() float32 {
 	return t.Size * t.Size * 0.3
 }
 
-func (t *Slider) TemplateHandler(_ *live.Component) string {
+func (t *Slider) TemplateHandler(_ *component.Component) string {
 	return `
 		<div>
 			<input gl-input="Size" type="range" value="{{.Size}}"/>

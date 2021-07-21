@@ -1,7 +1,7 @@
-package live
+package component
 
 import (
-	"github.com/brendonmatos/golive/live/renderer"
+	renderer2 "github.com/brendonmatos/golive/live/component/renderer"
 	"time"
 )
 
@@ -17,7 +17,7 @@ func NewClock() *Component {
 
 	c.SetState(&Clock{})
 
-	OnMounted(c, func() {
+	OnMounted(c, func(_ *Context) {
 		go func() {
 			for {
 				if c.Context.Closed {
@@ -29,7 +29,7 @@ func NewClock() *Component {
 		}()
 	})
 
-	err := c.UseRender(renderer.NewTemplateRenderer(`
+	err := c.UseRender(renderer2.NewTemplateRenderer(`
 			<div>
 				<span>Time: {{ .ActualTime }}</span>
 			</div>

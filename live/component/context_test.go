@@ -1,4 +1,4 @@
-package context
+package component
 
 import (
 	"sync"
@@ -19,7 +19,7 @@ func TestContextEvents(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	c.InjectHook("click", func() {
+	c.InjectHook("click", func(_ *Context) {
 		wg.Done()
 	})
 
@@ -35,7 +35,7 @@ func TestContextGlobalEvents(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	c.InjectGlobalHook("click", func() {
+	c.InjectGlobalHook("click", func(_ *Context) {
 		wg.Done()
 	})
 
@@ -51,7 +51,7 @@ func TestContextGlobalEventsWithNested(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	c.InjectGlobalHook("click", func() {
+	c.InjectGlobalHook("click", func(_ *Context) {
 		wg.Done()
 	})
 

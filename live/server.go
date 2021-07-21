@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/live/component"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -34,7 +35,7 @@ func NewServer() *Server {
 	}
 }
 
-func (s *Server) HandleFirstRequest(lc *Component, c PageContent) (*Response, error) {
+func (s *Server) HandleFirstRequest(lc *component.Component, c PageContent) (*Response, error) {
 
 	/* Create session to the new user */
 	sessionKey, session, err := s.Wire.CreateSession()
@@ -71,7 +72,7 @@ func (s *Server) HandleFirstRequest(lc *Component, c PageContent) (*Response, er
 	return &Response{Rendered: rendered, Session: sessionKey}, nil
 }
 
-func (s *Server) HandleHTMLRequest(ctx *fiber.Ctx, lc *Component, c PageContent) {
+func (s *Server) HandleHTMLRequest(ctx *fiber.Ctx, lc *component.Component, c PageContent) {
 
 	lr, err := s.HandleFirstRequest(lc, c)
 
@@ -96,7 +97,7 @@ func (s *Server) HandleHTMLRequest(ctx *fiber.Ctx, lc *Component, c PageContent)
 	ctx.Response().AppendBodyString(lr.Rendered)
 }
 
-func (s *Server) CreateHTMLHandler(f func() *Component, c PageContent) func(ctx *fiber.Ctx) error {
+func (s *Server) CreateHTMLHandler(f func() *component.Component, c PageContent) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		lc := f()
 		lc.Log = s.Log
@@ -112,7 +113,7 @@ type HTTPMiddleware func(next HTTPHandlerCtx) HTTPHandlerCtx
 // HTTPHandlerCtx HTTP Handler with a page level context.
 type HTTPHandlerCtx func(ctx *fiber.Ctx, pageCtx context.Context)
 
-func (s *Server) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context) *Component, content PageContent,
+func (s *Server) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context) *component.Component, content PageContent,
 	middlewares ...HTTPMiddleware) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		ctx := context.Background()

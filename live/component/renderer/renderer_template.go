@@ -3,7 +3,7 @@ package renderer
 import (
 	"bytes"
 	"fmt"
-	"github.com/brendonmatos/golive/live/state"
+	state2 "github.com/brendonmatos/golive/live/component/state"
 	"golang.org/x/net/html"
 	"html/template"
 )
@@ -80,7 +80,7 @@ func (tr *TemplateRenderer) renderToText(data interface{}) (string, error) {
 	return text, nil
 }
 
-func (tr *TemplateRenderer) Render(s *state.State) (*string, *html.Node, error) {
+func (tr *TemplateRenderer) Render(s *state2.State) (*string, *html.Node, error) {
 
 	textRender, err := tr.renderToText(s.Value)
 	if err != nil {
