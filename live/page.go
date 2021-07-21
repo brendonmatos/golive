@@ -4,10 +4,10 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
-	"github.com/brendonmatos/golive/differ"
-	"github.com/brendonmatos/golive/live/component"
 	"html/template"
 	"reflect"
+
+	"github.com/brendonmatos/golive/differ"
 )
 
 var BasePage *template.Template
