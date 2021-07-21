@@ -16,7 +16,7 @@ import (
 type diffTest struct {
 	template  string
 	diff      *differ.Diff
-	component *component2.Component
+	component *Component
 }
 
 type instructionExpect struct {
@@ -35,14 +35,14 @@ type diffComponent struct {
 
 var reSelectGoliveAttr = regexp.MustCompile(`[ ]?gl-uid="[a-zA-Z0-9_\-]+"`)
 
-func (l *diffComponent) TemplateHandler(_ *component2.Component) string {
+func (l *diffComponent) TemplateHandler(_ *Component) string {
 	return l.testTemplate
 }
 
 func newDiffTest(d diffTest) diffTest {
 	dc := diffComponent{}
 
-	c := component2.DefineComponent("testcomp")
+	c := DefineComponent("testcomp")
 
 	c.SetState(dc)
 

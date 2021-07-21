@@ -66,7 +66,7 @@ func (c *Context) InjectGlobalHook(targetType string, hook Hook) {
 
 func (c *Context) CallHook(target string) error {
 
-	if c.Hooks[target] == nil {
+	if c.Hooks[target] != nil {
 		for _, hook := range c.Hooks[target] {
 			hook(c)
 		}

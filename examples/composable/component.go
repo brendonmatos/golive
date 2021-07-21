@@ -24,7 +24,7 @@ func NewCounter(actual int) *component.Component {
 
 	c.SetState(counter)
 
-	component.OnMounted(c, func() {
+	component.OnMounted(c, func(_ *component.Context) {
 		go func() {
 			for {
 				if c.Context.Closed {
