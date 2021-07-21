@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"github.com/brendonmatos/golive/live/component"
 	"html/template"
 	"reflect"
 
