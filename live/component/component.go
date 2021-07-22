@@ -149,6 +149,15 @@ func (c *Component) SetState(i interface{}) {
 
 func (c *Component) SetContext(ctx *Context) {
 	ctx.Component = c
+
+	if c.Context != nil {
+		for s, hooks := range c.Context.Hooks {
+			for _, hook := range hooks {
+				ctx.InjectHook(s, hook)
+			}
+		}
+	}
+
 	c.Context = ctx
 }
 

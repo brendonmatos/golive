@@ -2,7 +2,7 @@ package components
 
 import (
 	"github.com/brendonmatos/golive/live/component"
-	renderer2 "github.com/brendonmatos/golive/live/component/renderer"
+	"github.com/brendonmatos/golive/live/component/renderer"
 	"time"
 )
 
@@ -30,7 +30,7 @@ func NewClock() *component.Component {
 		}()
 	})
 
-	err := c.UseRender(renderer2.NewTemplateRenderer(`
+	err := c.UseRender(renderer.NewTemplateRenderer(`
 			<div>
 				<span>Time: {{ .ActualTime }}</span>
 			</div>

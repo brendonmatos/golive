@@ -136,10 +136,6 @@ func (lp *Page) Emit(lts int, c *component.Component) {
 }
 
 func (lp *Page) EmitWithSource(lts int, c *component.Component, source *EventSource) {
-	//if c == nil {
-	//	c = lp.EntryComponent
-	//}
-
 	lp.Events <- PageEvent{
 		Type:      lts,
 		Component: c,
