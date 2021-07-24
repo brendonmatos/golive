@@ -2,12 +2,13 @@ package live
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/component"
 	renderer "github.com/brendonmatos/golive/live/component/renderer"
-	"strings"
 )
 
 const (
@@ -94,22 +95,24 @@ func (s *Session) ActivatePage(lp *Page) {
 			// Receive all the events from page
 			evt := <-s.LivePage.Events
 
-			s.log(golive.LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), golive.LogEx{"evt": evt})
+			go func() {
+				s.log(golive.LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), golive.LogEx{"evt": evt})
 
-			switch evt.Type {
-			case PageComponentUpdated:
-				if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
-					s.log(golive.LogError, "entryComponent live render", golive.LogEx{"error": err})
+				switch evt.Type {
+				case PageComponentUpdated:
+					if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
+						s.log(golive.LogError, "entryComponent live render", golive.LogEx{"error": err})
+					}
+					break
+				case PageComponentMounted:
+					s.QueueMessage(differ.PatchBrowser{
+						ComponentID:  evt.Component.Name,
+						Type:         EventLiveConnectElement,
+						Instructions: nil,
+					})
+					break
 				}
-				break
-			case PageComponentMounted:
-				s.QueueMessage(differ.PatchBrowser{
-					ComponentID:  evt.Component.Name,
-					Type:         EventLiveConnectElement,
-					Instructions: nil,
-				})
-				break
-			}
+			}()
 		}
 	}()
 }
