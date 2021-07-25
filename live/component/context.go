@@ -10,6 +10,7 @@ type Context struct {
 	Closed    bool
 	Component *Component
 	Hooks
+	Provided map[string]interface{}
 }
 
 type Hooks map[string][]Hook
@@ -17,7 +18,11 @@ type Hooks map[string][]Hook
 type Hook func(ctx *Context)
 
 func NewContext() *Context {
-	c := &Context{Children: []*Context{}, Hooks: Hooks{}}
+	c := &Context{
+		Children: []*Context{},
+		Hooks:    Hooks{},
+		Provided: map[string]interface{}{},
+	}
 	c.Root = c
 	return c
 }

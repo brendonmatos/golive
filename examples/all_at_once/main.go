@@ -21,13 +21,16 @@ func NewHome() *component.Component {
 
 	c.SetState(&Home{})
 
-	c.UseRender(renderer2.NewTemplateRenderer(`
+	err := c.UseRender(renderer2.NewTemplateRenderer(`
 		<div>
 			{{ render "Clock"  }}
 			{{ render "Todo" }}
 			{{ render "Slider" }}
 		</div>
 	`))
+	if err != nil {
+		return nil
+	}
 
 	return c
 }
@@ -36,12 +39,12 @@ func main() {
 	app := fiber.New()
 	liveServer := live.NewServer()
 
-	app.Get("/", liveServer.CreateHTMLHandler(NewHome, live.PageContent{
+	app.Get("/", liveServer.CreateStaticPageRender(NewHome, live.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))
 
-	app.Get("/ws", websocket.New(liveServer.HandleWSRequest))
+	app.Get("/ws", websocket.New(liveServer.HandleWebSocketConnection))
 
 	_ = app.Listen(":3000")
 

@@ -1,4 +1,4 @@
-package differ
+package live
 
 type PatchInstruction struct {
 	Name     string      `json:"n"`
@@ -21,6 +21,7 @@ type PatchBrowser struct {
 	Type         string             `json:"t"`
 	Message      string             `json:"m"`
 	Instructions []PatchInstruction `json:"i,omitempty"`
+	Value        interface{}        `json:"value"`
 }
 
 func NewPatchBrowser(componentID string) *PatchBrowser {

@@ -198,6 +198,7 @@
             goLive.on(
                 "{{ .Enum.EventLiveDom }}",
                 function handleLiveDom(message) {
+
                     if (id === message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]) {
                         for (const instruction of message[
                             EVENT_LIVE_DOM_INSTRUCTIONS_KEY
@@ -237,13 +238,15 @@
             goLive.connect(cid);
         });
         goLive.on("{{ .Enum.EventLiveError }}", (message) => {
-            console.error("message", message.m)
             if (
                 message.m ===
                 '{{ index .EnumLiveError "LiveErrorSessionNotFound"}}'
             ) {
                 window.location.reload(false);
             }
+        });
+        goLive.on("{{ .Enum.EventLiveNavigate }}", (message) => {
+            window.location.assign(message.value)
         });
     });
 
@@ -438,6 +441,10 @@
 
         const child = getElementChild(parent, message.index)
         parent.replaceChild(el, child)
+    }
+
+    function handleLiveNavigate(message, el) {
+        console.log(message,el)
     }
 
     const getComponentIdFromElement = (element) => {

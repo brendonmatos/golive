@@ -30,6 +30,7 @@ type PageEnum struct {
 	EventLiveDom            string
 	EventLiveConnectElement string
 	EventLiveError          string
+	EventLiveNavigate       string
 	DiffSetAttr             differ.Type
 	DiffRemoveAttr          differ.Type
 	DiffReplace             differ.Type
@@ -43,6 +44,7 @@ type PageEvent struct {
 	Type      int
 	Component *component.Component
 	Source    *EventSource
+	Value     interface{}
 }
 
 type EventsChannel chan PageEvent
@@ -93,6 +95,8 @@ func (lp *Page) Create() {
 		lp.Emit(PageComponentUpdated, ctx.Component)
 	})
 
+	component.Provide(lp.EntryComponent, "page", lp)
+
 	err := lp.EntryComponent.Mount()
 
 	if err != nil {
@@ -116,6 +120,7 @@ func (lp *Page) Render() (string, error) {
 		EventLiveDom:            EventLiveDom,
 		EventLiveError:          EventLiveError,
 		EventLiveConnectElement: EventLiveConnectElement,
+		EventLiveNavigate:       EventLiveNavigate,
 		DiffSetAttr:             differ.SetAttr,
 		DiffRemoveAttr:          differ.RemoveAttr,
 		DiffReplace:             differ.Replace,
@@ -132,26 +137,28 @@ func (lp *Page) Render() (string, error) {
 }
 
 func (lp *Page) Emit(lts int, c *component.Component) {
-	lp.EmitWithSource(lts, c, nil)
+	lp.EmitWithSource(lts, c, nil, nil)
 }
 
-func (lp *Page) EmitWithSource(lts int, c *component.Component, source *EventSource) {
+func (lp *Page) EmitWithSource(lts int, c *component.Component, source *EventSource, value interface{}) {
 	lp.Events <- PageEvent{
 		Type:      lts,
 		Component: c,
 		Source:    source,
+		Value:     value,
 	}
 }
 
 func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
-	c := lp.EntryComponent.FindComponent(m.ComponentID)
+	var err error
+
+	c, err := lp.EntryComponent.FindComponent(m.ComponentID)
 
 	if c == nil {
-		return fmt.Errorf("component not found with id: %s", m.ComponentID)
+		return fmt.Errorf("handle browser event: %w", err)
 	}
 
-	var err error
 	switch m.Name {
 	case EventLiveInput:
 		err = c.State.SetValueInPath(m.StateValue, m.StateKey)
@@ -168,3 +175,4 @@ func (lp *Page) HandleBrowserEvent(m BrowserEvent) error {
 
 const PageComponentUpdated = 1
 const PageComponentMounted = 2
+const PageNavigate = 3

@@ -37,13 +37,13 @@ func (tr *TemplateRenderer) Prepare(state *State) error {
 
 	tpl.Funcs(template.FuncMap{
 		"render": func(st string) (*template.HTML, error) {
-			renderer, err := tr.renderChild(st)
+			rendered, err := tr.renderChild(st)
 
 			if err != nil {
 				return nil, err
 			}
 
-			t := template.HTML(renderer)
+			t := template.HTML(rendered)
 			return &t, nil
 		},
 	})

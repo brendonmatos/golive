@@ -11,12 +11,12 @@ func main() {
 	app := fiber.New()
 	liveServer := live.NewServer()
 
-	app.Get("/", liveServer.CreateHTMLHandler(components.NewClock, live.PageContent{
+	app.Get("/", liveServer.CreateStaticPageRender(components.NewClock, live.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))
 
-	app.Get("/ws", websocket.New(liveServer.HandleWSRequest))
+	app.Get("/ws", websocket.New(liveServer.HandleWebSocketConnection))
 
 	_ = app.Listen(":3000")
 

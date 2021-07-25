@@ -12,7 +12,7 @@ func main() {
 	app := fiber.New()
 	liveServer := live.NewServer()
 
-	app.Get("/", liveServer.CreateHTMLHandler(func() *component.Component {
+	app.Get("/", liveServer.CreateStaticPageRender(func() *component.Component {
 		counter := NewCounter(1)
 		return counter
 	}, live.PageContent{
@@ -20,7 +20,7 @@ func main() {
 		Title: "Hello world",
 	}))
 
-	app.Get("/ws", websocket.New(liveServer.HandleWSRequest))
+	app.Get("/ws", websocket.New(liveServer.HandleWebSocketConnection))
 
 	err := app.Listen(":3000")
 

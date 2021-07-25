@@ -17,9 +17,10 @@ import (
 const GoLiveInput = "gl-input"
 
 var (
-	ErrComponentNotPrepared = errors.New("component need to be prepared")
-	ErrComponentWithoutLog  = errors.New("component without log defined")
-	ErrComponentNil         = errors.New("component nil")
+	ErrComponentNotMounted    = errors.New("component need to be mounted")
+	ErrComponentWithoutLog    = errors.New("component without log defined")
+	ErrComponentNil           = errors.New("component nil")
+	ErrChildComponentNotFound = errors.New("child component not found")
 )
 
 const (
@@ -40,6 +41,8 @@ type Component struct {
 
 	componentsRegister map[string]interface{}
 	children           []*Component
+
+	Mounted bool
 }
 
 func NewLiveComponent(name string, state interface{}) *Component {
@@ -139,8 +142,12 @@ func (c *Component) SignRender(node *html.Node) error {
 	return nil
 }
 
-func (c *Component) CallHook(name string) error {
-	return c.Context.CallHook(name)
+func (c *Component) CallHook(name string) {
+	err := c.Context.CallHook(name)
+
+	if err != nil {
+		c.Log(golive.LogError, fmt.Sprintf("call hook error: %s", err), golive.LogEx{})
+	}
 }
 
 func (c *Component) SetState(i interface{}) {
@@ -163,37 +170,30 @@ func (c *Component) SetContext(ctx *Context) {
 
 func (c *Component) Mount() error {
 	var err error
-
 	if c.Log == nil {
 		return ErrComponentWithoutLog
 	}
-
-	err = c.CallHook(BeforeMount)
-	if err != nil {
-		return fmt.Errorf("before mount hook: %w", err)
-	}
-
+	c.CallHook(BeforeMount)
 	err = c.Renderer.SetRenderChild(func(cn string) (string, error) {
 		return c.RenderChild(cn, []reflect.Value{})
 	})
 	if err != nil {
 		return fmt.Errorf("set render child: %w", err)
 	}
-
 	if err = c.Renderer.Prepare(c.Name); err != nil {
 		return fmt.Errorf("renderer prepare: %w", err)
 	}
-
-	err = c.CallHook(Mounted)
-	if err != nil {
-		return fmt.Errorf("mounted: %w", err)
-	}
-
+	c.CallHook(Mounted)
+	c.Mounted = true
 	return err
 }
 
 func OnMounted(c *Component, h Hook) {
 	c.Context.InjectHook(Mounted, h)
+}
+
+func OnBeforeMount(c *Component, h Hook) {
+	c.Context.InjectHook(BeforeMount, h)
 }
 
 func OnUpdate(c *Component, h Hook) {
@@ -207,6 +207,10 @@ func (c *Component) UseRender(newRenderer renderer.RendererInterface) error {
 
 // RenderStatic ...
 func (c *Component) RenderStatic() (string, error) {
+	if !c.Mounted {
+		return "", ErrComponentNotMounted
+	}
+
 	c.Log(golive.LogDebug, "RenderStatic", golive.LogEx{"name": c.Name})
 
 	text, _, err := c.Renderer.RenderState(c.State)
@@ -217,6 +221,10 @@ func (c *Component) RenderStatic() (string, error) {
 // differences from the last render
 // and sets the "new old" version  of render
 func (c *Component) LiveRender() (*differ.Diff, error) {
+	if !c.Mounted {
+		return nil, ErrComponentNotMounted
+	}
+
 	return c.Renderer.RenderStateDiff(c.State)
 }
 
@@ -226,12 +234,15 @@ func (c *Component) Update() {
 
 // Unmount ...
 func (c *Component) Unmount() error {
+	if !c.Mounted {
+		return ErrComponentNotMounted
+	}
 	c.Log(golive.LogTrace, "WillUnmount", golive.LogEx{"name": c.Name})
 	c.CallHook(BeforeUnmount)
 	c.State.Kill()
 	err := c.Context.Close()
 	if err != nil {
-		return fmt.Errorf("close context: %w", err)
+		return fmt.Errorf("context close: %w", err)
 	}
 	c.CallHook(Unmounted)
 	return nil
@@ -246,7 +257,7 @@ func (c *Component) SetupChild(s string, props []reflect.Value) (*Component, err
 	cd, found := c.componentsRegister[s]
 
 	if !found {
-		return nil, errors.New("component not found")
+		return nil, fmt.Errorf("component are not registered: %s", s)
 	}
 	v := reflect.ValueOf(cd)
 	r := v.Call(props)
@@ -260,23 +271,23 @@ func (c *Component) SetupChild(s string, props []reflect.Value) (*Component, err
 	return cp, nil
 }
 
-func (c *Component) FindComponent(cid string) *Component {
+func (c *Component) FindComponent(cid string) (*Component, error) {
 	for _, child := range c.children {
 		if child.Name == cid {
-			return child
+			return child, nil
 		}
 	}
 
 	for _, child := range c.children {
 
-		found := child.FindComponent(cid)
+		found, _ := child.FindComponent(cid)
 
 		if found != nil {
-			return found
+			return found, nil
 		}
 	}
 
-	return nil
+	return nil, fmt.Errorf("%w: %s", ErrChildComponentNotFound, cid)
 }
 
 func (c *Component) RenderChild(s string, props []reflect.Value) (string, error) {
@@ -296,4 +307,14 @@ func (c *Component) RenderChild(s string, props []reflect.Value) (string, error)
 	c.Log(golive.LogDebug, "ChildMounted", golive.LogEx{"name": cp.Name})
 
 	return cp.RenderStatic()
+}
+
+func Provide(c *Component, symbol string, value interface{}) {
+	r := c.Context.Root
+	r.Provided[symbol] = value
+}
+
+func Inject(c *Component, symbol string) interface{} {
+	r := c.Context.Root
+	return r.Provided[symbol]
 }

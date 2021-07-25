@@ -1,10 +1,8 @@
 package live
 
 import (
-	"context"
 	"fmt"
 	"github.com/brendonmatos/golive"
-	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/live/component"
 	"time"
 
@@ -97,52 +95,19 @@ func (s *Server) HandleHTMLRequest(ctx *fiber.Ctx, lc *component.Component, c Pa
 	ctx.Response().AppendBodyString(lr.Rendered)
 }
 
-func (s *Server) CreateHTMLHandler(f func() *component.Component, c PageContent) func(ctx *fiber.Ctx) error {
+func (s *Server) CreateStaticPageRender(f func() *component.Component, c PageContent) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		lc := f()
 		lc.Log = s.Log
+
+		component.Provide(lc, "fiber_ctx", ctx)
 
 		s.HandleHTMLRequest(ctx, lc, c)
 		return nil
 	}
 }
 
-// HTTPMiddleware Middleware to run on HTTP requests.
-type HTTPMiddleware func(next HTTPHandlerCtx) HTTPHandlerCtx
-
-// HTTPHandlerCtx HTTP Handler with a page level context.
-type HTTPHandlerCtx func(ctx *fiber.Ctx, pageCtx context.Context)
-
-func (s *Server) CreateHTMLHandlerWithMiddleware(f func(ctx context.Context) *component.Component, content PageContent,
-	middlewares ...HTTPMiddleware) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		ctx := context.Background()
-		// TODO: move chain building out so it only happens once - Sam H.
-		if len(middlewares) != 0 {
-			// Reassign the context back to this scope to capture changes to it
-			end := func(_ *fiber.Ctx, pCtx context.Context) {
-				ctx = pCtx
-			}
-			h := middlewares[len(middlewares)-1](end)
-
-			// build chain
-			for i := len(middlewares) - 2; i >= 0; i-- {
-				h = middlewares[i](h)
-			}
-			// trigger chain
-			h(c, ctx)
-		}
-
-		lc := f(ctx)
-		lc.Log = s.Log
-
-		s.HandleHTMLRequest(c, lc, content)
-
-		return nil
-	}
-}
-
-func (s *Server) HandleWSRequest(c *websocket.Conn) {
+func (s *Server) HandleWebSocketConnection(c *websocket.Conn) {
 	defer func() {
 		payload := recover()
 		if payload != nil {
@@ -161,7 +126,7 @@ func (s *Server) HandleWSRequest(c *websocket.Conn) {
 	if session == nil || session.Status != SessionNew {
 		s.Log(golive.LogWarn, "session not found", golive.LogEx{"session": sessionKey})
 
-		var msg differ.PatchBrowser
+		var msg PatchBrowser
 		msg.Type = EventLiveError
 		msg.Message = ErrorSessionNotFound
 		if err := c.WriteJSON(msg); err != nil {

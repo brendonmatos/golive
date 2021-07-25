@@ -17,6 +17,7 @@ const (
 	EventLiveDisconnect     = "lx"
 	EventLiveError          = "le"
 	EventLiveConnectElement = "lce"
+	EventLiveNavigate       = "ln"
 )
 
 var (
@@ -53,19 +54,19 @@ const (
 
 type Session struct {
 	LivePage   *Page
-	OutChannel chan differ.PatchBrowser
+	OutChannel chan PatchBrowser
 	log        golive.Log
 	Status     SessionStatus
 }
 
 func NewSession() *Session {
 	return &Session{
-		OutChannel: make(chan differ.PatchBrowser),
+		OutChannel: make(chan PatchBrowser),
 		Status:     SessionNew,
 	}
 }
 
-func (s *Session) QueueMessage(message differ.PatchBrowser) {
+func (s *Session) QueueMessage(message PatchBrowser) {
 	go func() {
 		s.OutChannel <- message
 	}()
@@ -87,6 +88,7 @@ func (s *Session) IngestMessage(message BrowserEvent) error {
 func (s *Session) ActivatePage(lp *Page) {
 	s.LivePage = lp
 
+	s.log(golive.LogDebug, fmt.Sprintf("page session is going to be ready to receive livePage.events"), golive.LogEx{"session": s})
 	// Here is the location that get all the componentsRegister updates *notified* by
 	// the page!
 	go func() {
@@ -94,29 +96,40 @@ func (s *Session) ActivatePage(lp *Page) {
 			// Receive all the events from page
 			evt := <-s.LivePage.Events
 
-			s.log(golive.LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), golive.LogEx{"evt": evt})
+			go func() {
 
-			switch evt.Type {
-			case PageComponentUpdated:
-				if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
-					s.log(golive.LogError, "entryComponent live render", golive.LogEx{"error": err})
+				s.log(golive.LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), golive.LogEx{"evt": evt})
+
+				switch evt.Type {
+				case PageComponentUpdated:
+					if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
+						s.log(golive.LogError, "entryComponent live render", golive.LogEx{"error": err})
+					}
+					break
+				case PageComponentMounted:
+					s.QueueMessage(PatchBrowser{
+						ComponentID:  evt.Component.Name,
+						Type:         EventLiveConnectElement,
+						Instructions: nil,
+					})
+					break
+				case PageNavigate:
+					s.QueueMessage(PatchBrowser{
+						ComponentID: evt.Component.Name,
+						Type:        EventLiveNavigate,
+						Value:       evt.Value,
+					})
+					break
 				}
-				break
-			case PageComponentMounted:
-				s.QueueMessage(differ.PatchBrowser{
-					ComponentID:  evt.Component.Name,
-					Type:         EventLiveConnectElement,
-					Instructions: nil,
-				})
-				break
-			}
+
+			}()
 		}
 	}()
 }
 
-func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *EventSource) ([]*differ.PatchBrowser, error) {
+func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *EventSource) ([]*PatchBrowser, error) {
 
-	bp := make([]*differ.PatchBrowser, 0)
+	bp := make([]*PatchBrowser, 0)
 
 	for _, instruction := range diff.Instructions {
 
@@ -135,7 +148,7 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *Even
 			return nil, fmt.Errorf("get component id from node: %w", err)
 		}
 
-		var patch *differ.PatchBrowser
+		var patch *PatchBrowser
 
 		// find if there is already a patch
 		for _, pb := range bp {
@@ -147,12 +160,12 @@ func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *Even
 
 		// If there is no patch
 		if patch == nil {
-			patch = differ.NewPatchBrowser(componentID)
+			patch = NewPatchBrowser(componentID)
 			patch.Type = EventLiveDom
 			bp = append(bp, patch)
 		}
 
-		patch.AddInstruction(differ.PatchInstruction{
+		patch.AddInstruction(PatchInstruction{
 			Name: EventLiveDom,
 			Type: instruction.ChangeType.ToString(),
 			Attr: map[string]string{

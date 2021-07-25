@@ -4,15 +4,20 @@ import (
 	"github.com/brendonmatos/golive/live/util"
 )
 
+// Wire should be responsible to keep browser view state
+// equal to server view state.
+// With that, it could not be responsible for the sessions.
+// But the wire should belong to a session. TODO
 type Wire struct {
-	Sessions WireSessions
+	Sessions Sessions
 }
 
-type WireSessions map[string]*Session
+type Sessions map[string]*Session
 
 func NewWire() *Wire {
 	return &Wire{
-		Sessions: make(WireSessions),
+		// TODO: move sessions to server
+		Sessions: make(Sessions),
 	}
 }
 
