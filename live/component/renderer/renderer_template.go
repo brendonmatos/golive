@@ -3,9 +3,10 @@ package renderer
 import (
 	"bytes"
 	"fmt"
+	"html/template"
+
 	state2 "github.com/brendonmatos/golive/live/component/state"
 	"golang.org/x/net/html"
-	"html/template"
 )
 
 const GoLiveUidAttrKey = "gl-uid"
@@ -14,12 +15,14 @@ type TemplateRenderer struct {
 	template       *template.Template
 	templateString string
 	renderChild    RenderChild
+	funcs          []func(*State) template.FuncMap
 }
 
 func NewTemplateRenderer(templateStr string) *TemplateRenderer {
 	return &TemplateRenderer{
 		template:       nil,
 		templateString: templateStr,
+		funcs:          []func(*State) template.FuncMap{},
 	}
 }
 
@@ -45,6 +48,12 @@ func (tr *TemplateRenderer) Prepare(state *State) error {
 		},
 	})
 
+	if tr.funcs != nil && len(tr.funcs) > 0 {
+		for _, funcs := range tr.funcs {
+			tpl.Funcs(funcs(state))
+		}
+	}
+
 	parsed, err := tpl.Parse(tr.templateString)
 
 	tr.template = parsed
@@ -58,6 +67,12 @@ func (tr *TemplateRenderer) Prepare(state *State) error {
 
 func (tr *TemplateRenderer) SetTemplate(template string) error {
 	tr.templateString = template
+
+	return nil
+}
+
+func (tr *TemplateRenderer) SetFuncs(funcs ...func(*State) template.FuncMap) error {
+	tr.funcs = funcs
 
 	return nil
 }
