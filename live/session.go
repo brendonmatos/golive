@@ -2,12 +2,13 @@ package live
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/component"
 	renderer "github.com/brendonmatos/golive/live/component/renderer"
-	"strings"
 )
 
 const (
