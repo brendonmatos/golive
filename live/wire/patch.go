@@ -1,4 +1,4 @@
-package live
+package wire
 
 type PatchInstruction struct {
 	Name     string      `json:"n"`
@@ -7,13 +7,6 @@ type PatchInstruction struct {
 	Content  string      `json:"c,omitempty"`
 	Selector string      `json:"s"`
 	Index    int         `json:"i,omitempty"`
-}
-
-type PatchNodeChildren map[int]*PatchTreeNode
-
-type PatchTreeNode struct {
-	Children    PatchNodeChildren  `json:"c,omitempty"`
-	Instruction []PatchInstruction `json:"i"`
 }
 
 type PatchBrowser struct {

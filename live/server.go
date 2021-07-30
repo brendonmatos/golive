@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/live/component"
+	"github.com/brendonmatos/golive/live/util"
+	"github.com/brendonmatos/golive/live/wire"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,8 +13,7 @@ import (
 )
 
 type Server struct {
-	// Wire ...
-	Wire *Wire
+	Sessions map[string]*Session
 
 	// CookieName ...
 	CookieName string
@@ -27,19 +28,37 @@ type Response struct {
 func NewServer() *Server {
 	logger := golive.NewLoggerBasic()
 	return &Server{
-		Wire:       NewWire(),
+		Sessions:   map[string]*Session{},
 		CookieName: "_csrf_token",
 		Log:        logger.Log,
 	}
 }
 
+func (s *Server) CreateSession() (string, *Session) {
+	key, _ := util.GenerateRandomString(48)
+	ns := NewSession()
+	s.Sessions[key] = ns
+	return key, ns
+}
+
+func (s *Server) GetSession(key string) *Session {
+	return s.Sessions[key]
+}
+
+func (s *Server) DeleteSession(key string) {
+	ss := s.GetSession(key)
+
+	if err := ss.Wire.End(); err != nil {
+		s.Log(golive.LogError, "handle ws request: kill page", golive.LogEx{"error": err})
+	}
+
+	delete(s.Sessions, key)
+}
+
 func (s *Server) HandleFirstRequest(lc *component.Component, c PageContent) (*Response, error) {
 
 	/* Create session to the new user */
-	sessionKey, session, err := s.Wire.CreateSession()
-	if err != nil {
-		return nil, err
-	}
+	sessionKey, session := s.CreateSession()
 
 	s.Log(golive.LogInfo, "http request", golive.LogEx{"Component": lc.Name, "session": sessionKey})
 
@@ -54,9 +73,10 @@ func (s *Server) HandleFirstRequest(lc *component.Component, c PageContent) (*Re
 	// activation should be before mount,
 	// because in activation will setup page channels
 	// that will be needed in mount
-	session.ActivatePage(p)
-
-	p.Create()
+	err := session.WireComponent(lc)
+	if err != nil {
+		return nil, fmt.Errorf("session wire component: %w", err)
+	}
 
 	rendered, err := p.Render()
 
@@ -114,64 +134,48 @@ func (s *Server) HandleWebSocketConnection(c *websocket.Conn) {
 			s.Log(golive.LogWarn, fmt.Sprintf("ws request panic recovered: %v", payload), nil)
 		}
 	}()
-
 	c.EnableWriteCompression(true)
-
 	sessionKey := c.Cookies(s.CookieName)
-
 	s.Log(golive.LogInfo, "websocket open", golive.LogEx{"session": sessionKey})
-
-	session := s.Wire.GetSession(sessionKey)
+	session := s.GetSession(sessionKey)
 
 	if session == nil || session.Status != SessionNew {
 		s.Log(golive.LogWarn, "session not found", golive.LogEx{"session": sessionKey})
-
-		var msg PatchBrowser
-		msg.Type = EventLiveError
+		var msg wire.PatchBrowser
+		msg.Type = wire.ToBrowserLiveError
 		msg.Message = ErrorSessionNotFound
 		if err := c.WriteJSON(msg); err != nil {
 			s.Log(golive.LogError, "handle ws request: write json", golive.LogEx{"error": err})
 		}
-
 		if err := c.Close(); err != nil {
 			s.Log(golive.LogError, "close websocket connection", golive.LogEx{"error": err})
 		}
-
 		s.Log(golive.LogInfo, "websocket close", golive.LogEx{"session": sessionKey})
-
 		return
 	}
 
-	session.Status = SessionOpen
+	session.SetOpen()
 	exit := make(chan int)
 	exited := false
+
+	w := session.Wire
 
 	go func() {
 		for {
 			select {
-			case msg := <-session.OutChannel:
+			case msg := <-w.ToBrowser:
 				s.Log(golive.LogDebug, "message out", golive.LogEx{"msg": msg, "session": sessionKey})
-
 				if err := c.WriteJSON(msg); err != nil {
 					s.Log(golive.LogError, "handle ws request: write json", golive.LogEx{"error": err})
 				}
 			case <-exit:
 				exited = true
-
-				session.Status = SessionClosed
-
+				session.SetClosed()
 				if err := c.Close(); err != nil {
 					s.Log(golive.LogError, "close websocket connection", golive.LogEx{"error": err})
 				}
-
-				if err := session.LivePage.EntryComponent.Unmount(); err != nil {
-					s.Log(golive.LogError, "handle ws request: kill page", golive.LogEx{"error": err})
-				}
-
-				s.Wire.DeleteSession(sessionKey)
-
+				s.DeleteSession(sessionKey)
 				s.Log(golive.LogInfo, "websocket close", golive.LogEx{"session": sessionKey})
-
 				return
 			}
 		}
@@ -190,7 +194,7 @@ func (s *Server) HandleWebSocketConnection(c *websocket.Conn) {
 			return
 		}
 
-		inMsg := BrowserEvent{}
+		inMsg := wire.FromBrowser{}
 
 		// Loop blocks here
 		if err := c.ReadJSON(&inMsg); err != nil {
@@ -198,22 +202,15 @@ func (s *Server) HandleWebSocketConnection(c *websocket.Conn) {
 				// This seems to happen when running in Docker
 				if !exited {
 					s.Log(golive.LogWarn, "handle ws request: unexpected connection close", nil)
-
 					exit <- 1
 				}
-
 				return
 			}
-
 			s.Log(golive.LogError, "handle ws request: read json", golive.LogEx{"error": err})
-
 			continue
 		}
-
 		s.Log(golive.LogDebug, "message in", golive.LogEx{"msg": inMsg, "session": sessionKey})
 
-		if err := session.IngestMessage(inMsg); err != nil {
-			s.Log(golive.LogError, "handle ws request: ingest message ", golive.LogEx{"error": err})
-		}
+		w.HandleFromBrowser(&inMsg)
 	}
 }

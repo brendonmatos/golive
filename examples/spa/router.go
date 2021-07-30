@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/brendonmatos/golive/live"
 	"github.com/brendonmatos/golive/live/component"
 	"github.com/brendonmatos/golive/live/component/renderer"
+	"github.com/brendonmatos/golive/live/wire"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -22,9 +22,9 @@ func (c *Router) ActualRoute() string {
 func (c *Router) Push(path string) {
 	c.Path = path
 
-	lp := component.Inject(c.component, "page").(*live.Page)
+	w := component.Inject(c.component, "wire").(*wire.Wire)
 
-	lp.EmitWithSource(live.PageNavigate, c.component, nil, path)
+	w.NavigateToPage(path)
 
 	// TODO: find some way to send page navigation commands to the browser
 	c.component.Update()
