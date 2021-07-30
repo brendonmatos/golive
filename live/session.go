@@ -2,23 +2,9 @@ package live
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/brendonmatos/golive"
-	"github.com/brendonmatos/golive/differ"
-	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/component"
-	renderer "github.com/brendonmatos/golive/live/component/renderer"
-)
-
-const (
-	EventLiveInput          = "li"
-	EventLiveMethod         = "lm"
-	EventLiveDom            = "ld"
-	EventLiveDisconnect     = "lx"
-	EventLiveError          = "le"
-	EventLiveConnectElement = "lce"
-	EventLiveNavigate       = "ln"
+	"github.com/brendonmatos/golive/live/wire"
 )
 
 var (
@@ -31,20 +17,6 @@ func ErrorMap() map[string]string {
 	}
 }
 
-type BrowserEvent struct {
-	Name        string            `json:"name"`
-	ComponentID string            `json:"component_id"`
-	MethodName  string            `json:"method_name"`
-	MethodData  map[string]string `json:"method_data"`
-	StateKey    string            `json:"key"`
-	StateValue  string            `json:"value"`
-	DOMEvent    *DOMEvent         `json:"dom_event"`
-}
-
-type DOMEvent struct {
-	KeyCode string `json:"keyCode"`
-}
-
 type SessionStatus string
 
 const (
@@ -54,163 +26,31 @@ const (
 )
 
 type Session struct {
-	LivePage   *Page
-	OutChannel chan PatchBrowser
-	log        golive.Log
-	Status     SessionStatus
+	log    golive.Log
+	Status SessionStatus
+	Wire   *wire.Wire
+}
+
+func (s *Session) WireComponent(lc *component.Component) error {
+	s.Wire = wire.NewWire(lc)
+	err := s.Wire.Start()
+	if err != nil {
+		return fmt.Errorf("wire start: %w", err)
+	}
+	return nil
+}
+
+func (s *Session) SetOpen() {
+	s.Status = SessionOpen
+}
+
+func (s *Session) SetClosed() {
+	s.Status = SessionClosed
 }
 
 func NewSession() *Session {
 	return &Session{
-		OutChannel: make(chan PatchBrowser),
-		Status:     SessionNew,
+		Wire:   nil,
+		Status: SessionNew,
 	}
-}
-
-func (s *Session) QueueMessage(message PatchBrowser) {
-	go func() {
-		s.OutChannel <- message
-	}()
-}
-
-func (s *Session) IngestMessage(message BrowserEvent) error {
-
-	defer func() {
-		payload := recover()
-		if payload != nil {
-			// TODO: get session key in log
-			s.log(golive.LogWarn, fmt.Sprintf("ingest message: recover from panic: %v", payload), golive.LogEx{"message": message})
-		}
-	}()
-
-	return s.LivePage.HandleBrowserEvent(message)
-}
-
-func (s *Session) ActivatePage(lp *Page) {
-	s.LivePage = lp
-
-	s.log(golive.LogDebug, fmt.Sprintf("page session is going to be ready to receive livePage.events"), golive.LogEx{"session": s})
-	// Here is the location that get all the componentsRegister updates *notified* by
-	// the page!
-	go func() {
-		for {
-			// Receive all the events from page
-			evt := <-s.LivePage.Events
-
-			go func() {
-
-				s.log(golive.LogDebug, fmt.Sprintf("component %s triggering %d", evt.Component.Name, evt.Type), golive.LogEx{"evt": evt})
-
-				switch evt.Type {
-				case PageComponentUpdated:
-					if err := s.LiveRenderComponent(evt.Component, evt.Source); err != nil {
-						s.log(golive.LogError, "entryComponent live render", golive.LogEx{"error": err})
-					}
-					break
-				case PageComponentMounted:
-					s.QueueMessage(PatchBrowser{
-						ComponentID:  evt.Component.Name,
-						Type:         EventLiveConnectElement,
-						Instructions: nil,
-					})
-					break
-				case PageNavigate:
-					s.QueueMessage(PatchBrowser{
-						ComponentID: evt.Component.Name,
-						Type:        EventLiveNavigate,
-						Value:       evt.Value,
-					})
-					break
-				}
-
-			}()
-		}
-	}()
-}
-
-func (s *Session) generateBrowserPatchesFromDiff(diff *differ.Diff, source *EventSource) ([]*PatchBrowser, error) {
-
-	bp := make([]*PatchBrowser, 0)
-
-	for _, instruction := range diff.Instructions {
-
-		selector, err := dom.SelectorFromNode(instruction.Element)
-		if skipUpdateValueOnInput(instruction, source) {
-			continue
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("selector from node: %w instruction: %v", err, instruction)
-		}
-
-		componentID, err := renderer.ComponentIDFromNode(instruction.Element)
-
-		if err != nil {
-			return nil, fmt.Errorf("get component id from node: %w", err)
-		}
-
-		var patch *PatchBrowser
-
-		// find if there is already a patch
-		for _, pb := range bp {
-			if pb.ComponentID == componentID {
-				patch = pb
-				break
-			}
-		}
-
-		// If there is no patch
-		if patch == nil {
-			patch = NewPatchBrowser(componentID)
-			patch.Type = EventLiveDom
-			bp = append(bp, patch)
-		}
-
-		patch.AddInstruction(PatchInstruction{
-			Name: EventLiveDom,
-			Type: instruction.ChangeType.ToString(),
-			Attr: map[string]string{
-				"Name":  instruction.Attr.Name,
-				"Value": instruction.Attr.Value,
-			},
-			Index:    instruction.Index,
-			Content:  instruction.Content,
-			Selector: selector.ToString(),
-		})
-	}
-	return bp, nil
-}
-
-func skipUpdateValueOnInput(in differ.ChangeInstruction, source *EventSource) bool {
-	if in.Element == nil || source == nil || in.ChangeType != differ.SetAttr || strings.ToLower(in.Attr.Name) != "value" {
-		return false
-	}
-
-	attr := dom.GetAttribute(in.Element, component.GoLiveInput)
-
-	return attr != nil && source.Type == EventSourceInput && attr.Val == source.Value
-}
-
-// LiveRenderComponent render the updated Component and compare with
-// last state. It may apply with *all child componentsRegister*
-func (s *Session) LiveRenderComponent(c *component.Component, source *EventSource) error {
-	var err error
-
-	diff, err := c.LiveRender()
-
-	if err != nil {
-		return err
-	}
-
-	patches, err := s.generateBrowserPatchesFromDiff(diff, source)
-
-	if err != nil {
-		return err
-	}
-
-	for _, om := range patches {
-		s.QueueMessage(*om)
-	}
-
-	return nil
 }
