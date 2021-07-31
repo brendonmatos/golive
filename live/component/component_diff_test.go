@@ -1,14 +1,15 @@
 package component
 
 import (
-	"github.com/brendonmatos/golive"
-	"github.com/brendonmatos/golive/differ"
-	"github.com/brendonmatos/golive/dom"
 	"reflect"
 	"regexp"
 	"runtime/debug"
 	"testing"
 	"time"
+
+	"github.com/brendonmatos/golive"
+	"github.com/brendonmatos/golive/differ"
+	"github.com/brendonmatos/golive/dom"
 
 	"golang.org/x/net/html"
 )

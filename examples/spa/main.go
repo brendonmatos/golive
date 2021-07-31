@@ -10,19 +10,13 @@ import (
 func main() {
 	app := fiber.New()
 	liveServer := live.NewServer()
-
-	loggerbsc := golive.NewLoggerBasic()
-	loggerbsc.Level = golive.LogDebug
-
-	liveServer.Log = loggerbsc.Log
-
+	basicLogger := golive.NewLoggerBasic()
+	basicLogger.Level = golive.LogDebug
+	liveServer.Log = basicLogger.Log
 	app.Get("/ws", websocket.New(liveServer.HandleWebSocketConnection))
-
 	app.Get("/*", liveServer.CreateStaticPageRender(NewRouter, live.PageContent{
 		Lang:  "us",
 		Title: "Hello world",
 	}))
-
 	_ = app.Listen(":3000")
-
 }

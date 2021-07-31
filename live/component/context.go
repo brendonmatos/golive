@@ -29,15 +29,12 @@ func NewContext() *Context {
 
 func (c *Context) Close() error {
 	c.Closed = true
-
 	for _, child := range c.Children {
 		err := child.Close()
-
 		if err != nil {
 			return fmt.Errorf("children ctx close: %w", err)
 		}
 	}
-
 	return nil
 }
 

@@ -2,24 +2,52 @@ package wire
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/component"
 	"github.com/brendonmatos/golive/live/component/renderer"
-	"reflect"
-	"strings"
 )
 
+type EventSourceType string
+type Instruction string
+
 const (
-	FromBrowserLiveInput        = "li"
-	FromBrowserLiveMethod       = "lm"
-	FromBrowserLiveDisconnect   = "lx"
-	ToBrowserLiveDom            = "ld"
-	ToBrowserLiveError          = "le"
-	ToBrowserLiveConnectElement = "lce"
-	ToBrowserLiveNavigate       = "ln"
+	FromBrowserLiveInput        Instruction = "li"
+	FromBrowserLiveMethod       Instruction = "lm"
+	FromBrowserLiveDisconnect   Instruction = "lx"
+	ToBrowserLiveDom            Instruction = "ld"
+	ToBrowserLiveError          Instruction = "le"
+	ToBrowserLiveConnectElement Instruction = "lce"
+	ToBrowserLiveNavigate       Instruction = "ln"
 )
+
+type Event struct {
+	Type    EventSourceType
+	Value   string
+	KeyCode string `json:"keyCode"`
+}
+
+type ToBrowser struct {
+	Event       *Event
+	Type        Instruction         `json:"t"`
+	ComponentID string              `json:"cid,omitempty"`
+	Value       string              `json:"value"`
+	Message     string              `json:"m"`
+	Patches     *[]PatchInstruction `json:"i,omitempty"`
+}
+
+type PatchInstruction struct {
+	Name     string      `json:"n"`
+	Type     string      `json:"t"`
+	Attr     interface{} `json:"a,omitempty"`
+	Content  string      `json:"c,omitempty"`
+	Selector string      `json:"s"`
+	Index    int         `json:"i,omitempty"`
+}
 
 // Wire should be responsible to keep browser view state
 // equal to server view state.
@@ -38,26 +66,17 @@ func NewWire(root *component.Component) *Wire {
 	}
 }
 
-type ToBrowser struct {
-	Type         string `json:"t"`
-	ComponentID  string `json:"cid,omitempty"`
-	Event        *Event
-	Value        string              `json:"value"`
-	Message      string              `json:"m"`
-	Instructions *[]PatchInstruction `json:"i,omitempty"`
-}
-
 func (b *ToBrowser) AddInstruction(instruction PatchInstruction) {
-	if b.Instructions == nil {
+	if b.Patches == nil {
 		var a []PatchInstruction
-		b.Instructions = &a
+		b.Patches = &a
 	}
 
-	*b.Instructions = append(*b.Instructions, instruction)
+	*b.Patches = append(*b.Patches, instruction)
 }
 
 type FromBrowser struct {
-	Name        string            `json:"name"`
+	Type        Instruction       `json:"name"`
 	ComponentID string            `json:"component_id"`
 	MethodName  string            `json:"method_name"`
 	MethodData  map[string]string `json:"method_data"`
@@ -106,7 +125,7 @@ func (w *Wire) HandleFromBrowser(m *FromBrowser) {
 		return
 	}
 
-	switch m.Name {
+	switch m.Type {
 	case FromBrowserLiveInput:
 		err = c.State.SetValueInPath(m.StateValue, m.StateKey)
 	case FromBrowserLiveMethod:
@@ -151,13 +170,13 @@ func (w *Wire) LiveRenderComponent(c *component.Component, e *Event) error {
 	diff, err := c.LiveRender()
 
 	if err != nil {
-		return err
+		return fmt.Errorf("live render: %w", err)
 	}
 
 	patches, err := diffToBrowser(diff, e)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("diff to browser: %w", err)
 	}
 
 	for _, patch := range patches {
@@ -210,7 +229,6 @@ func diffToBrowser(diff *differ.Diff, source *Event) ([]*ToBrowser, error) {
 		}
 
 		tb.AddInstruction(PatchInstruction{
-			Name: ToBrowserLiveDom,
 			Type: instruction.ChangeType.ToString(),
 			Attr: map[string]string{
 				"Name":  instruction.Attr.Name,
@@ -231,5 +249,5 @@ func isUpdateAbleToSkip(in differ.ChangeInstruction, event *Event) bool {
 
 	attr := dom.GetAttribute(in.Element, component.GoLiveInput)
 
-	return attr != nil && event.Type == FromBrowserLiveInput && attr.Val == event.Value
+	return attr != nil && attr.Val == event.Value
 }

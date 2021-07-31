@@ -2,11 +2,12 @@ package live
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/live/component"
 	"github.com/brendonmatos/golive/live/util"
 	"github.com/brendonmatos/golive/live/wire"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -141,7 +142,7 @@ func (s *Server) HandleWebSocketConnection(c *websocket.Conn) {
 
 	if session == nil || session.Status != SessionNew {
 		s.Log(golive.LogWarn, "session not found", golive.LogEx{"session": sessionKey})
-		var msg wire.PatchBrowser
+		var msg wire.ToBrowser
 		msg.Type = wire.ToBrowserLiveError
 		msg.Message = ErrorSessionNotFound
 		if err := c.WriteJSON(msg); err != nil {

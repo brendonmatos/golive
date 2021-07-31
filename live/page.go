@@ -4,10 +4,11 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"html/template"
+
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/live/component"
 	"github.com/brendonmatos/golive/live/wire"
-	"html/template"
 )
 
 var BasePage *template.Template
@@ -24,12 +25,12 @@ func init() {
 }
 
 type PageEnum struct {
-	EventLiveInput          string
-	EventLiveMethod         string
-	EventLiveDom            string
-	EventLiveConnectElement string
-	EventLiveError          string
-	EventLiveNavigate       string
+	EventLiveInput          wire.Instruction
+	EventLiveMethod         wire.Instruction
+	EventLiveDom            wire.Instruction
+	EventLiveConnectElement wire.Instruction
+	EventLiveError          wire.Instruction
+	EventLiveNavigate       wire.Instruction
 	DiffSetAttr             differ.Type
 	DiffRemoveAttr          differ.Type
 	DiffReplace             differ.Type
