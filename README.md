@@ -19,7 +19,7 @@ Use just GoLang to program reactive front-ends!
 
 ## What is this lib suitable for?
 
-To be fair, i see not being used for usual front-end applications replacing Vue or React. But sometimes, just a reactive view to build an internal tool or ease the management/config/dashboard from **UI** can be the perfect use case for this library.
+This project it's strongly inspired by Elixir Phoenix LiveView. But, to be fair, i don't see being used for usual front-end applications replacing Vue or React. Otherwise, just a reactive view to build an internal tool or ease the management/config/dashboard from **UI**, can be the perfect use case for this library.
 Just to exemplify an use case: [Gorse Project](https://github.com/zhenghaoz/gorse) which has a dashboard user interface, could have been built using GoLive which would make all the stats live with minimal effort, all integrating with the real data. No need to create API for [Front-end](https://github.com/gorse-io/dashboard).
 
 ## Getting Started
@@ -27,8 +27,6 @@ Just to exemplify an use case: [Gorse Project](https://github.com/zhenghaoz/gors
 - [Extended Version Todo Example](https://github.com/SamHennessy/golive-example)
 - [Project Examples](https://github.com/brendonmatos/golive/tree/master/examples)
 - [GoBook - Interactive Go REPL in browser](https://github.com/brendonmatos/gobook)
-
-This project it's strongly inspired by Elixir Phoenix LiveView.
 
 ## Component Example
 
