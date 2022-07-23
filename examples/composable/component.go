@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/brendonmatos/golive/live/component"
-	renderer2 "github.com/brendonmatos/golive/live/component/renderer"
 	"time"
+
+	"github.com/brendonmatos/golive/live/component"
+	"github.com/brendonmatos/golive/live/component/renderer"
 )
 
 type Counter struct {
@@ -37,7 +38,7 @@ func NewCounter(actual int) *component.Component {
 		}()
 	})
 
-	err := c.UseRender(renderer2.NewTemplateRenderer(`
+	err := c.UseRender(renderer.NewTemplateRenderer(`
 		<div>
 			<button gl-click="Increase">Increase</button>
 			<div>{{ .Actual }}</div>

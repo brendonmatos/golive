@@ -13,31 +13,41 @@ import (
 )
 
 type EventSourceType string
-type Instruction string
+type EventKind string
 
 const (
-	FromBrowserLiveInput        Instruction = "li"
-	FromBrowserLiveMethod       Instruction = "lm"
-	FromBrowserLiveDisconnect   Instruction = "lx"
-	ToBrowserLiveDom            Instruction = "ld"
-	ToBrowserLiveError          Instruction = "le"
-	ToBrowserLiveConnectElement Instruction = "lce"
-	ToBrowserLiveNavigate       Instruction = "ln"
+	FromBrowserLiveInput         EventKind = "li"
+	FromBrowserLiveMethod        EventKind = "lm"
+	FromBrowserLiveDisconnect    EventKind = "lx"
+	FromServerLiveDom            EventKind = "ld"
+	FromServerLiveError          EventKind = "le"
+	FromServerLiveConnectElement EventKind = "lce"
+	FromServerLiveNavigate       EventKind = "ln"
 )
 
 type Event struct {
-	Type    EventSourceType
-	Value   string
-	KeyCode string `json:"keyCode"`
+	OriginComponentID string `json:"component_id"`
+
+	Type    EventSourceType `json:"type"`
+	Kind    EventKind       `json:"kind"`
+	Value   string          `json:"t"`
+	KeyCode string          `json:"keyCode"`
+
+	MethodName string            `json:"method_name"`
+	MethodData map[string]string `json:"method_data"`
+	StateKey   string            `json:"key"`
+	StateValue string            `json:"value"`
+
+	Patches *[]PatchInstruction `json:"i,omitempty"`
 }
 
-type ToBrowser struct {
-	Event       *Event
-	Type        Instruction         `json:"t"`
-	ComponentID string              `json:"cid,omitempty"`
-	Value       string              `json:"value"`
-	Message     string              `json:"m"`
-	Patches     *[]PatchInstruction `json:"i,omitempty"`
+func (e *Event) AddInstruction(instruction PatchInstruction) {
+	if e.Patches == nil {
+		var a []PatchInstruction
+		e.Patches = &a
+	}
+
+	*e.Patches = append(*e.Patches, instruction)
 }
 
 type PatchInstruction struct {
@@ -51,41 +61,22 @@ type PatchInstruction struct {
 
 // Wire should be responsible to keep browser view state
 // equal to server view state.
-// With that, it could not be responsible for the sessions.
-// But the wire should belong to a session. TODO
+// With that, it could't be responsible for the sessions.
+// But the wire could belong to a session.
 type Wire struct {
-	ToBrowser chan ToBrowser
+	ToBrowser chan Event
 	log       golive.Log
 	root      *component.Component
 }
 
 func NewWire(root *component.Component) *Wire {
 	return &Wire{
-		ToBrowser: make(chan ToBrowser),
+		ToBrowser: make(chan Event),
 		root:      root,
 	}
 }
 
-func (b *ToBrowser) AddInstruction(instruction PatchInstruction) {
-	if b.Patches == nil {
-		var a []PatchInstruction
-		b.Patches = &a
-	}
-
-	*b.Patches = append(*b.Patches, instruction)
-}
-
-type FromBrowser struct {
-	Type        Instruction       `json:"name"`
-	ComponentID string            `json:"component_id"`
-	MethodName  string            `json:"method_name"`
-	MethodData  map[string]string `json:"method_data"`
-	StateKey    string            `json:"key"`
-	StateValue  string            `json:"value"`
-	Event       *Event            `json:"dom_event"`
-}
-
-func (w *Wire) sendToBrowser(tb ToBrowser) {
+func (w *Wire) sendToBrowser(tb Event) {
 	go func() {
 		w.ToBrowser <- tb
 	}()
@@ -95,10 +86,8 @@ func (w *Wire) sendToBrowser(tb ToBrowser) {
 func (w *Wire) Start() error {
 	c := w.root
 	component.OnMounted(c, func(ctx *component.Context) {
-		w.sendToBrowser(ToBrowser{
-			Type:        ToBrowserLiveConnectElement,
-			ComponentID: ctx.Component.Name,
-			Event:       nil,
+		w.sendToBrowser(Event{
+			OriginComponentID: ctx.Component.Name,
 		})
 	})
 
@@ -115,21 +104,21 @@ func (w *Wire) Start() error {
 	return nil
 }
 
-func (w *Wire) HandleFromBrowser(m *FromBrowser) {
+func (w *Wire) HandleFromBrowser(e *Event) {
 
 	var err error
 
-	c, err := w.root.FindComponent(m.ComponentID)
+	c, err := w.root.FindComponent(e.OriginComponentID)
 	if c == nil {
 		w.log(golive.LogError, fmt.Sprintf("handle browser event: %s", err), golive.LogEx{})
 		return
 	}
 
-	switch m.Type {
+	switch e.Kind {
 	case FromBrowserLiveInput:
-		err = c.State.SetValueInPath(m.StateValue, m.StateKey)
+		err = c.State.SetValueInPath(e.StateValue, e.StateKey)
 	case FromBrowserLiveMethod:
-		_, err = c.State.InvokeMethodInPath(m.MethodName, []reflect.Value{reflect.ValueOf(m.MethodData), reflect.ValueOf(m.Event)})
+		_, err = c.State.InvokeMethodInPath(e.MethodName, []reflect.Value{reflect.ValueOf(e.MethodData), reflect.ValueOf(e.Kind)})
 	case FromBrowserLiveDisconnect:
 		err = c.Unmount()
 	}
@@ -148,17 +137,10 @@ func (w *Wire) LiveRender() error {
 }
 
 func (w *Wire) NavigateToPage(path string) {
-	w.sendToBrowser(ToBrowser{
-		ComponentID: w.root.Name,
-		Type:        ToBrowserLiveNavigate,
-		Value:       path,
-	})
-}
-
-func (w *Wire) LiveConnectElement(c *component.Component) {
-	w.sendToBrowser(ToBrowser{
-		ComponentID: c.Name,
-		Type:        ToBrowserLiveConnectElement,
+	w.sendToBrowser(Event{
+		OriginComponentID: w.root.Name,
+		Kind:              FromServerLiveNavigate,
+		Value:             path,
 	})
 }
 
@@ -190,9 +172,9 @@ func (w *Wire) End() error {
 	return w.root.Unmount()
 }
 
-func diffToBrowser(diff *differ.Diff, source *Event) ([]*ToBrowser, error) {
+func diffToBrowser(diff *differ.Diff, source *Event) ([]*Event, error) {
 
-	bp := make([]*ToBrowser, 0)
+	bp := make([]*Event, 0)
 
 	for _, instruction := range diff.Instructions {
 
@@ -211,11 +193,11 @@ func diffToBrowser(diff *differ.Diff, source *Event) ([]*ToBrowser, error) {
 			return nil, fmt.Errorf("get component id from node: %w", err)
 		}
 
-		var tb *ToBrowser
+		var tb *Event
 
 		// find if there is already a tb
 		for _, pb := range bp {
-			if pb.ComponentID == componentID {
+			if pb.OriginComponentID == componentID {
 				tb = pb
 				break
 			}
@@ -223,8 +205,8 @@ func diffToBrowser(diff *differ.Diff, source *Event) ([]*ToBrowser, error) {
 
 		// If there is no tb
 		if tb == nil {
-			tb = &ToBrowser{ComponentID: componentID}
-			tb.Type = ToBrowserLiveDom
+			tb = &Event{OriginComponentID: componentID}
+			tb.Kind = FromServerLiveDom
 			bp = append(bp, tb)
 		}
 

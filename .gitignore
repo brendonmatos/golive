@@ -2,3 +2,4 @@ examples/todo/tmp/
 tmp/
 vendor/
 .idea
+examples/.DS_Store

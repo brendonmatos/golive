@@ -142,9 +142,9 @@ func (s *Server) HandleWebSocketConnection(c *websocket.Conn) {
 
 	if session == nil || session.Status != SessionNew {
 		s.Log(golive.LogWarn, "session not found", golive.LogEx{"session": sessionKey})
-		var msg wire.ToBrowser
-		msg.Type = wire.ToBrowserLiveError
-		msg.Message = ErrorSessionNotFound
+		var msg map[string]string
+		msg["Type"] = string(wire.FromServerLiveError)
+		msg["Message"] = ErrorSessionNotFound
 		if err := c.WriteJSON(msg); err != nil {
 			s.Log(golive.LogError, "handle ws request: write json", golive.LogEx{"error": err})
 		}
@@ -195,7 +195,7 @@ func (s *Server) HandleWebSocketConnection(c *websocket.Conn) {
 			return
 		}
 
-		inMsg := wire.FromBrowser{}
+		inMsg := wire.Event{}
 
 		// Loop blocks here
 		if err := c.ReadJSON(&inMsg); err != nil {

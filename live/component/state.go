@@ -1,13 +1,14 @@
-package state
+package component
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/brendonmatos/golive/live/util"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/brendonmatos/golive/live/util"
 )
 
 var (

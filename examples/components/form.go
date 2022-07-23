@@ -15,8 +15,8 @@ func NewForm() *component.Component {
 	var value = ""
 
 	return component.NewLiveComponent("Form", &Form{
-		InputtedValue: &value,
 		DynamicInput:  NewDynamicInput(DynamicInputProps{Value: &value}),
+		InputtedValue: &value,
 	})
 }
 

@@ -19,7 +19,7 @@ func TestContextEvents(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	c.InjectHook("click", func(_ *Context) {
+	c.SetHook("click", func(_ *Context) {
 		wg.Done()
 	})
 

@@ -39,8 +39,8 @@ type Random struct {
 
 const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
 
-var instantiated *Random
 var once sync.Once
+var instantiated *Random
 
 func NewLiveID() *Random {
 	once.Do(func() {

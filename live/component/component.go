@@ -3,15 +3,15 @@ package component
 import (
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/brendonmatos/golive"
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
 	"github.com/brendonmatos/golive/live/component/renderer"
-	"github.com/brendonmatos/golive/live/component/state"
 	"github.com/brendonmatos/golive/live/util"
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
-	"reflect"
+	html "github.com/levigross/exp-html"
+	"github.com/levigross/exp-html/atom"
 )
 
 const GoLiveInput = "gl-input"
@@ -36,48 +36,50 @@ type Component struct {
 	Name     string
 	Log      golive.Log
 	Context  *Context
-	State    *state.State
-	Renderer *renderer.Renderer
+	State    *State
+	Renderer *renderer.RenderController
 
-	componentsRegister map[string]interface{}
+	componentsRegister map[string]*Component
 	children           []*Component
 
 	Mounted bool
 }
 
-func NewLiveComponent(name string, state interface{}) *Component {
-	c := DefineComponent(name)
-	c.SetState(state)
-
-	template, _ := c.State.InvokeMethodInPath("TemplateHandler", []reflect.Value{reflect.ValueOf(c)})
-	c.UseRender(renderer.NewTemplateRenderer(template[0].String()))
-
-	return c
+func UseState(ctx *Context, state interface{}) {
+	ctx.Provided["state"] = state
+	ctx.CallHook("set_state")
 }
 
-func DefineComponent(name string) *Component {
-	s := state.NewState()
+func DefineComponent(name string, setup func(ctx *Context) renderer.Renderer) *Component {
+
 	uid := util.CreateUniqueName(name)
-	r := renderer.NewRenderer(renderer.NewTemplateRenderer(""))
+	ctx := NewContext()
+
+	setUpRenderer := setup(ctx)
+
+	rendererController := renderer.NewRenderer(setUpRenderer)
 
 	c := &Component{
-		Name:     uid,
-		State:    s,
-		Renderer: r,
-		Context:  nil,
-
-		componentsRegister: map[string]interface{}{},
+		Name:               uid,
+		State:              nil,
+		Renderer:           rendererController,
+		Context:            ctx,
+		componentsRegister: map[string]*Component{},
 		children:           []*Component{},
 	}
 
-	c.SetContext(NewContext())
+	ctx.SetHook("set_state", func(ctx *Context) {
+		c.State.Set(ctx.Provided["set_state"])
+	})
 
-	r.UseFormatter(func(t *html.Node) {
+	rendererController.UseFormatter(func(t *html.Node) {
 		err := c.SignRender(t)
 		if err != nil {
 			panic(err)
 		}
 	})
+
+	c.SetContext(ctx)
 
 	return c
 }
@@ -160,7 +162,7 @@ func (c *Component) SetContext(ctx *Context) {
 	if c.Context != nil {
 		for s, hooks := range c.Context.Hooks {
 			for _, hook := range hooks {
-				ctx.InjectHook(s, hook)
+				ctx.SetHook(s, hook)
 			}
 		}
 	}
@@ -189,20 +191,15 @@ func (c *Component) Mount() error {
 }
 
 func OnMounted(c *Component, h Hook) {
-	c.Context.InjectHook(Mounted, h)
+	c.Context.SetHook(Mounted, h)
 }
 
 func OnBeforeMount(c *Component, h Hook) {
-	c.Context.InjectHook(BeforeMount, h)
+	c.Context.SetHook(BeforeMount, h)
 }
 
 func OnUpdate(c *Component, h Hook) {
-	c.Context.InjectHook(Update, h)
-}
-
-func (c *Component) UseRender(newRenderer renderer.RendererInterface) error {
-	c.Renderer.Renderer = newRenderer
-	return nil
+	c.Context.SetHook(Update, h)
 }
 
 // RenderStatic ...
@@ -248,7 +245,7 @@ func (c *Component) Unmount() error {
 	return nil
 }
 
-func (c *Component) UseComponent(s string, cd interface{}) {
+func (c *Component) UseComponent(s string, cd *Component) {
 	c.componentsRegister[s] = cd
 }
 

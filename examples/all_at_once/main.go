@@ -4,7 +4,7 @@ import (
 	"github.com/brendonmatos/golive/examples/components"
 	"github.com/brendonmatos/golive/live"
 	"github.com/brendonmatos/golive/live/component"
-	renderer2 "github.com/brendonmatos/golive/live/component/renderer"
+	"github.com/brendonmatos/golive/live/component/renderer"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
 )
@@ -13,7 +13,16 @@ type Home struct {
 }
 
 func NewHome() *component.Component {
-	c := component.DefineComponent("home")
+	c := component.DefineComponent("home", func(ctx *component.Context) renderer.Renderer {
+
+		return renderer2.NewTemplateRenderer(`
+			<div>
+				{{ render "Clock"  }}
+				{{ render "Todo" }}
+				{{ render "Slider" }}
+			</div>
+		`)
+	})
 
 	c.UseComponent("Clock", components.NewClock)
 	c.UseComponent("Todo", components.NewTodo)
@@ -21,13 +30,7 @@ func NewHome() *component.Component {
 
 	c.SetState(&Home{})
 
-	err := c.UseRender(renderer2.NewTemplateRenderer(`
-		<div>
-			{{ render "Clock"  }}
-			{{ render "Todo" }}
-			{{ render "Slider" }}
-		</div>
-	`))
+	err := c.UseRender()
 	if err != nil {
 		return nil
 	}

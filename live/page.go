@@ -25,12 +25,12 @@ func init() {
 }
 
 type PageEnum struct {
-	EventLiveInput          wire.Instruction
-	EventLiveMethod         wire.Instruction
-	EventLiveDom            wire.Instruction
-	EventLiveConnectElement wire.Instruction
-	EventLiveError          wire.Instruction
-	EventLiveNavigate       wire.Instruction
+	EventLiveInput          wire.EventKind
+	EventLiveMethod         wire.EventKind
+	EventLiveDom            wire.EventKind
+	EventLiveConnectElement wire.EventKind
+	EventLiveError          wire.EventKind
+	EventLiveNavigate       wire.EventKind
 	DiffSetAttr             differ.Type
 	DiffRemoveAttr          differ.Type
 	DiffReplace             differ.Type
@@ -81,10 +81,10 @@ func (lp *Page) Render() (string, error) {
 	lp.content.Enum = PageEnum{
 		EventLiveInput:          wire.FromBrowserLiveInput,
 		EventLiveMethod:         wire.FromBrowserLiveMethod,
-		EventLiveDom:            wire.ToBrowserLiveDom,
-		EventLiveError:          wire.ToBrowserLiveError,
-		EventLiveConnectElement: wire.ToBrowserLiveConnectElement,
-		EventLiveNavigate:       wire.ToBrowserLiveNavigate,
+		EventLiveDom:            wire.FromServerLiveDom,
+		EventLiveError:          wire.FromServerLiveError,
+		EventLiveConnectElement: wire.FromServerLiveConnectElement,
+		EventLiveNavigate:       wire.FromServerLiveNavigate,
 		DiffSetAttr:             differ.SetAttr,
 		DiffRemoveAttr:          differ.RemoveAttr,
 		DiffReplace:             differ.Replace,

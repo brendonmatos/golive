@@ -3,9 +3,10 @@ package renderer
 import (
 	"errors"
 	"fmt"
+
 	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
-	state2 "github.com/brendonmatos/golive/live/component/state"
+	"github.com/brendonmatos/golive/live/component"
 	"golang.org/x/net/html"
 )
 
@@ -16,38 +17,38 @@ var (
 
 type RenderChild func(string) (string, error)
 
-type RendererInterface interface {
+type Renderer interface {
 	SetRenderChild(child RenderChild) (error, bool)
 	Prepare(state *State) error
-	Render(state *state2.State) (*string, *html.Node, error)
+	Render(state *component.State) (*string, *html.Node, error)
 }
 
-type Renderer struct {
+type RenderController struct {
 	State      *State
-	Renderer   RendererInterface
+	Renderer   Renderer
 	Formatters []func(t *html.Node)
 }
 
-func NewRenderer(r RendererInterface) *Renderer {
-	return &Renderer{
+func NewRenderer(r Renderer) *RenderController {
+	return &RenderController{
 		State:    nil,
 		Renderer: r,
 	}
 }
 
-func (r *Renderer) Prepare(id string) error {
+func (r *RenderController) Prepare(id string) error {
 	r.State = NewRenderState(id)
 	return r.Renderer.Prepare(r.State)
 }
 
-func (r *Renderer) SetRenderChild(rc RenderChild) error {
+func (r *RenderController) SetRenderChild(rc RenderChild) error {
 
 	r.Renderer.SetRenderChild(rc)
 
 	return nil
 }
 
-func (r *Renderer) RenderState(state *state2.State) (string, *html.Node, error) {
+func (r *RenderController) RenderState(state *component.State) (string, *html.Node, error) {
 
 	renderString, renderHtml, err := r.Renderer.Render(state)
 
@@ -84,7 +85,7 @@ func (r *Renderer) RenderState(state *state2.State) (string, *html.Node, error) 
 	return r.State.text, r.State.html, err
 }
 
-func (r *Renderer) RenderStateDiff(state *state2.State) (*differ.Diff, error) {
+func (r *RenderController) RenderStateDiff(state *component.State) (*differ.Diff, error) {
 
 	actualRender := r.State.html
 
@@ -100,7 +101,7 @@ func (r *Renderer) RenderStateDiff(state *state2.State) (*differ.Diff, error) {
 	return d, nil
 }
 
-func (r *Renderer) UseFormatter(f func(t *html.Node)) {
+func (r *RenderController) UseFormatter(f func(t *html.Node)) {
 	r.Formatters = append(r.Formatters, f)
 }
 

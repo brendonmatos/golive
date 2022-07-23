@@ -45,7 +45,7 @@ func (c *Context) Child() *Context {
 	return child
 }
 
-func (c *Context) InjectHook(targetType string, hook Hook) {
+func (c *Context) SetHook(targetType string, hook Hook) {
 	if c.Hooks[targetType] == nil {
 		c.Hooks[targetType] = []Hook{}
 	}
@@ -56,14 +56,14 @@ func (c *Context) InjectHook(targetType string, hook Hook) {
 func (c *Context) Inherit(i *Context) {
 	for t, v := range i.Hooks {
 		for _, h := range v {
-			c.InjectHook(t, h)
+			c.SetHook(t, h)
 		}
 	}
 }
 
 func (c *Context) InjectGlobalHook(targetType string, hook Hook) {
 	r := c.Root
-	r.InjectHook(targetType, hook)
+	r.SetHook(targetType, hook)
 }
 
 func (c *Context) CallHook(target string) error {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"html/template"
 
-	state2 "github.com/brendonmatos/golive/live/component/state"
+	"github.com/brendonmatos/golive/live/component"
 	"golang.org/x/net/html"
 )
 
@@ -18,8 +18,8 @@ type TemplateRenderer struct {
 	funcs          []func(*State) template.FuncMap
 }
 
-func NewTemplateRenderer(templateStr string) *TemplateRenderer {
-	return &TemplateRenderer{
+func NewTemplateRenderer(templateStr string) TemplateRenderer {
+	return TemplateRenderer{
 		template:       nil,
 		templateString: templateStr,
 		funcs:          []func(*State) template.FuncMap{},
@@ -95,7 +95,7 @@ func (tr *TemplateRenderer) renderToText(data interface{}) (string, error) {
 	return text, nil
 }
 
-func (tr *TemplateRenderer) Render(s *state2.State) (*string, *html.Node, error) {
+func (tr *TemplateRenderer) Render(s *component.State) (*string, *html.Node, error) {
 
 	textRender, err := tr.renderToText(s.Value)
 	if err != nil {
