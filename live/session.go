@@ -27,17 +27,16 @@ const (
 
 type Session struct {
 	Status     SessionStatus
-	Wire       *wire.Wire
+	Wire       wire.Wire
 	ExitSignal chan bool
 }
 
-func (s *Session) WireComponent(lc *component.Component) error {
-	s.Wire = wire.NewWire(lc)
-	err := s.Wire.Start()
+func (s *Session) WireComponent(lc *component.Component) (err error) {
+	err = s.Wire.Start(lc)
 	if err != nil {
-		return fmt.Errorf("wire start: %w", err)
+		err = fmt.Errorf("wire start: %w", err)
 	}
-	return nil
+	return
 }
 
 func (s *Session) Close() {
@@ -60,7 +59,7 @@ func (s *Session) IsOpen() bool {
 
 func NewSession() *Session {
 	return &Session{
-		Wire:   nil,
+		Wire:   wire.NewWire(),
 		Status: SessionOpen,
 	}
 }

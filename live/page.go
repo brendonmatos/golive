@@ -41,8 +41,8 @@ type PageEnum struct {
 }
 
 type Page struct {
-	content        PageContent
-	EntryComponent *component.Component
+	content       PageContent
+	RootComponent *component.Component
 
 	// Components is a list that handle all the componentsRegister from the page
 	Components map[string]*component.Component
@@ -58,11 +58,15 @@ type PageContent struct {
 	EnumLiveError map[string]string
 }
 
-func NewLivePage(c *component.Component) *Page {
+func NewLivePage() *Page {
 	return &Page{
-		EntryComponent: c,
-		Components:     make(map[string]*component.Component),
+		RootComponent: nil,
+		Components:    make(map[string]*component.Component),
 	}
+}
+
+func (lp *Page) SetRootComponent(component *component.Component) {
+	lp.RootComponent = component
 }
 
 func (lp *Page) SetContent(c PageContent) {
@@ -70,13 +74,13 @@ func (lp *Page) SetContent(c PageContent) {
 }
 
 func (lp *Page) Render() (string, error) {
-	err := lp.EntryComponent.Render()
+	err := lp.RootComponent.Render()
 
 	if err != nil {
 		return "", fmt.Errorf("entry component render: %w", err)
 	}
 
-	rendered := lp.EntryComponent.RenderState.GetText()
+	rendered := lp.RootComponent.RenderState.GetText()
 
 	// Body content
 	lp.content.Body = template.HTML(rendered)

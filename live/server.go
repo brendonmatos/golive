@@ -8,37 +8,38 @@ import (
 )
 
 type Server struct {
-	OnSession func(*Session)
 }
 
 func NewServer() *Server {
 	return &Server{}
 }
 
-func (s *Server) CreatePageAccess(lc *component.Component, c PageContent, session *Session) (*string, *Session, error) {
-
+func (s *Server) CreateSession() *Session {
 	/* Create session to the new user */
-	if session == nil {
-		session = NewSession()
-	}
+	session := NewSession()
+	return session
+}
+
+func (s *Server) CreateLivePage(session *Session, lc *component.Component, pc PageContent) (*string, error) {
 
 	// Instantiate a page to attach to a session
-	p := NewLivePage(lc)
+	p := NewLivePage()
 
 	// Set page content
-	p.SetContent(c)
+	p.SetContent(pc)
+	p.SetRootComponent(lc)
 
 	// activation should be before mount,
 	// because in activation will setup page channels
 	// that will be needed in mount
 	err := session.WireComponent(lc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("session wire component: %w", err)
+		return nil, fmt.Errorf("session wire component: %w", err)
 	}
 
 	rendered, err := p.Render()
 
-	return &rendered, session, err
+	return &rendered, err
 }
 
 func (s *Server) HandleSessionRealtime(session *Session) error {

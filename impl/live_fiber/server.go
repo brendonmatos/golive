@@ -28,6 +28,7 @@ type Response struct {
 
 func NewFiberServer() *FiberServer {
 	logger := golive.NewLoggerBasic()
+
 	return &FiberServer{
 		Server:     live.NewServer(),
 		Sessions:   map[string]*live.Session{},
@@ -50,6 +51,14 @@ func (s *FiberServer) DeleteSession(key string) {
 	delete(s.Sessions, key)
 }
 
+func (s *FiberServer) CreateLiveComponent(a func(ctx *component.Context) string, c live.PageContent) func(ctx *fiber.Ctx) error {
+	return s.CreateStaticPageRender(func() *component.Component {
+		return component.DefineComponent("Clock", func(ctx2 *component.Context, props *interface{}) string {
+			return a(ctx2)
+		})
+	}, c)
+}
+
 func (s *FiberServer) CreateStaticPageRender(f func() *component.Component, c live.PageContent) func(ctx *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		lc := f()
@@ -58,14 +67,10 @@ func (s *FiberServer) CreateStaticPageRender(f func() *component.Component, c li
 		component.Provide(lc, "fiber_ctx", ctx)
 		ctx.Response().Header.SetContentType("text/html")
 
-		sessionKey := ctx.Cookies(s.CookieName)
+		session := s.Server.CreateSession()
+		sessionKey := s.StoreSession(session)
 
-		var session *live.Session
-		if sessionKey != "" {
-			session = s.GetSession(sessionKey)
-		}
-
-		rendered, session, err := s.Server.CreatePageAccess(lc, c, session)
+		rendered, err := s.Server.CreateLivePage(session, lc, c)
 
 		if err != nil {
 			ctx.Response().AppendBodyString("<h1> Page with error </h1>")
@@ -73,7 +78,7 @@ func (s *FiberServer) CreateStaticPageRender(f func() *component.Component, c li
 			return err
 		}
 
-		sessionKey = s.StoreSession(session)
+		ctx.ClearCookie(s.CookieName)
 
 		ctx.Cookie(&fiber.Cookie{
 			Name:    s.CookieName,
@@ -93,7 +98,7 @@ func (s *FiberServer) HandleWebSocketConnection(c *websocket.Conn) {
 	s.Log(golive.LogInfo, "websocket open", golive.LogEx{"session": sessionKey})
 	session := s.GetSession(sessionKey)
 
-	if session == nil || session.IsClosed() {
+	if session == nil {
 		s.Log(golive.LogWarn, "session not found", golive.LogEx{"session": sessionKey})
 		msg := make(map[string]string)
 		msg["Type"] = string(wire.FromServerLiveError)
@@ -110,7 +115,15 @@ func (s *FiberServer) HandleWebSocketConnection(c *websocket.Conn) {
 
 	w := session.Wire
 
+	c.SetCloseHandler(func(code int, text string) error {
+		// Close codes defined in RFC 6455, section 11.7.
+		s.Log(golive.LogInfo, "ws close handler", golive.LogEx{"session": sessionKey})
+		session.Close()
+		return nil
+	})
+
 	go func() {
+
 		for {
 
 			if session.IsClosed() {
@@ -127,20 +140,13 @@ func (s *FiberServer) HandleWebSocketConnection(c *websocket.Conn) {
 				if err := c.Close(); err != nil {
 					s.Log(golive.LogError, "close websocket connection", golive.LogEx{"error": err})
 				}
-				s.DeleteSession(sessionKey)
+				// s.DeleteSession(sessionKey)
 				s.Log(golive.LogInfo, "websocket close", golive.LogEx{"session": sessionKey})
 				return
 			}
 
 		}
 	}()
-
-	c.SetCloseHandler(func(code int, text string) error {
-		// Close codes defined in RFC 6455, section 11.7.
-		s.Log(golive.LogTrace, "ws close handler", golive.LogEx{"code": code, "text": text})
-		session.Close()
-		return nil
-	})
 
 	for {
 		if session.IsClosed() {
@@ -152,13 +158,17 @@ func (s *FiberServer) HandleWebSocketConnection(c *websocket.Conn) {
 		// Loop blocks here
 		if err := c.ReadJSON(&inMsg); err != nil {
 			if websocket.IsUnexpectedCloseError(err) {
-				// This seems to happen when running in Docker
-				if session.IsOpen() {
-					s.Log(golive.LogWarn, "handle ws request: unexpected connection close", nil)
-					session.Close()
-				}
+				s.Log(golive.LogWarn, "handle ws request: unexpected connection close", nil)
+				session.Close()
 				return
 			}
+
+			if websocket.IsCloseError(err) {
+				s.Log(golive.LogWarn, "handle ws request: unexpected close", nil)
+				session.Close()
+				return
+			}
+
 			s.Log(golive.LogError, "handle ws request: read json", golive.LogEx{"error": err})
 			continue
 		}

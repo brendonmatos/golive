@@ -69,10 +69,10 @@ type Wire struct {
 	root      *component.Component
 }
 
-func NewWire(root *component.Component) *Wire {
-	return &Wire{
+func NewWire() Wire {
+	return Wire{
 		ToBrowser: make(chan Event),
-		root:      root,
+		root:      nil,
 	}
 }
 
@@ -83,8 +83,8 @@ func (w *Wire) sendToBrowser(tb Event) {
 }
 
 // Start wire up the component and all its children
-func (w *Wire) Start() error {
-	c := w.root
+func (w *Wire) Start(c *component.Component) error {
+	w.root = c
 	component.OnMounted(c, func(ctx *component.Context) {
 		w.sendToBrowser(Event{
 			OriginComponentID: ctx.Component.Name,
@@ -93,6 +93,8 @@ func (w *Wire) Start() error {
 	})
 
 	component.OnUpdate(c, func(ctx *component.Context) {
+
+		c.Log(golive.LogDebug, "Wire: OnUpdate", golive.LogEx{"name": c.Name, "ctx_closed": ctx.Closed, "ctx_frozen": ctx.Frozen})
 		w.LiveRenderComponent(ctx.Component, &Event{})
 	})
 
@@ -130,15 +132,6 @@ func (w *Wire) HandleFromBrowser(e *Event) {
 
 	// TODO: find some way to call update passing event avoiding multiple transfers
 	c.Update()
-}
-
-// LiveRender call it when you need to force update
-func (w *Wire) LiveRender() error {
-	err := w.LiveRenderComponent(w.root, &Event{})
-	if err != nil {
-		return fmt.Errorf("live render component: %w", err)
-	}
-	return nil
 }
 
 func (w *Wire) NavigateToPage(path string) {

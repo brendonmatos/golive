@@ -25,6 +25,7 @@ func NewContext() *Context {
 		Hooks:    Hooks{},
 		Provided: map[string]interface{}{},
 		Frozen:   false,
+		Closed:   false,
 	}
 	c.Root = c
 	return c
@@ -75,6 +76,7 @@ func (c *Context) InjectGlobalHook(targetType string, hook Hook) {
 
 func (c *Context) CallHook(target string) error {
 	if c.Closed {
+		fmt.Println("---------------------------------------------------------------- CALLING HOOK CLOSED --------------------------------")
 		return errors.New("context is closed")
 	}
 

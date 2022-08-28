@@ -88,8 +88,8 @@ type Component struct {
 
 	componentsRegister map[string]*Component
 	children           []*Component
-
-	Mounted bool
+	Props              interface{}
+	Mounted            bool
 }
 
 func UseState[T interface{}](ctx *Context, state T) T {
@@ -111,7 +111,7 @@ func UseUpdate(ctx *Context) func() {
 	}
 }
 
-func DefineComponent(name string, setup func(ctx *Context) string) *Component {
+func DefineComponent[T interface{}](name string, setup func(ctx *Context, props *T) string) *Component {
 
 	uid := util.CreateUniqueName(name)
 	ctx := NewContext()
@@ -122,6 +122,7 @@ func DefineComponent(name string, setup func(ctx *Context) string) *Component {
 		Context:            ctx,
 		componentsRegister: map[string]*Component{},
 		children:           []*Component{},
+		Props:              nil,
 	}
 
 	ctx.SetHook(SetState, func(ctx *Context) {
@@ -129,7 +130,14 @@ func DefineComponent(name string, setup func(ctx *Context) string) *Component {
 	})
 
 	ctx.SetHook(Render, func(ctx *Context) {
-		render := setup(ctx)
+		var render string
+		if ctx.Component.Props == nil {
+			render = setup(ctx, nil)
+		} else {
+			props := ctx.Component.Props.(*T)
+			render = setup(ctx, props)
+		}
+
 		ctx.Frozen = true
 		render = signHtmlTemplate(render, c.Name)
 		rs := NewRenderState(uid)
@@ -258,6 +266,12 @@ func (c *Component) Render() error {
 	return nil
 }
 
+func (c *Component) RenderWithProps(props interface{}) string {
+	c.Props = props
+	c.Render()
+	return c.RenderState.GetText()
+}
+
 func (c *Component) Update() {
 	c.CallHook(Update)
 }
@@ -270,11 +284,11 @@ func (c *Component) Unmount() error {
 	c.Log(golive.LogTrace, "WillUnmount", golive.LogEx{"name": c.Name})
 	c.CallHook(BeforeUnmount)
 	c.State.Kill()
+	c.CallHook(Unmounted)
 	err := c.Context.Close()
 	if err != nil {
 		return fmt.Errorf("context close: %w", err)
 	}
-	c.CallHook(Unmounted)
 	return nil
 }
 
