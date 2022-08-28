@@ -1,10 +1,11 @@
 package renderer
 
 import (
-	"github.com/brendonmatos/golive/dom"
-	"github.com/brendonmatos/golive/live/util"
 	"regexp"
 	"strings"
+
+	"github.com/brendonmatos/golive/dom"
+	"github.com/brendonmatos/golive/live/util"
 )
 
 func replaceWithFunction(content string, r *regexp.Regexp, h func(string) string) string {
@@ -42,4 +43,8 @@ func signHtmlTemplate(template string, uid string) string {
 	})
 
 	return template
+}
+
+func SignHtmlString(template string, uid string) string {
+	return signHtmlTemplate(template, uid)
 }

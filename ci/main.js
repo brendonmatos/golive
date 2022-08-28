@@ -87,7 +87,7 @@ const goLive = {
 
             element.addEventListener("click", function (_) {
                 goLive.send({
-                    name: "{{ .Enum.EventLiveMethod }}",
+                    kind: "{{ .Enum.EventLiveMethod }}",
                     component_id: componentId,
                     method_name: element.getAttribute("gl-click"),
                     method_data: dataFromElementAttributes(element),
@@ -131,7 +131,7 @@ const goLive = {
 
                 if (hit) {
                     goLive.send({
-                        name: "{{ .Enum.EventLiveMethod }}",
+                        kind: "{{ .Enum.EventLiveMethod }}",
                         component_id: componentId,
                         method_name: method,
                         method_data: dataFromElementAttributes(element),
@@ -159,7 +159,7 @@ const goLive = {
                 }
 
                 goLive.send({
-                    name: "{{ .Enum.EventLiveInput }}",
+                    kind: "{{ .Enum.EventLiveInput }}",
                     component_id: componentId,
                     key: element.getAttribute("gl-input"),
                     value: String(value),
@@ -218,6 +218,7 @@ const goLive = {
 
 goLive.once.on("WS_CONNECTION_OPEN", () => {
     goLive.on("{{ .Enum.EventLiveConnectElement }}", (message) => {
+        console.log(message)
         const cid = message[EVENT_LIVE_DOM_COMPONENT_ID_KEY];
         goLive.connect(cid);
     });

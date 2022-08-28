@@ -3,15 +3,14 @@ package component
 import (
 	"errors"
 	"fmt"
-	"reflect"
+	"regexp"
+	"strings"
 
 	"github.com/brendonmatos/golive"
-	"github.com/brendonmatos/golive/differ"
 	"github.com/brendonmatos/golive/dom"
-	"github.com/brendonmatos/golive/live/component/renderer"
 	"github.com/brendonmatos/golive/live/util"
-	html "github.com/levigross/exp-html"
-	"github.com/levigross/exp-html/atom"
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 const GoLiveInput = "gl-input"
@@ -25,19 +24,67 @@ var (
 
 const (
 	BeforeMount   = "before_mount"
+	Mount         = "mount"
 	Mounted       = "mounted"
 	Update        = "update"
 	Updated       = "updated"
 	BeforeUnmount = "before_unmount"
 	Unmounted     = "unmounted"
+	SetState      = "set_state"
+	Render        = "render"
+	Rendered      = "rendered"
 )
 
+type RenderState struct {
+	Identifier string
+	html       *html.Node
+	text       string
+}
+
+func NewRenderState(id string) *RenderState {
+	return &RenderState{
+		Identifier: id,
+		html:       nil,
+		text:       "",
+	}
+}
+
+func (ls *RenderState) SetText(text string) error {
+	var err error
+	ls.html, err = dom.NodeFromString(text)
+	ls.text = text
+	if err != nil {
+		return fmt.Errorf("node from string: %w", err)
+	}
+
+	return nil
+}
+
+func (ls *RenderState) SetHTML(node *html.Node) error {
+	var err error
+	ls.text, err = dom.RenderInnerHTML(node)
+	ls.html = node
+	if err != nil {
+		return fmt.Errorf("render inner html: %w", err)
+	}
+
+	return nil
+}
+
+func (ls *RenderState) GetHTML() *html.Node {
+	return ls.html
+}
+
+func (ls *RenderState) GetText() string {
+	return ls.text
+}
+
 type Component struct {
-	Name     string
-	Log      golive.Log
-	Context  *Context
-	State    *State
-	Renderer *renderer.RenderController
+	Name        string
+	Log         golive.Log
+	Context     *Context
+	State       *State
+	RenderState *RenderState
 
 	componentsRegister map[string]*Component
 	children           []*Component
@@ -45,38 +92,51 @@ type Component struct {
 	Mounted bool
 }
 
-func UseState(ctx *Context, state interface{}) {
+func UseState[T interface{}](ctx *Context, state T) T {
+	if ctx.Frozen {
+		state, ok := ctx.Provided["state"].(T)
+		if !ok {
+			panic("invalid state")
+		}
+		return state
+	}
 	ctx.Provided["state"] = state
-	ctx.CallHook("set_state")
+	ctx.CallHook(SetState)
+	return state
 }
 
-func DefineComponent(name string, setup func(ctx *Context) renderer.Renderer) *Component {
+func UseUpdate(ctx *Context) func() {
+	return func() {
+		ctx.CallHook(Update)
+	}
+}
+
+func DefineComponent(name string, setup func(ctx *Context) string) *Component {
 
 	uid := util.CreateUniqueName(name)
 	ctx := NewContext()
 
-	setUpRenderer := setup(ctx)
-
-	rendererController := renderer.NewRenderer(setUpRenderer)
-
 	c := &Component{
 		Name:               uid,
-		State:              nil,
-		Renderer:           rendererController,
+		State:              NewState(),
 		Context:            ctx,
 		componentsRegister: map[string]*Component{},
 		children:           []*Component{},
 	}
 
-	ctx.SetHook("set_state", func(ctx *Context) {
-		c.State.Set(ctx.Provided["set_state"])
+	ctx.SetHook(SetState, func(ctx *Context) {
+		c.State.Set(ctx.Provided["state"])
 	})
 
-	rendererController.UseFormatter(func(t *html.Node) {
-		err := c.SignRender(t)
-		if err != nil {
-			panic(err)
-		}
+	ctx.SetHook(Render, func(ctx *Context) {
+		render := setup(ctx)
+		ctx.Frozen = true
+		render = signHtmlTemplate(render, c.Name)
+		rs := NewRenderState(uid)
+		rs.SetText(render)
+		c.SignRender(rs.GetHTML())
+		ctx.CallHook(Rendered)
+		c.RenderState = rs
 	})
 
 	c.SetContext(ctx)
@@ -112,6 +172,7 @@ func (c *Component) SignRender(node *html.Node) error {
 					}
 					break
 				}
+
 			} else if node.DataAtom == atom.Textarea {
 				n, err := dom.NodeFromString(fmt.Sprintf("%v", f))
 
@@ -170,28 +231,14 @@ func (c *Component) SetContext(ctx *Context) {
 	c.Context = ctx
 }
 
-func (c *Component) Mount() error {
-	var err error
-	if c.Log == nil {
-		return ErrComponentWithoutLog
-	}
-	c.CallHook(BeforeMount)
-	err = c.Renderer.SetRenderChild(func(cn string) (string, error) {
-		return c.RenderChild(cn, []reflect.Value{})
-	})
-	if err != nil {
-		return fmt.Errorf("set render child: %w", err)
-	}
-	if err = c.Renderer.Prepare(c.Name); err != nil {
-		return fmt.Errorf("renderer prepare: %w", err)
-	}
-	c.CallHook(Mounted)
-	c.Mounted = true
-	return err
-}
-
 func OnMounted(c *Component, h Hook) {
 	c.Context.SetHook(Mounted, h)
+}
+
+func UseOnMounted(ctx *Context, cb func()) {
+	ctx.SetHook(Mounted, func(ctx *Context) {
+		cb()
+	})
 }
 
 func OnBeforeMount(c *Component, h Hook) {
@@ -202,27 +249,13 @@ func OnUpdate(c *Component, h Hook) {
 	c.Context.SetHook(Update, h)
 }
 
-// RenderStatic ...
-func (c *Component) RenderStatic() (string, error) {
+func (c *Component) Render() error {
 	if !c.Mounted {
-		return "", ErrComponentNotMounted
+		return ErrComponentNotMounted
 	}
-
-	c.Log(golive.LogDebug, "RenderStatic", golive.LogEx{"name": c.Name})
-
-	text, _, err := c.Renderer.RenderState(c.State)
-	return text, err
-}
-
-// LiveRender render a new version of the Component, and detect
-// differences from the last render
-// and sets the "new old" version  of render
-func (c *Component) LiveRender() (*differ.Diff, error) {
-	if !c.Mounted {
-		return nil, ErrComponentNotMounted
-	}
-
-	return c.Renderer.RenderStateDiff(c.State)
+	c.CallHook(Render)
+	c.Log(golive.LogDebug, "Render", golive.LogEx{"name": c.Name})
+	return nil
 }
 
 func (c *Component) Update() {
@@ -248,27 +281,24 @@ func (c *Component) Unmount() error {
 func (c *Component) UseComponent(s string, cd *Component) {
 	c.componentsRegister[s] = cd
 }
-
-// SetupChild needs to be called just once per prop change
-func (c *Component) SetupChild(s string, props []reflect.Value) (*Component, error) {
-	cd, found := c.componentsRegister[s]
-
-	if !found {
-		return nil, fmt.Errorf("component are not registered: %s", s)
+func (c *Component) Mount() error {
+	var err error
+	if c.Log == nil {
+		return ErrComponentWithoutLog
 	}
-	v := reflect.ValueOf(cd)
-	r := v.Call(props)
-	cp := r[0].Interface().(*Component)
-
-	ctx := c.Context.Child()
-	cp.SetContext(ctx)
-	cp.Log = c.Log
-	c.children = append(c.children, cp)
-
-	return cp, nil
+	c.CallHook(BeforeMount)
+	c.CallHook(Render)
+	c.CallHook(Mounted)
+	c.Mounted = true
+	return err
 }
 
 func (c *Component) FindComponent(cid string) (*Component, error) {
+
+	if c.Name == cid {
+		return c, nil
+	}
+
 	for _, child := range c.children {
 		if child.Name == cid {
 			return child, nil
@@ -287,25 +317,6 @@ func (c *Component) FindComponent(cid string) (*Component, error) {
 	return nil, fmt.Errorf("%w: %s", ErrChildComponentNotFound, cid)
 }
 
-func (c *Component) RenderChild(s string, props []reflect.Value) (string, error) {
-
-	cp, err := c.SetupChild(s, props)
-	if err != nil {
-		return "", fmt.Errorf("setup child: %w", err)
-	}
-
-	c.Log(golive.LogDebug, "SetupChild", golive.LogEx{"name": cp.Name})
-
-	err = cp.Mount()
-	if err != nil {
-		return "", fmt.Errorf("mount child: %w", err)
-	}
-
-	c.Log(golive.LogDebug, "ChildMounted", golive.LogEx{"name": cp.Name})
-
-	return cp.RenderStatic()
-}
-
 func Provide(c *Component, symbol string, value interface{}) {
 	r := c.Context.Root
 	r.Provided[symbol] = value
@@ -314,4 +325,43 @@ func Provide(c *Component, symbol string, value interface{}) {
 func Inject(c *Component, symbol string) interface{} {
 	r := c.Context.Root
 	return r.Provided[symbol]
+}
+
+var rxTagName = regexp.MustCompile(`<([a-z0-9]+[ ]?)`)
+
+func replaceWithFunction(content string, r *regexp.Regexp, h func(string) string) string {
+	matches := r.FindAllStringSubmatchIndex(content, -1)
+
+	util.ReverseSlice(matches)
+
+	for _, match := range matches {
+		startIndex := match[0]
+		endIndex := match[1]
+
+		startSlice := content[:startIndex]
+		endSlide := content[endIndex:]
+		matchedSlice := content[startIndex:endIndex]
+
+		content = startSlice + h(matchedSlice) + endSlide
+	}
+
+	return content
+}
+
+const GoLiveUidAttrKey = "gl-uid"
+
+func signHtmlTemplate(template string, uid string) string {
+
+	found := rxTagName.FindString(template)
+	if found != "" {
+		replaceWith := found + ` ` + dom.ComponentIdAttrKey + `="` + uid + `" `
+		template = strings.Replace(template, found, replaceWith, 1)
+	}
+
+	// template = replaceWithFunction(template, rxTagName, func(s string) string {
+	// 	lUid := uid + "_" + util.RandomSmall()
+	// 	return s + ` ` + GoLiveUidAttrKey + `="` + lUid + `" `
+	// })
+
+	return template
 }

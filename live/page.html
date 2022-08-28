@@ -15,7 +15,7 @@
     const GO_LIVE_INPUT_KEY = "gl-input";
     const GO_LIVE_CLICK_KEY = "gl-click";
     const GO_LIVE_COMPONENT_ID = "gl-cid";
-    const EVENT_LIVE_DOM_COMPONENT_ID_KEY = "cid";
+    const EVENT_LIVE_DOM_COMPONENT_ID_KEY = "component_id";
     const EVENT_LIVE_DOM_INSTRUCTIONS_KEY = "i";
     const EVENT_LIVE_DOM_TYPE_KEY = "t";
     const EVENT_LIVE_DOM_CONTENT_KEY = "c";
@@ -102,7 +102,7 @@
 
                 element.addEventListener("click", function (_) {
                     goLive.send({
-                        name: "{{ .Enum.EventLiveMethod }}",
+                        kind: "{{ .Enum.EventLiveMethod }}",
                         component_id: componentId,
                         method_name: element.getAttribute(GO_LIVE_CLICK_KEY),
                         method_data: dataFromElementAttributes(element),
@@ -146,7 +146,7 @@
 
                     if (hit) {
                         goLive.send({
-                            name: "{{ .Enum.EventLiveMethod }}",
+                            kind: "{{ .Enum.EventLiveMethod }}",
                             component_id: componentId,
                             method_name: method,
                             method_data: dataFromElementAttributes(element),
@@ -174,7 +174,7 @@
                     }
 
                     goLive.send({
-                        name: "{{ .Enum.EventLiveInput }}",
+                        kind: "{{ .Enum.EventLiveInput }}",
                         component_id: componentId,
                         key: element.getAttribute("gl-input"),
                         value: String(value),
@@ -198,7 +198,8 @@
             goLive.on(
                 "{{ .Enum.EventLiveDom }}",
                 function handleLiveDom(message) {
-
+                    console.log('LIVEDOM')
+                    debugger
                     if (id === message[EVENT_LIVE_DOM_COMPONENT_ID_KEY]) {
                         for (const instruction of message[
                             EVENT_LIVE_DOM_INSTRUCTIONS_KEY
@@ -233,6 +234,7 @@
     };
 
     goLive.once.on("WS_CONNECTION_OPEN", () => {
+
         goLive.on("{{ .Enum.EventLiveConnectElement }}", (message) => {
             const cid = message[EVENT_LIVE_DOM_COMPONENT_ID_KEY];
             goLive.connect(cid);
@@ -253,7 +255,7 @@
     goLive.server.onmessage = (rawMessage) => {
         try {
             const message = JSON.parse(rawMessage.data);
-            goLive.emit(message.t, message);
+            goLive.emit(message.kind, message);
         } catch (e) {
             console.log("Error", e);
             console.log("Error message", rawMessage.data);

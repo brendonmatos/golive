@@ -26,17 +26,17 @@ const (
 )
 
 type Event struct {
-	OriginComponentID string `json:"component_id"`
+	OriginComponentID string `json:"component_id,omitempty"`
 
-	Type    EventSourceType `json:"type"`
-	Kind    EventKind       `json:"kind"`
-	Value   string          `json:"t"`
-	KeyCode string          `json:"keyCode"`
+	Type    EventSourceType `json:"type,omitempty"`
+	Kind    EventKind       `json:"kind,omitempty"`
+	Value   string          `json:"t,omitempty"`
+	KeyCode string          `json:"keyCode,omitempty"`
 
-	MethodName string            `json:"method_name"`
-	MethodData map[string]string `json:"method_data"`
-	StateKey   string            `json:"key"`
-	StateValue string            `json:"value"`
+	MethodName string            `json:"method_name,omitempty"`
+	MethodData map[string]string `json:"method_data,omitempty"`
+	StateKey   string            `json:"key,omitempty"`
+	StateValue string            `json:"value,omitempty"`
 
 	Patches *[]PatchInstruction `json:"i,omitempty"`
 }
@@ -88,6 +88,7 @@ func (w *Wire) Start() error {
 	component.OnMounted(c, func(ctx *component.Context) {
 		w.sendToBrowser(Event{
 			OriginComponentID: ctx.Component.Name,
+			Kind:              FromServerLiveConnectElement,
 		})
 	})
 
@@ -123,6 +124,10 @@ func (w *Wire) HandleFromBrowser(e *Event) {
 		err = c.Unmount()
 	}
 
+	if err != nil {
+		w.log(golive.LogError, fmt.Sprintf("handle browser event: %s", err), golive.LogEx{})
+	}
+
 	// TODO: find some way to call update passing event avoiding multiple transfers
 	c.Update()
 }
@@ -144,18 +149,30 @@ func (w *Wire) NavigateToPage(path string) {
 	})
 }
 
-// LiveRenderComponent render the updated Component and compare with
-// last state. It may apply with *all child componentsRegister*
+// LiveRenderComponent render component and detect diff
+// from the last component render state convert the diff
+// to patches to send to browser
 func (w *Wire) LiveRenderComponent(c *component.Component, e *Event) error {
 	var err error
 
-	diff, err := c.LiveRender()
+	c.Log(golive.LogDebug, "LiveRenderComponent", golive.LogEx{"name": c.Name})
+
+	from := c.RenderState.GetHTML()
+
+	err = c.Render()
+	if err != nil {
+		return fmt.Errorf("render: %w", err)
+	}
+
+	to := c.RenderState.GetHTML()
+	d := differ.NewDiff(from)
+	d.Propose(to)
 
 	if err != nil {
 		return fmt.Errorf("live render: %w", err)
 	}
 
-	patches, err := diffToBrowser(diff, e)
+	patches, err := diffToBrowser(d, e)
 
 	if err != nil {
 		return fmt.Errorf("diff to browser: %w", err)

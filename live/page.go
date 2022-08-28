@@ -70,11 +70,13 @@ func (lp *Page) SetContent(c PageContent) {
 }
 
 func (lp *Page) Render() (string, error) {
-	rendered, err := lp.EntryComponent.RenderStatic()
+	err := lp.EntryComponent.Render()
 
 	if err != nil {
 		return "", fmt.Errorf("entry component render: %w", err)
 	}
+
+	rendered := lp.EntryComponent.RenderState.GetText()
 
 	// Body content
 	lp.content.Body = template.HTML(rendered)

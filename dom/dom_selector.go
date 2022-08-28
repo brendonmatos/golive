@@ -38,7 +38,7 @@ func (ds *Selector) ToString() string {
 		e = append(e, q.ToString())
 	}
 
-	return strings.Join(e, " ")
+	return strings.TrimSpace(strings.Join(e, " "))
 }
 
 func (ds *Selector) HasAttr(key string) bool {
@@ -71,6 +71,10 @@ func (de *domElemSelector) addAttr(key, value string) {
 
 func (de *domElemSelector) ToString() string {
 	return strings.Join(de.query, "")
+}
+
+func (de *domElemSelector) IsEmpty() bool {
+	return len(de.query) == 0
 }
 
 func (de *domElemSelector) HasAttr(attr string) bool {

@@ -1,6 +1,7 @@
 package component
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -11,6 +12,7 @@ type Context struct {
 	Component *Component
 	Hooks
 	Provided map[string]interface{}
+	Frozen   bool
 }
 
 type Hooks map[string][]Hook
@@ -22,6 +24,7 @@ func NewContext() *Context {
 		Children: []*Context{},
 		Hooks:    Hooks{},
 		Provided: map[string]interface{}{},
+		Frozen:   false,
 	}
 	c.Root = c
 	return c
@@ -46,6 +49,10 @@ func (c *Context) Child() *Context {
 }
 
 func (c *Context) SetHook(targetType string, hook Hook) {
+	if c.Frozen {
+		return
+	}
+
 	if c.Hooks[targetType] == nil {
 		c.Hooks[targetType] = []Hook{}
 	}
@@ -67,9 +74,12 @@ func (c *Context) InjectGlobalHook(targetType string, hook Hook) {
 }
 
 func (c *Context) CallHook(target string) error {
+	if c.Closed {
+		return errors.New("context is closed")
+	}
 
-	if c.Hooks[target] != nil {
-		for _, hook := range c.Hooks[target] {
+	if hooks, ok := c.Hooks[target]; ok {
+		for _, hook := range hooks {
 			hook(c)
 		}
 	}

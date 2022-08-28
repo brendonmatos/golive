@@ -2,7 +2,7 @@ package live
 
 import (
 	"fmt"
-	"github.com/brendonmatos/golive"
+
 	"github.com/brendonmatos/golive/live/component"
 	"github.com/brendonmatos/golive/live/wire"
 )
@@ -20,15 +20,15 @@ func ErrorMap() map[string]string {
 type SessionStatus string
 
 const (
-	SessionNew    SessionStatus = "n"
+	SessionIdle   SessionStatus = "i"
 	SessionOpen   SessionStatus = "o"
 	SessionClosed SessionStatus = "c"
 )
 
 type Session struct {
-	log    golive.Log
-	Status SessionStatus
-	Wire   *wire.Wire
+	Status     SessionStatus
+	Wire       *wire.Wire
+	ExitSignal chan bool
 }
 
 func (s *Session) WireComponent(lc *component.Component) error {
@@ -40,17 +40,27 @@ func (s *Session) WireComponent(lc *component.Component) error {
 	return nil
 }
 
-func (s *Session) SetOpen() {
-	s.Status = SessionOpen
+func (s *Session) Close() {
+	s.Status = SessionClosed
+	err := s.Wire.End()
+	if err != nil {
+		panic(err)
+	}
+	s.ExitSignal <- true
+	close(s.ExitSignal)
 }
 
-func (s *Session) SetClosed() {
-	s.Status = SessionClosed
+func (s *Session) IsClosed() bool {
+	return s.Status == SessionClosed
+}
+
+func (s *Session) IsOpen() bool {
+	return s.Status == SessionOpen
 }
 
 func NewSession() *Session {
 	return &Session{
 		Wire:   nil,
-		Status: SessionNew,
+		Status: SessionOpen,
 	}
 }

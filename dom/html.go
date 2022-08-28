@@ -106,7 +106,7 @@ func SelectorFromNode(e *html.Node) (*Selector, error) {
 			}
 		}
 
-		if len(es.query) > 1 {
+		if len(es.query) > 0 {
 			selector.addParentSelector(es)
 		}
 	}

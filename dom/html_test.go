@@ -39,6 +39,24 @@ func TestSelectorFromNode(t *testing.T) {
 	}
 }
 
+func TestTextSelectorFromNode(t *testing.T) {
+	html := `<div gl-Component-id><h1>Hello world<span>a</span></h1></div>`
+
+	dom, _ := NodeFromString(html)
+
+	node := dom.FirstChild.FirstChild.LastChild.FirstChild
+
+	selector, err := SelectorFromNode(node)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if selector.ToString() != "body div h1 span" {
+		t.Error("wrong selector returned", selector.ToString())
+	}
+}
+
 func TestSelectorFromEmptyNode(t *testing.T) {
 	a := `<div gl-Component-id><h1>Hello world<span></span></h1></div>`
 

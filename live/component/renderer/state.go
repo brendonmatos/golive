@@ -2,25 +2,26 @@ package renderer
 
 import (
 	"fmt"
-	dom "github.com/brendonmatos/golive/dom"
+
+	"github.com/brendonmatos/golive/dom"
 	"golang.org/x/net/html"
 )
 
-type State struct {
+type RenderState struct {
 	Identifier string
 	html       *html.Node
 	text       string
 }
 
-func NewRenderState(id string) *State {
-	return &State{
+func NewRenderState(id string) *RenderState {
+	return &RenderState{
 		Identifier: id,
 		html:       nil,
 		text:       "",
 	}
 }
 
-func (ls *State) SetText(text string) error {
+func (ls *RenderState) SetText(text string) error {
 	var err error
 	ls.html, err = dom.NodeFromString(text)
 	ls.text = text
@@ -31,7 +32,7 @@ func (ls *State) SetText(text string) error {
 	return nil
 }
 
-func (ls *State) SetHTML(node *html.Node) error {
+func (ls *RenderState) SetHTML(node *html.Node) error {
 	var err error
 	ls.text, err = dom.RenderInnerHTML(node)
 	ls.html = node
@@ -40,4 +41,12 @@ func (ls *State) SetHTML(node *html.Node) error {
 	}
 
 	return nil
+}
+
+func (ls *RenderState) GetHTML() *html.Node {
+	return ls.html
+}
+
+func (ls *RenderState) GetText() string {
+	return ls.text
 }

@@ -32,7 +32,7 @@ type LoggerBasic struct {
 
 func NewLoggerBasic() *LoggerBasic {
 	var l LoggerBasic
-	l.Level = LogWarn
+	l.Level = LogDebug
 	l.Prefix = aurora.BrightBlue("GL ").String()
 	l.TimeFormat = aurora.BrightBlack("15:04:05").String()
 
